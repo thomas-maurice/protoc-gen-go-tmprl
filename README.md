@@ -47,6 +47,9 @@ generating protobufs.
 
 ## Build
 
+You need [direnv](https://direnv.net/) to load some env variables into your shell. This is required to add the `bin` directory to the `PATH`
+
+
 ```
 $ make build
 # then subsequently
@@ -55,8 +58,4 @@ $ make
 
 Should be sufficient
 
-## Run
-
-You need [direnv](https://direnv.net/) to load some env variables into your shell. This is required to add the `bin` directory to the `PATH`
-
-Good luck
+Good luck, have fun
