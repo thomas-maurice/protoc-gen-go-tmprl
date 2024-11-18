@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package temporal.v1;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "git.maurice.fr/thomas/protoc-gen-go-tmprl/gen/temporal/v1";
+
+extend google.protobuf.MethodOptions {
+    optional ActivityOptions activity = 50000;
+    optional WorkflowOptions workflow = 50001;
+}
+
+extend google.protobuf.ServiceOptions {
+    optional WorkerOptions service = 50002;
+}
+
+message ActivityOptions {
+    string name = 1;
+}
+
+message WorkflowOptions {
+    string name = 1;
+}
+
+message WorkerOptions {
+    string task_queue = 1;
+}

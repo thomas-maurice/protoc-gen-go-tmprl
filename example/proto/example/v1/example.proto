@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package example.v1;
+
+option go_package = "git.maurice.fr/thomas/protoc-gen-go-tmprl/gen/example/v1";
+
+import "temporal/v1/temporal.proto";
+import "google/protobuf/empty.proto";
+
+service HelloWorld  {
+    option (temporal.v1.service) = {
+        task_queue: "hello-task-queue"
+    };
+
+    // Says hello and returns a string
+    rpc SayHello(HelloRequest) returns (HelloResponse) {
+        option (temporal.v1.activity) = {
+            name: "hello.SayHello"
+        };
+    }
+
+    // Just a simple ping
+    // Takes no parameters
+    // returns nothing
+    rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty) {
+        option (temporal.v1.activity) = {};
+    }
+
+    // Say hello to multiple people
+    rpc SayMultipleHello(MultipleHelloRequest) returns (MultipleHelloResponse) {
+        option (temporal.v1.workflow) = {};
+    }
+}
+
+message HelloRequest {
+    string name = 1;
+}
+
+message HelloResponse {
+    string data = 1;
+}
+
+message MultipleHelloRequest {
+    repeated string names = 1;
+}
+
+message MultipleHelloResponse {
+    repeated string data = 1;
+}

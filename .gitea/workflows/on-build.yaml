@@ -1,0 +1,26 @@
+name: "Push master: Build"
+on:
+  push:
+    branches:
+      - 'master'
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Check out code"
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Compute short SHA
+        id: sha
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      - name: Check short SHA
+        run: echo ${{ steps.sha.outputs.sha_short }}
+      - name: "Setup Go"
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+          cache: true
+      - name: "Run go tests"
+        run: go test -v ./...
