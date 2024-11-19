@@ -4,9 +4,20 @@ import (
 	"bytes"
 	"fmt"
 
+	temporalv1 "git.maurice.fr/thomas/protoc-gen-go-tmprl/gen/temporal/v1"
 	"github.com/dave/jennifer/jen"
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
 )
+
+func getServiceTaskQueue(svc *protogen.Service) string {
+	svcOpts, _ := proto.GetExtension(svc.Desc.Options(), temporalv1.E_Service).(*temporalv1.WorkerOptions)
+	if svcOpts.TaskQueue != "" {
+		return svcOpts.TaskQueue
+	}
+
+	return svc.GoName
+}
 
 func UnimplementedServiceInterface(gf *protogen.GeneratedFile, service *protogen.Service) error {
 	workflows := jen.Comment("Workflows definitions").Line().Line()
@@ -40,7 +51,7 @@ func UnimplementedServiceInterface(gf *protogen.GeneratedFile, service *protogen
 			workflows.Comment(method.Comments.Leading.String()).
 				Id(method.GoName).
 				ParamsFunc(func(g *jen.Group) {
-					g.Add(jen.Id("ctx").Id(getWorkflowContext(gf)))
+					g.Add(jen.Id("ctx").Id(getTemporalWorkflowObject(gf, "Context")))
 					if method.Input != nil {
 						g.Add(jen.Id("req").Op("*").Id(gf.QualifiedGoIdent(method.Input.GoIdent)))
 					}
@@ -57,6 +68,8 @@ func UnimplementedServiceInterface(gf *protogen.GeneratedFile, service *protogen
 	}
 
 	generated := jen.Comment(fmt.Sprintf("%s is the interface your service must implement", getSvcName(service))).Line().
+		Comment("").Line().
+		Comment(service.Comments.Leading.String()).
 		Type().Id(getSvcName(service)).InterfaceFunc(func(g *jen.Group) {
 		g.Add(workflows)
 		g.Add(activities)

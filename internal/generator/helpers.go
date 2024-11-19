@@ -3,12 +3,30 @@ package generator
 import (
 	"fmt"
 
+	"github.com/dave/jennifer/jen"
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
 const (
-	workflowContextImport = "go.temporal.io/sdk/workflow"
-	clientContextImport   = "go.temporal.io/sdk/client"
+	workflowImport = "go.temporal.io/sdk/workflow"
+	activityImport = "go.temporal.io/sdk/activity"
+	workerImport   = "go.temporal.io/sdk/worker"
+	clientImport   = "go.temporal.io/sdk/client"
+)
+
+var (
+	IfErrNilDouble = jen.If(jen.Id("err").Op("!=").Nil()).Block(
+		jen.ReturnFunc(func(g *jen.Group) {
+			g.Add(jen.Nil())
+			g.Add(jen.Id("err"))
+		}),
+	)
+
+	IfErrNilSingle = jen.If(jen.Id("err").Op("!=").Nil()).Block(
+		jen.ReturnFunc(func(g *jen.Group) {
+			g.Add(jen.Id("err"))
+		}),
+	)
 )
 
 func getContext(gf *protogen.GeneratedFile) string {
@@ -20,19 +38,38 @@ func getContext(gf *protogen.GeneratedFile) string {
 	)
 }
 
-func getWorkflowContext(gf *protogen.GeneratedFile) string {
+func getTemporalWorkerObject(gf *protogen.GeneratedFile, o string) string {
 	return gf.QualifiedGoIdent(
 		protogen.GoIdent{
-			GoImportPath: workflowContextImport,
-			GoName:       "Context",
+			GoImportPath: workerImport,
+			GoName:       o,
 		},
 	)
 }
-func getTemporalClient(gf *protogen.GeneratedFile) string {
+
+func getTemporalClientObject(gf *protogen.GeneratedFile, o string) string {
 	return gf.QualifiedGoIdent(
 		protogen.GoIdent{
-			GoImportPath: clientContextImport,
-			GoName:       "Client",
+			GoImportPath: clientImport,
+			GoName:       o,
+		},
+	)
+}
+
+func getTemporalWorkflowObject(gf *protogen.GeneratedFile, o string) string {
+	return gf.QualifiedGoIdent(
+		protogen.GoIdent{
+			GoImportPath: workflowImport,
+			GoName:       o,
+		},
+	)
+}
+
+func getTemporalActivityObject(gf *protogen.GeneratedFile, o string) string {
+	return gf.QualifiedGoIdent(
+		protogen.GoIdent{
+			GoImportPath: activityImport,
+			GoName:       o,
 		},
 	)
 }

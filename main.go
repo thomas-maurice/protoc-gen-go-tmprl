@@ -45,12 +45,22 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File) *protogen.Genera
 			continue
 		}
 
-		err := generator.UnimplementedServiceInterface(gen, s)
+		err := generator.ServiceConstants(gen, s)
+		if err != nil {
+			plugin.Error(err)
+		}
+
+		err = generator.UnimplementedServiceInterface(gen, s)
 		if err != nil {
 			plugin.Error(err)
 		}
 
 		err = generator.Worker(gen, s)
+		if err != nil {
+			plugin.Error(err)
+		}
+
+		err = generator.Client(gen, s)
 		if err != nil {
 			plugin.Error(err)
 		}
