@@ -155,9 +155,9 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 
 					g.Add(jen.ReturnFunc(func(g *jen.Group) {
 						g.Add(jen.Id("workflow").Dot("ExecuteActivity").CallFunc(func(g *jen.Group) {
-							g.Add(jen.Id(getTemporalWorkflowObject(gf, "WithTaskQueue")).CallFunc(func(g *jen.Group) {
+							g.Add(jen.Id(getTemporalWorkflowObject(gf, "WithActivityOptions")).CallFunc(func(g *jen.Group) {
 								g.Add(jen.Id("ctx"))
-								g.Add(jen.Id("c").Dot("taskQueue"))
+								g.Add(jen.Id("aOptions"))
 							}))
 							g.Add(jen.Lit(methName))
 							g.Add(jen.Id("req"))

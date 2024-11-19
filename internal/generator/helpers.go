@@ -47,6 +47,15 @@ func getTemporalWorkerObject(gf *protogen.GeneratedFile, o string) string {
 	)
 }
 
+func getTimeObject(gf *protogen.GeneratedFile, o string) string {
+	return gf.QualifiedGoIdent(
+		protogen.GoIdent{
+			GoImportPath: "time",
+			GoName:       o,
+		},
+	)
+}
+
 func getTemporalClientObject(gf *protogen.GeneratedFile, o string) string {
 	return gf.QualifiedGoIdent(
 		protogen.GoIdent{

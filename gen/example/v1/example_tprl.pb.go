@@ -123,7 +123,7 @@ func (c *HelloWorldClient) ExecuteActivitySayHello(ctx workflow.Context, req *He
 	if aOptions.TaskQueue == "" {
 		aOptions.TaskQueue = DefaultHelloWorldTaskQueueName
 	}
-	return workflow.ExecuteActivity(workflow.WithTaskQueue(ctx, c.taskQueue), "hello.SayHello", req)
+	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), "hello.SayHello", req)
 }
 
 // ExecuteActivitySayHelloSync executes the activity synchronously and returns the result when finished
@@ -152,7 +152,7 @@ func (c *HelloWorldClient) ExecuteActivityPing(ctx workflow.Context, req *emptyp
 	if aOptions.TaskQueue == "" {
 		aOptions.TaskQueue = DefaultHelloWorldTaskQueueName
 	}
-	return workflow.ExecuteActivity(workflow.WithTaskQueue(ctx, c.taskQueue), "example.v1.HelloWorld.Ping", req)
+	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), "example.v1.HelloWorld.Ping", req)
 }
 
 // ExecuteActivityPingSync executes the activity synchronously and returns the result when finished

@@ -37,19 +37,15 @@ func (h *HelloWorldService) SayMultipleHello(ctx workflow.Context, req *examplev
 	}
 
 	for _, i := range req.Names {
-		f := workflow.ExecuteActivity(
-			workflow.WithActivityOptions(
-				ctx,
-				workflow.ActivityOptions{
-					StartToCloseTimeout: time.Minute * 1,
-					ActivityID:          "foo",
-				},
-			),
-			"hello.SayHello", &examplev1.HelloRequest{
-				Name: fmt.Sprintf("%s", i),
-			})
-		var res *examplev1.HelloResponse
-		err := f.Get(ctx, &res)
+		res, err := h.c.ExecuteActivitySayHelloSync(ctx, &examplev1.HelloRequest{
+			Name: i,
+		}, workflow.ActivityOptions{
+			ScheduleToCloseTimeout: time.Minute * 5,
+			StartToCloseTimeout:    time.Minute * 5,
+		})
+		if err != nil {
+			return nil, err
+		}
 		if err != nil {
 			return nil, err
 		}
