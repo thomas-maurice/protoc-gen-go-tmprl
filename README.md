@@ -5,7 +5,7 @@ Easily generate client and worker code for [temporal](https://temporal.io) from 
 ## Show me the code !
 
 You will find a reference proto [here](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/example/proto/example/v1/example.proto)
-and it corresponding generated code [there](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/gen/example/v1/example_tprl.pb.go)
+and it corresponding generated code [there](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/gen/example/v1/example_tmprl.pb.go)
 for reference purposes.
 
 ## How to use it
