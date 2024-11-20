@@ -1,0 +1,66 @@
+project_name: protoc-gen-go-tmprl
+builds:
+- id: default
+  env: [CGO_ENABLED=0]
+  goos:
+    - linux
+    - darwin
+  goarch:
+    - amd64
+    - arm64
+    - arm
+    - "386"
+  flags:
+    - -trimpath
+  ldflags:
+    - |
+      -s -w
+      -X github.com/thomas-maurice/protoc-gen-go-tmprl/internal/version.Version={{ .Version }}
+      -X github.com/thomas-maurice/protoc-gen-go-tmprl/internal/version.Commit={{ .Commit }}
+      -X github.com/thomas-maurice/protoc-gen-go-tmprl/internal/version.BuildTime={{ .Date }}      
+archives:
+- format: tar.gz
+  name_template: >-
+    {{ .ProjectName }}_
+    {{- .Os }}_
+    {{- if eq .Arch "amd64" }}x86_64
+    {{- else if eq .Arch "386" }}i386
+    {{- else }}{{ .Arch }}{{ end }}
+    {{- if .Arm }}v{{ .Arm }}{{ end }}    
+  format_overrides:
+  - goos: windows
+    format: zip
+  wrap_in_directory: false
+  files:
+    - LICENSE
+    - README.md
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^test:"
+      - "merge conflict"
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: "New Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 100
+    - title: "Bug fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 200
+    - title: "Improvements"
+      regexp: '^.*?imp(\([[:word:]]+\))??!?:.+$'
+      order: 300
+    - title: "Documentation updates"
+      regexp: ^.*?doc(\([[:word:]]+\))??!?:.+$
+      order: 400
+    - title: Other miscellaneous work 
+      order: 500
+release:
+  prerelease: auto

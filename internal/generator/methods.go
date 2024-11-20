@@ -3,7 +3,7 @@ package generator
 import (
 	"fmt"
 
-	temporalv1 "git.maurice.fr/thomas/protoc-gen-go-tmprl/gen/temporal/v1"
+	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/v1"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 )
@@ -61,4 +61,40 @@ func getMethodRegisteredName(m *protogen.Method) (string, error) {
 	} else {
 		return string(m.Desc.FullName()), nil
 	}
+}
+
+func getActivityOptions(m *protogen.Method) *temporalv1.ActivityOptions {
+	act, _ := proto.GetExtension(m.Desc.Options(), temporalv1.E_Activity).(*temporalv1.ActivityOptions)
+	if act.String() == "" {
+		// nothing is set
+		return nil
+	}
+	return act
+}
+
+func getWorkflowOptions(m *protogen.Method) *temporalv1.WorkflowOptions {
+	wf, _ := proto.GetExtension(m.Desc.Options(), temporalv1.E_Workflow).(*temporalv1.WorkflowOptions)
+	if wf.String() == "" {
+		// nothing is set
+		return nil
+	}
+	return wf
+}
+
+func getDefaultActivityOptions(m *protogen.Service) *temporalv1.ActivityOptions {
+	svcOpts, _ := proto.GetExtension(m.Desc.Options(), temporalv1.E_Service).(*temporalv1.ServiceOptions)
+	if svcOpts == nil {
+		return nil
+	}
+
+	return svcOpts.DefaultActivityOptions
+}
+
+func getDefaultWorkflowOptions(m *protogen.Service) *temporalv1.WorkflowOptions {
+	svcOpts, _ := proto.GetExtension(m.Desc.Options(), temporalv1.E_Service).(*temporalv1.ServiceOptions)
+	if svcOpts == nil {
+		return nil
+	}
+
+	return svcOpts.DefaultWorkflowOptions
 }

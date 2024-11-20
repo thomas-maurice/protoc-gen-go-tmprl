@@ -3,15 +3,16 @@ package generator
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
-	temporalv1 "git.maurice.fr/thomas/protoc-gen-go-tmprl/gen/temporal/v1"
 	"github.com/dave/jennifer/jen"
+	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/v1"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 )
 
 func getServiceTaskQueue(svc *protogen.Service) string {
-	svcOpts, _ := proto.GetExtension(svc.Desc.Options(), temporalv1.E_Service).(*temporalv1.WorkerOptions)
+	svcOpts, _ := proto.GetExtension(svc.Desc.Options(), temporalv1.E_Service).(*temporalv1.ServiceOptions)
 	if svcOpts.TaskQueue != "" {
 		return svcOpts.TaskQueue
 	}
@@ -33,7 +34,7 @@ func UnimplementedServiceInterface(gf *protogen.GeneratedFile, service *protogen
 		case MethodTypeNone:
 			continue
 		case MethodTypeActivity:
-			activities.Comment(method.Comments.Leading.String()).
+			activities.Comment(strings.TrimRight(method.Comments.Leading.String(), "\n")).Line().
 				Id(method.GoName).
 				ParamsFunc(func(g *jen.Group) {
 					g.Add(jen.Id("ctx").Id(getContext(gf)))
@@ -48,7 +49,7 @@ func UnimplementedServiceInterface(gf *protogen.GeneratedFile, service *protogen
 					g.Add(jen.Error())
 				}).Line()
 		case MethodTypeWorkflow:
-			workflows.Comment(method.Comments.Leading.String()).
+			workflows.Comment(strings.TrimRight(method.Comments.Leading.String(), "\n")).Line().
 				Id(method.GoName).
 				ParamsFunc(func(g *jen.Group) {
 					g.Add(jen.Id("ctx").Id(getTemporalWorkflowObject(gf, "Context")))

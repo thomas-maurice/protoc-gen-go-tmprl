@@ -3,8 +3,9 @@ syntax = "proto3";
 package temporal.v1;
 
 import "google/protobuf/descriptor.proto";
+import "google/protobuf/wrappers.proto";
 
-option go_package = "git.maurice.fr/thomas/protoc-gen-go-tmprl/gen/temporal/v1";
+option go_package = "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1";
 
 extend google.protobuf.MethodOptions {
     optional ActivityOptions activity = 50000;
@@ -12,17 +13,53 @@ extend google.protobuf.MethodOptions {
 }
 
 extend google.protobuf.ServiceOptions {
-    optional WorkerOptions service = 50002;
+    optional ServiceOptions service = 50002;
 }
 
 message ActivityOptions {
     string name = 1;
+    // Timeout from schedule to close - in seconds
+    google.protobuf.Int32Value schedule_to_close_timeout = 2;
+    // Timeout from start to close - in seconds
+    google.protobuf.Int32Value start_to_close_timeout = 3;
+    // Timeout from schedule to  - in seconds
+    google.protobuf.Int32Value schedule_to_start_timeout = 4;
+    // Default retry policy
+    RetryPolicy retry_policy = 5;
 }
 
 message WorkflowOptions {
     string name = 1;
+    // Execution timeout for the workflow - in seconds
+    google.protobuf.Int32Value workflow_execution_timeout = 2;
+    // The timeout for duration of a single workflow run - in seconds
+    google.protobuf.Int32Value workflow_run_timeout = 3;
+    // The timeout for processing workflow task from the time the worker
+	// pulled this task
+    google.protobuf.Int32Value workflow_task_timeout = 4;
+     // Default retry policy
+     RetryPolicy retry_policy = 5;
 }
 
-message WorkerOptions {
+message ServiceOptions {
     string task_queue = 1;
+    // These will apply to all workflows unless defined otherwise
+    // appart from the `name` one that is ignored here
+    WorkflowOptions default_workflow_options = 2;
+    // These settings will apply to all activities unless defined otherwise
+    // appart from the `name` one that is ignored here
+    ActivityOptions default_activity_options = 3;
+}
+
+message RetryPolicy {
+    // Initial interval in seconds for the first retry
+    google.protobuf.Int32Value initial_interval = 1;
+    // Backoff coefficient for exponential backoff
+    google.protobuf.FloatValue backoff_coefficient = 2;
+    // Max inteval between two retries
+    google.protobuf.Int32Value maximum_interval = 3;
+    // Maximum of attempts
+    google.protobuf.Int32Value maximum_attempts = 4;
+    // Non retryable error types
+    repeated google.protobuf.StringValue non_retryable_error_types = 5;
 }

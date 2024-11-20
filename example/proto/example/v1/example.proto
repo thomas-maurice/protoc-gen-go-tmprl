@@ -2,21 +2,36 @@ syntax = "proto3";
 
 package example.v1;
 
-option go_package = "git.maurice.fr/thomas/protoc-gen-go-tmprl/gen/example/v1";
+option go_package = "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/example/v1";
 
-import "temporal/v1/temporal.proto";
+import "v1/temporal.proto";
 import "google/protobuf/empty.proto";
 
 // Service hello world is an example implementation of a service
 service HelloWorld  {
     option (temporal.v1.service) = {
         task_queue: "hello-task-queue"
+        default_workflow_options: {
+            // one day
+            workflow_execution_timeout: { value: 86400 }
+            // one hour
+            workflow_run_timeout: { value: 7200 }
+        }
     };
 
     // Says hello and returns a string
     rpc SayHello(HelloRequest) returns (HelloResponse) {
         option (temporal.v1.activity) = {
-            name: "hello.SayHello"
+            schedule_to_start_timeout: { value: 30 }
+            schedule_to_close_timeout: { value: 120 }
+            start_to_close_timeout: { value: 120 }
+            retry_policy: {
+                initial_interval: { value: 1 }
+                backoff_coefficient: { value: 1.5 }
+                maximum_interval: { value: 10 }
+                maximum_attempts: { value: 10 }
+                non_retryable_error_types: [{value: "FATAL"}]
+            }
         };
     }
 
@@ -24,11 +39,20 @@ service HelloWorld  {
     // Takes no parameters
     // returns nothing
     rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty) {
-        option (temporal.v1.activity) = {};
+        option (temporal.v1.activity) = {
+            // Specify a name for the activity. This is not required as
+            // the generator will name it automatically <package>.<service>.<rpc>
+            name: "ping.Ping"
+        };
     }
 
     // Say hello to multiple people
     rpc SayMultipleHello(MultipleHelloRequest) returns (MultipleHelloResponse) {
+        option (temporal.v1.workflow) = {};
+    }
+
+    // Some other workflow we can call and does nothing
+    rpc SomeOtherWorkflow(google.protobuf.Empty) returns (google.protobuf.Empty) {
         option (temporal.v1.workflow) = {};
     }
 }

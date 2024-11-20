@@ -2,7 +2,7 @@ all: gen-tprl build gen
 
 .PHONY: gen-tprl
 gen-tprl:
-	buf generate --path proto/temporal
+	buf generate --path proto/temporal/v1/temporal.proto
 
 .PHONY: build
 build:
@@ -12,3 +12,7 @@ build:
 .PHONY: gen
 gen: build
 	buf generate --path example/proto/example
+
+.PHONY: bufpush
+bufpush:
+	buf push proto/temporal

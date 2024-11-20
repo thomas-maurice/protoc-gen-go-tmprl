@@ -9,8 +9,8 @@ import (
 )
 
 func ServiceConstants(gf *protogen.GeneratedFile, service *protogen.Service) error {
-	workflowsNames := jen.Comment("Workflows names constants").Line().Line()
-	activitiesNames := jen.Comment("Activities names constants").Line().Line()
+	workflowsNames := jen.Line().Comment("Workflows names constants").Line().Line()
+	activitiesNames := jen.Line().Comment("Activities names constants").Line().Line()
 
 	for _, method := range service.Methods {
 		t, err := getMethodType(method)
@@ -41,10 +41,15 @@ func ServiceConstants(gf *protogen.GeneratedFile, service *protogen.Service) err
 		}
 	}
 
-	defaultTaskQueueName := jen.Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName)).Op("=").Lit(getServiceTaskQueue(service)).Line()
+	defaultTaskQueueName := jen.Comment("Default task queue name for the service").Line().
+		Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName)).Op("=").Lit(getServiceTaskQueue(service)).Line()
 
 	generated := jen.Const().Parens(
-		defaultTaskQueueName.Add(workflowsNames.Add(activitiesNames)),
+		defaultTaskQueueName.Add(workflowsNames.Add(activitiesNames)).Line().Line().
+			Comment("Default timeout for activities when none is specified").Line().
+			Id(fmt.Sprintf("Default%sScheduleToCloseTimeout", service.GoName)).Op("=").Id(getTimeObject(gf, "Hour")).Line().
+			Comment("Default timeout for activities when none is specified").Line().
+			Id(fmt.Sprintf("Default%sStartToCloseTimeout", service.GoName)).Op("=").Id(getTimeObject(gf, "Hour")),
 	)
 
 	buf := bytes.NewBufferString("")

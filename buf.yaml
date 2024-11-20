@@ -1,7 +1,8 @@
 # For details on buf.yaml configuration, visit https://buf.build/docs/configuration/v2/buf-yaml
 version: v2
 modules:
-  - path: proto
+  - path: proto/temporal
+    name: buf.build/thomas-maurice/temporal
   - path: example/proto
 deps:
   - proto/temporal/v1
