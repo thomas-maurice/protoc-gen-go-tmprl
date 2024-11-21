@@ -4,7 +4,7 @@ package example.v1;
 
 option go_package = "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/example/v1";
 
-import "v1/temporal.proto";
+import "temporal/v1/temporal.proto";
 import "google/protobuf/empty.proto";
 
 // Service hello world is an example implementation of a service

@@ -98,9 +98,11 @@ The generated code exposes a lot of primitives such as (non exhaustive list):
 
 * `client.ExecuteWorkflowX`: Executes a workflow and returns a future
 * `client.ExecuteWorkflowXSync`: Executes a workflow and blocks until the result is returned
+* `client.ExecuteChildX`: Executes a workflow from a workflow and returns a future
+* `client.ExecuteChildXSync`: Executes a workflow from a workflow and blocks until the result is returned
 * `client.ExecuteActivityX`: Executes an activity and returns a future
 * `client.ExecuteActivityXSync`: Executes an activity and blocks until the result is returned
-* `client.GetWorkflowX`: Gets an instance of a workflow
+* `client.GetX`: Gets an instance of a workflow
 * `workflow.Cancel`: Cancels a workflow
 * `workflow.Teminate`: Terminates a workflow
 * `workflow.Get`: Gets the result of a workflow

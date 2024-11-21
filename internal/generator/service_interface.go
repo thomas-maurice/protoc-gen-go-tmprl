@@ -70,7 +70,7 @@ func UnimplementedServiceInterface(gf *protogen.GeneratedFile, service *protogen
 
 	generated := jen.Comment(fmt.Sprintf("%s is the interface your service must implement", getSvcName(service))).Line().
 		Comment("").Line().
-		Comment(service.Comments.Leading.String()).
+		Comment(service.Comments.Leading.String()).Line().
 		Type().Id(getSvcName(service)).InterfaceFunc(func(g *jen.Group) {
 		g.Add(workflows)
 		g.Add(activities)

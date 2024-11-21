@@ -15,4 +15,4 @@ gen: build
 
 .PHONY: bufpush
 bufpush:
-	buf push proto/temporal
+	buf push proto

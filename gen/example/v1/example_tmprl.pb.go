@@ -43,6 +43,7 @@ const ( // Default task queue name for the service
 // HelloWorldService is the interface your service must implement
 //
 // Service hello world is an example implementation of a service
+
 type HelloWorldService interface {
 	// Workflows definitions
 
@@ -313,17 +314,17 @@ func (c *HelloWorldClient) ExecuteChildSayMultipleHelloSync(ctx workflow.Context
 	return resp, nil
 }
 
-// HelloWorldSayMultipleHelloWorkflow is a struct that wraps a workflow
-type HelloWorldSayMultipleHelloWorkflow struct {
+// HelloWorldSayMultipleHello is a struct that wraps a workflow
+type HelloWorldSayMultipleHello struct {
 	WorkflowID string
 	RunID      string
 	client     client.Client
 }
 
-// GetSayMultipleHelloWorkflow gets an instance of a given workflow
-func (c *HelloWorldClient) GetSayMultipleHelloWorkflow(ctx context.Context, workflowId string, runId string) (*HelloWorldSayMultipleHelloWorkflow, error) {
+// GetSayMultipleHello gets an instance of a given workflow
+func (c *HelloWorldClient) GetSayMultipleHello(ctx context.Context, workflowId string, runId string) (*HelloWorldSayMultipleHello, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
-	return &HelloWorldSayMultipleHelloWorkflow{
+	return &HelloWorldSayMultipleHello{
 		WorkflowID: future.GetID(),
 		RunID:      future.GetRunID(),
 		client:     c.client,
@@ -331,17 +332,17 @@ func (c *HelloWorldClient) GetSayMultipleHelloWorkflow(ctx context.Context, work
 }
 
 // Cancel cancels a given workflow
-func (c *HelloWorldSayMultipleHelloWorkflow) Cancel(ctx context.Context) error {
+func (c *HelloWorldSayMultipleHello) Cancel(ctx context.Context) error {
 	return c.client.CancelWorkflow(ctx, c.WorkflowID, c.RunID)
 }
 
 // Terminates terminates a given workflow
-func (c *HelloWorldSayMultipleHelloWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+func (c *HelloWorldSayMultipleHello) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return c.client.TerminateWorkflow(ctx, c.WorkflowID, c.RunID, reason, details...)
 }
 
 // Get gets the result of a given workflow
-func (c *HelloWorldSayMultipleHelloWorkflow) Get(ctx context.Context) (*MultipleHelloResponse, error) {
+func (c *HelloWorldSayMultipleHello) Get(ctx context.Context) (*MultipleHelloResponse, error) {
 	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
 	var resp *MultipleHelloResponse
 	err := future.Get(ctx, &resp)
@@ -433,17 +434,17 @@ func (c *HelloWorldClient) ExecuteChildSomeOtherWorkflowSync(ctx workflow.Contex
 	return resp, nil
 }
 
-// HelloWorldSomeOtherWorkflowWorkflow is a struct that wraps a workflow
-type HelloWorldSomeOtherWorkflowWorkflow struct {
+// HelloWorldSomeOtherWorkflow is a struct that wraps a workflow
+type HelloWorldSomeOtherWorkflow struct {
 	WorkflowID string
 	RunID      string
 	client     client.Client
 }
 
-// GetSomeOtherWorkflowWorkflow gets an instance of a given workflow
-func (c *HelloWorldClient) GetSomeOtherWorkflowWorkflow(ctx context.Context, workflowId string, runId string) (*HelloWorldSomeOtherWorkflowWorkflow, error) {
+// GetSomeOtherWorkflow gets an instance of a given workflow
+func (c *HelloWorldClient) GetSomeOtherWorkflow(ctx context.Context, workflowId string, runId string) (*HelloWorldSomeOtherWorkflow, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
-	return &HelloWorldSomeOtherWorkflowWorkflow{
+	return &HelloWorldSomeOtherWorkflow{
 		WorkflowID: future.GetID(),
 		RunID:      future.GetRunID(),
 		client:     c.client,
@@ -451,17 +452,17 @@ func (c *HelloWorldClient) GetSomeOtherWorkflowWorkflow(ctx context.Context, wor
 }
 
 // Cancel cancels a given workflow
-func (c *HelloWorldSomeOtherWorkflowWorkflow) Cancel(ctx context.Context) error {
+func (c *HelloWorldSomeOtherWorkflow) Cancel(ctx context.Context) error {
 	return c.client.CancelWorkflow(ctx, c.WorkflowID, c.RunID)
 }
 
 // Terminates terminates a given workflow
-func (c *HelloWorldSomeOtherWorkflowWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+func (c *HelloWorldSomeOtherWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return c.client.TerminateWorkflow(ctx, c.WorkflowID, c.RunID, reason, details...)
 }
 
 // Get gets the result of a given workflow
-func (c *HelloWorldSomeOtherWorkflowWorkflow) Get(ctx context.Context) (*emptypb.Empty, error) {
+func (c *HelloWorldSomeOtherWorkflow) Get(ctx context.Context) (*emptypb.Empty, error) {
 	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
 	var resp *emptypb.Empty
 	err := future.Get(ctx, &resp)

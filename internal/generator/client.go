@@ -389,8 +389,8 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 				and so on
 			*/
 
-			wfObjName := fmt.Sprintf("%s%sWorkflow", service.GoName, method.GoName)
-			client.Comment(fmt.Sprintf("%s%sWorkflow is a struct that wraps a workflow", service.GoName, method.GoName)).Line().
+			wfObjName := fmt.Sprintf("%s%s", service.GoName, method.GoName)
+			client.Comment(fmt.Sprintf("%s is a struct that wraps a workflow", wfObjName)).Line().
 				Type().Id(wfObjName).StructFunc(func(g *jen.Group) {
 				g.Add(jen.Id("WorkflowID").String())
 				g.Add(jen.Id("RunID").String())
@@ -398,8 +398,8 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 			}).Line()
 
 			// Gets an instance of a workflow
-			client.Comment(fmt.Sprintf("Get%sWorkflow gets an instance of a given workflow", method.GoName)).Line().
-				Func().Parens(jen.Id("c").Op("*").Id(clientName)).Id(fmt.Sprintf("Get%sWorkflow", method.GoName)).ParamsFunc(func(g *jen.Group) {
+			client.Comment(fmt.Sprintf("Get%s gets an instance of a given workflow", method.GoName)).Line().
+				Func().Parens(jen.Id("c").Op("*").Id(clientName)).Id(fmt.Sprintf("Get%s", method.GoName)).ParamsFunc(func(g *jen.Group) {
 				g.Add(jen.Id("ctx").Id(getContext(gf)))
 				g.Add(jen.Id("workflowId").String())
 				g.Add(jen.Id("runId").String())

@@ -43,7 +43,7 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File) *protogen.Genera
 	gen.P()
 
 	for _, s := range file.Services {
-		if _, ok := proto.GetExtension(s.Desc.Options(), temporalv1.E_Service).(*temporalv1.ServiceOptions); !ok {
+		if so, ok := proto.GetExtension(s.Desc.Options(), temporalv1.E_Service).(*temporalv1.ServiceOptions); !ok || so == nil {
 			// not a temporal service if the `temporal.v1.service` option is not set
 			continue
 		}
