@@ -84,7 +84,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 			}).
 				BlockFunc(func(g *jen.Group) {
 					g.Add(jen.Id("wOptions").Op(":=").Id(getTemporalClientObject(gf, "StartWorkflowOptions")).BlockFunc(func(g *jen.Group) {
-						g.Add(jen.Id("TaskQueue").Op(":").Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName))).Op(",")
+						g.Add(jen.Id("TaskQueue").Op(":").Id("c").Dot("taskQueue").Op(","))
 					}))
 					g.Add(jen.If(jen.Len(jen.Id("options")).Op(">").Lit(0).Block(
 						jen.Id("wOptions").Op("=").Id("options").Index(jen.Lit(0)),
@@ -248,7 +248,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 			}).
 				BlockFunc(func(g *jen.Group) {
 					g.Add(jen.Id("wOptions").Op(":=").Id(getTemporalWorkflowObject(gf, "ChildWorkflowOptions")).BlockFunc(func(g *jen.Group) {
-						g.Add(jen.Id("TaskQueue").Op(":").Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName))).Op(",")
+						g.Add(jen.Id("TaskQueue").Op(":").Id("c").Dot("taskQueue").Op(","))
 					}))
 					g.Add(jen.If(jen.Len(jen.Id("options")).Op(">").Lit(0).Block(
 						jen.Id("wOptions").Op("=").Id("options").Index(jen.Lit(0)),
@@ -618,7 +618,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 			}).
 				BlockFunc(func(g *jen.Group) {
 					g.Add(jen.Id("aOptions").Op(":=").Id(getTemporalWorkflowObject(gf, "ActivityOptions")).BlockFunc(func(g *jen.Group) {
-						g.Add(jen.Id("TaskQueue").Op(":").Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName))).Op(",")
+						g.Add(jen.Id("TaskQueue").Op(":").Id("c").Dot("taskQueue").Op(","))
 					}))
 					g.Add(jen.If(jen.Len(jen.Id("options")).Op(">").Lit(0).Block(
 						jen.Id("aOptions").Op("=").Id("options").Index(jen.Lit(0)),

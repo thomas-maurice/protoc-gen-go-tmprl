@@ -180,7 +180,7 @@ func (c *HelloWorldClient) ExecuteActivitySayHello(ctx workflow.Context, req *He
 // ExecuteActivitySayHelloSync executes the activity synchronously and returns the result when finished
 func (c *HelloWorldClient) ExecuteActivitySayHelloSync(ctx workflow.Context, req *HelloRequest, options ...workflow.ActivityOptions) (*HelloResponse, error) {
 	aOptions := workflow.ActivityOptions{
-		TaskQueue: DefaultHelloWorldTaskQueueName,
+		TaskQueue: c.taskQueue,
 	}
 	if len(options) > 0 {
 		aOptions = options[0]
@@ -218,7 +218,7 @@ func (c *HelloWorldClient) ExecuteActivityPing(ctx workflow.Context, req *emptyp
 // ExecuteActivityPingSync executes the activity synchronously and returns the result when finished
 func (c *HelloWorldClient) ExecuteActivityPingSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) (*emptypb.Empty, error) {
 	aOptions := workflow.ActivityOptions{
-		TaskQueue: DefaultHelloWorldTaskQueueName,
+		TaskQueue: c.taskQueue,
 	}
 	if len(options) > 0 {
 		aOptions = options[0]
@@ -235,7 +235,7 @@ func (c *HelloWorldClient) ExecuteActivityPingSync(ctx workflow.Context, req *em
 // ExecuteWorkflowSayMultipleHello executes the workflow and returns a future to it
 func (c *HelloWorldClient) ExecuteWorkflowSayMultipleHello(ctx context.Context, req *MultipleHelloRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
 	wOptions := client.StartWorkflowOptions{
-		TaskQueue: DefaultHelloWorldTaskQueueName,
+		TaskQueue: c.taskQueue,
 	}
 	if len(options) > 0 {
 		wOptions = options[0]
@@ -283,7 +283,7 @@ func (c *HelloWorldClient) GetWorkflowSayMultipleHelloResult(ctx context.Context
 // ExecuteChildSayMultipleHello executes the workflow as a child workflow and returns a future to it
 func (c *HelloWorldClient) ExecuteChildSayMultipleHello(ctx workflow.Context, req *MultipleHelloRequest, options ...workflow.ChildWorkflowOptions) workflow.ChildWorkflowFuture {
 	wOptions := workflow.ChildWorkflowOptions{
-		TaskQueue: DefaultHelloWorldTaskQueueName,
+		TaskQueue: c.taskQueue,
 	}
 	if len(options) > 0 {
 		wOptions = options[0]
@@ -355,7 +355,7 @@ func (c *HelloWorldSayMultipleHello) Get(ctx context.Context) (*MultipleHelloRes
 // ExecuteWorkflowSomeOtherWorkflow executes the workflow and returns a future to it
 func (c *HelloWorldClient) ExecuteWorkflowSomeOtherWorkflow(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
 	wOptions := client.StartWorkflowOptions{
-		TaskQueue: DefaultHelloWorldTaskQueueName,
+		TaskQueue: c.taskQueue,
 	}
 	if len(options) > 0 {
 		wOptions = options[0]
@@ -403,7 +403,7 @@ func (c *HelloWorldClient) GetWorkflowSomeOtherWorkflowResult(ctx context.Contex
 // ExecuteChildSomeOtherWorkflow executes the workflow as a child workflow and returns a future to it
 func (c *HelloWorldClient) ExecuteChildSomeOtherWorkflow(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) workflow.ChildWorkflowFuture {
 	wOptions := workflow.ChildWorkflowOptions{
-		TaskQueue: DefaultHelloWorldTaskQueueName,
+		TaskQueue: c.taskQueue,
 	}
 	if len(options) > 0 {
 		wOptions = options[0]
