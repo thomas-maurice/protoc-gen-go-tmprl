@@ -344,6 +344,15 @@ func (c *HelloWorldClient) GetSayMultipleHello(ctx context.Context, workflowId s
 	}, nil
 }
 
+// GetSayMultipleHelloFromFuture gets an instance of a given workflow from a future
+func (c *HelloWorldClient) GetSayMultipleHelloFromFuture(future client.WorkflowRun) (*HelloWorldSayMultipleHello, error) {
+	return &HelloWorldSayMultipleHello{
+		WorkflowID: future.GetID(),
+		RunID:      future.GetRunID(),
+		client:     c.client,
+	}, nil
+}
+
 // Cancel cancels a given workflow
 func (c *HelloWorldSayMultipleHello) Cancel(ctx context.Context) error {
 	return c.client.CancelWorkflow(ctx, c.WorkflowID, c.RunID)
@@ -490,6 +499,15 @@ type HelloWorldSomeOtherWorkflow struct {
 // GetSomeOtherWorkflow gets an instance of a given workflow
 func (c *HelloWorldClient) GetSomeOtherWorkflow(ctx context.Context, workflowId string, runId string) (*HelloWorldSomeOtherWorkflow, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
+	return &HelloWorldSomeOtherWorkflow{
+		WorkflowID: future.GetID(),
+		RunID:      future.GetRunID(),
+		client:     c.client,
+	}, nil
+}
+
+// GetSomeOtherWorkflowFromFuture gets an instance of a given workflow from a future
+func (c *HelloWorldClient) GetSomeOtherWorkflowFromFuture(future client.WorkflowRun) (*HelloWorldSomeOtherWorkflow, error) {
 	return &HelloWorldSomeOtherWorkflow{
 		WorkflowID: future.GetID(),
 		RunID:      future.GetRunID(),

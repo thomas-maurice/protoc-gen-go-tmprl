@@ -428,6 +428,25 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 					}))
 				}).Line().Line()
 
+			// Gets an instance of a workflow from a future
+			client.Comment(fmt.Sprintf("Get%sFromFuture gets an instance of a given workflow from a future", method.GoName)).Line().
+				Func().Parens(jen.Id("c").Op("*").Id(clientName)).Id(fmt.Sprintf("Get%sFromFuture", method.GoName)).ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Id("future").Id(getTemporalClientObject(gf, "WorkflowRun")))
+			}).ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Op("*").Id(wfObjName))
+				g.Add(jen.Error())
+			}).
+				BlockFunc(func(g *jen.Group) {
+					g.Add(jen.ReturnFunc(func(g *jen.Group) {
+						g.Add(jen.Op("&").Id(wfObjName).BlockFunc(func(g *jen.Group) {
+							g.Add(jen.Id("WorkflowID").Op(":").Id("future").Dot("GetID").Call(jen.Null()).Op(","))
+							g.Add(jen.Id("RunID").Op(":").Id("future").Dot("GetRunID").Call(jen.Null()).Op(","))
+							g.Add(jen.Id("client").Op(":").Id("c").Dot("client").Op(","))
+						}))
+						g.Add(jen.Nil())
+					}))
+				}).Line().Line()
+
 			// Cancels the workflow
 			client.Comment("Cancel cancels a given workflow").Line().
 				Func().Parens(jen.Id("c").Op("*").Id(wfObjName)).Id("Cancel").ParamsFunc(func(g *jen.Group) {
