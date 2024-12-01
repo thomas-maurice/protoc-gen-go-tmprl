@@ -92,6 +92,56 @@ Similarly for the workflows
 
 You might have noticed that the options are wrapped in `{ value: something }` statements. While it might look ugly it is the only way for us to know if something is set to `0` (whatever `0` means, let it be numerical `0` or an empty string) on purpose, or not set.
 
+### Signals and queries
+
+You can define signal and queries functions in your service, if they are annotated with the respective `temporal.v1.signal` and
+`temporal.v1.query` options they will be treated as such. For example if we have a signal like so:
+
+```protobuf
+    rpc Continue(ContinueSignalRequest) returns (google.protobuf.Empty) {
+        option (temporal.v1.signal) = {};
+    }
+```
+
+You will have access to the three following methods:
+
+```golang
+// SendSignalContinue sends the Continue signal to a workflow
+// This can be called from a workflow or externally
+func (c *ServiceClient) SendSignalContinue(ctx context.Context, workflowID string, runID string, req *ContinueSignalRequest) error
+
+// ReceiveSignalContinue waits for the the Continue signal
+// This is called within a workflow exclusively
+func ReceiveSignalContinue(ctx workflow.Context) (*ContinueSignalRequest, bool)
+
+// ReceiveSignalContinueAsync recieves the the Continue signal asynchronously.
+// It doesn't wait if there is no signal in the queue.
+// This is called within a workflow exclusively
+func ReceiveSignalContinueAsync(ctx workflow.Context) (*ContinueSignalRequest, bool)
+```
+
+:warning: Whatever you put in the response parameter of the signal does not matter at all and
+will be ignored by the code generator, as you want to send and recieve the same object.
+
+For queriees it is very similar, let's take for example the following query:
+```protobuf
+    rpc GetStatus(GetStatusRequest) returns (GetStatusResponse) {
+        option (temporal.v1.query) = {};
+    }
+```
+
+This will grant you the following two methods:
+
+```golang
+// QueryGetStatus sends the GetStatus query to a workflow
+// This can be called from a workflow or externally
+func (c *ServiceClient) QueryGetStatus(ctx context.Context, workflowID string, runID string, req *GetStatusRequest) (*GetStatusResponse, error)
+
+// HandleQueryGetStatus sets up the GetStatus query and responds accordingly, returns an error if it failed
+// This is called within your workflow to setup the handler method
+func HandleQueryGetStatus(ctx workflow.Context, queryFunc func(req *GetStatusRequest) (*GetStatusResponse, error)) error
+```
+
 ### The exposed API
 
 The generated code exposes a lot of primitives such as (non exhaustive list):
