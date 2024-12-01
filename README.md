@@ -155,7 +155,8 @@ The generated code exposes a lot of primitives such as (non exhaustive list):
 * `client.GetX`: Gets an instance of a workflow
 * `workflow.Cancel`: Cancels a workflow
 * `workflow.Teminate`: Terminates a workflow
-* `workflow.Get`: Gets the result of a workflow
+* `workflow.Get`: Gets the result of a workflow like you would on a normal future (you probably don't want that because no type safety)
+* `workflow.Result`: Gets the result of a workflow *with type safety*
 
 Generally a good starting point to get familiar with the generated code is to have a look at the [example](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/example/proto/example/main.go) provided.
 
