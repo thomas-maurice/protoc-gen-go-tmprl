@@ -409,7 +409,6 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 				g.Add(jen.Id("runId").String())
 			}).ParamsFunc(func(g *jen.Group) {
 				g.Add(jen.Op("*").Id(wfObjName))
-				g.Add(jen.Error())
 			}).
 				BlockFunc(func(g *jen.Group) {
 					g.Add(jen.Id("future").Op(":=").Id("c").Dot("client").Dot("GetWorkflow").CallFunc(func(g *jen.Group) {
@@ -424,7 +423,6 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 							g.Add(jen.Id("RunID").Op(":").Id("future").Dot("GetRunID").Call(jen.Null()).Op(","))
 							g.Add(jen.Id("client").Op(":").Id("c").Dot("client").Op(","))
 						}))
-						g.Add(jen.Nil())
 					}))
 				}).Line().Line()
 
@@ -434,7 +432,6 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 				g.Add(jen.Id("future").Id(getTemporalClientObject(gf, "WorkflowRun")))
 			}).ParamsFunc(func(g *jen.Group) {
 				g.Add(jen.Op("*").Id(wfObjName))
-				g.Add(jen.Error())
 			}).
 				BlockFunc(func(g *jen.Group) {
 					g.Add(jen.ReturnFunc(func(g *jen.Group) {
@@ -443,7 +440,6 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 							g.Add(jen.Id("RunID").Op(":").Id("future").Dot("GetRunID").Call(jen.Null()).Op(","))
 							g.Add(jen.Id("client").Op(":").Id("c").Dot("client").Op(","))
 						}))
-						g.Add(jen.Nil())
 					}))
 				}).Line().Line()
 

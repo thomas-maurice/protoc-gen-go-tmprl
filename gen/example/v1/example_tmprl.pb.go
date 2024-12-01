@@ -335,22 +335,22 @@ type HelloWorldSayMultipleHello struct {
 }
 
 // GetSayMultipleHello gets an instance of a given workflow
-func (c *HelloWorldClient) GetSayMultipleHello(ctx context.Context, workflowId string, runId string) (*HelloWorldSayMultipleHello, error) {
+func (c *HelloWorldClient) GetSayMultipleHello(ctx context.Context, workflowId string, runId string) *HelloWorldSayMultipleHello {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 	return &HelloWorldSayMultipleHello{
 		WorkflowID: future.GetID(),
 		RunID:      future.GetRunID(),
 		client:     c.client,
-	}, nil
+	}
 }
 
 // GetSayMultipleHelloFromFuture gets an instance of a given workflow from a future
-func (c *HelloWorldClient) GetSayMultipleHelloFromFuture(future client.WorkflowRun) (*HelloWorldSayMultipleHello, error) {
+func (c *HelloWorldClient) GetSayMultipleHelloFromFuture(future client.WorkflowRun) *HelloWorldSayMultipleHello {
 	return &HelloWorldSayMultipleHello{
 		WorkflowID: future.GetID(),
 		RunID:      future.GetRunID(),
 		client:     c.client,
-	}, nil
+	}
 }
 
 // Cancel cancels a given workflow
@@ -497,22 +497,22 @@ type HelloWorldSomeOtherWorkflow struct {
 }
 
 // GetSomeOtherWorkflow gets an instance of a given workflow
-func (c *HelloWorldClient) GetSomeOtherWorkflow(ctx context.Context, workflowId string, runId string) (*HelloWorldSomeOtherWorkflow, error) {
+func (c *HelloWorldClient) GetSomeOtherWorkflow(ctx context.Context, workflowId string, runId string) *HelloWorldSomeOtherWorkflow {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 	return &HelloWorldSomeOtherWorkflow{
 		WorkflowID: future.GetID(),
 		RunID:      future.GetRunID(),
 		client:     c.client,
-	}, nil
+	}
 }
 
 // GetSomeOtherWorkflowFromFuture gets an instance of a given workflow from a future
-func (c *HelloWorldClient) GetSomeOtherWorkflowFromFuture(future client.WorkflowRun) (*HelloWorldSomeOtherWorkflow, error) {
+func (c *HelloWorldClient) GetSomeOtherWorkflowFromFuture(future client.WorkflowRun) *HelloWorldSomeOtherWorkflow {
 	return &HelloWorldSomeOtherWorkflow{
 		WorkflowID: future.GetID(),
 		RunID:      future.GetRunID(),
 		client:     c.client,
-	}, nil
+	}
 }
 
 // Cancel cancels a given workflow
