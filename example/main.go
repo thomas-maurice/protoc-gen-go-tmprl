@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"sync"
 	"time"
 
 	examplev1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/example/v1"
@@ -38,28 +37,48 @@ func (s *HelloWorldService) SayHello(ctx context.Context, req *examplev1.HelloRe
 
 // A workflow that calls activities from that worker
 func (s *HelloWorldService) SayMultipleHello(ctx workflow.Context, req *examplev1.MultipleHelloRequest) (*examplev1.MultipleHelloResponse, error) {
-	resp := examplev1.MultipleHelloResponse{
-		Data: make([]string, 0),
-	}
+	firstTime := true
+	err := examplev1.HandleQueryGetStatus(ctx, func(gsr *examplev1.GetStatusRequest) (*examplev1.GetStatusResponse, error) {
+		fmt.Println("progress update requested")
+		return &examplev1.GetStatusResponse{
+			Progress: int64(rand.Int() % 100),
+		}, nil
+	})
 
-	if req == nil {
-		return &resp, nil
-	}
-
-	for _, i := range req.Names {
-		res, err := s.c.ExecuteActivitySayHelloSync(ctx, &examplev1.HelloRequest{Name: i})
-		if err != nil {
-			return nil, err
-		}
-		resp.Data = append(resp.Data, res.Data)
-	}
-
-	_, err := s.c.ExecuteChildSomeOtherWorkflowSync(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, err
 	}
 
-	return &resp, nil
+	for firstTime {
+		resp := examplev1.MultipleHelloResponse{
+			Data: make([]string, 0),
+		}
+
+		if req == nil {
+			return &resp, nil
+		}
+
+		for _, i := range req.Names {
+			res, err := s.c.ExecuteActivitySayHelloSync(ctx, &examplev1.HelloRequest{Name: i})
+			if err != nil {
+				return nil, err
+			}
+			resp.Data = append(resp.Data, res.Data)
+		}
+
+		_, err := s.c.ExecuteChildSomeOtherWorkflowSync(ctx, &emptypb.Empty{})
+		if err != nil {
+			return nil, err
+		}
+
+		r, ok := examplev1.ReceiveSignalContinue(ctx)
+		if !ok {
+			return &resp, nil
+		}
+
+		firstTime = r.Continue
+	}
+	return nil, nil
 }
 
 // A secondary workflow
@@ -109,36 +128,36 @@ func main() {
 		req.Names = append(req.Names, fmt.Sprintf("%d", i))
 	}
 
-	res, err := helloClient.ExecuteWorkflowSayMultipleHelloSync(context.Background(), req)
+	future, err := helloClient.ExecuteWorkflowSayMultipleHello(context.Background(), req)
 	if err != nil {
-		panic(res)
+		panic(err)
+	}
+
+	for i := 0; i < 10; i++ {
+		qry, err := helloClient.QueryGetStatus(context.Background(), future.GetID(), future.GetRunID(), &examplev1.GetStatusRequest{})
+		if err != nil {
+			fmt.Println("failed to get status update: ", err)
+		} else {
+			fmt.Println("update: ", qry.Progress)
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	var res *examplev1.MultipleHelloResponse
+	err = future.Get(context.Background(), res)
+
+	if err != nil {
+		panic(err)
 	}
 
 	for _, resp := range res.Data {
 		fmt.Println(resp)
 	}
 
-	futuresCount := 10
-
-	wg := &sync.WaitGroup{}
-	wg.Add(futuresCount)
-
-	for i := 0; i < futuresCount; i++ {
-		f, err := helloClient.ExecuteWorkflowSayMultipleHello(context.Background(), req)
-		if err != nil {
-			panic(err)
-		}
-
-		go func() {
-			err := f.Get(context.Background(), nil)
-			if err != nil {
-				panic(err)
-			}
-			wg.Done()
-		}()
-	}
-
-	wg.Wait()
+	fmt.Println("Stop")
 
 	w.Stop()
+
+	fmt.Println("Done")
 }

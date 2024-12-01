@@ -8,8 +8,12 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
+func getClientName(service *protogen.Service) string {
+	return fmt.Sprintf("%sClient", service.GoName)
+}
+
 func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
-	clientName := fmt.Sprintf("%sClient", service.GoName)
+	clientName := getClientName(service)
 
 	client := jen.Comment(fmt.Sprintf("%s: Client for the %s service", clientName, service.GoName)).Line().
 		Type().Id(clientName).

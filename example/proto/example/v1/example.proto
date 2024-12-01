@@ -55,6 +55,19 @@ service HelloWorld  {
     rpc SomeOtherWorkflow(google.protobuf.Empty) returns (google.protobuf.Empty) {
         option (temporal.v1.workflow) = {};
     }
+
+    // Signals can be defined with whatever return type you want as they
+    // do not expect an answer
+
+    // Instruct the workflow to proceed
+    rpc Continue(ContinueSignalRequest) returns (ContinueSignalRequest) {
+        option (temporal.v1.signal) = {};
+    }
+
+    // Query the state of the workflow
+    rpc GetStatus(GetStatusRequest) returns (GetStatusResponse) {
+        option (temporal.v1.query) = {};
+    }
 }
 
 message HelloRequest {
@@ -71,4 +84,16 @@ message MultipleHelloRequest {
 
 message MultipleHelloResponse {
     repeated string data = 1;
+}
+
+message ContinueSignalRequest {
+    bool continue = 1;
+}
+
+message GetStatusRequest {
+
+}
+
+message GetStatusResponse {
+    int64 progress = 1;
 }

@@ -10,6 +10,8 @@ option go_package = "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/
 extend google.protobuf.MethodOptions {
     optional ActivityOptions activity = 50000;
     optional WorkflowOptions workflow = 50001;
+    optional SignalOptions signal = 50002;
+    optional QueryOptions query = 50003;
 }
 
 extend google.protobuf.ServiceOptions {
@@ -62,4 +64,14 @@ message RetryPolicy {
     google.protobuf.Int32Value maximum_attempts = 4;
     // Non retryable error types
     repeated google.protobuf.StringValue non_retryable_error_types = 5;
+}
+
+message SignalOptions {
+    // Name is the name of the signal, better left auto generated
+    string name = 1;
+}
+
+message QueryOptions {
+    // Name is the name of the query, better left auto generated
+    string name = 1;
 }
