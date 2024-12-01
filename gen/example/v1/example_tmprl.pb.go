@@ -349,16 +349,49 @@ func (c *HelloWorldSayMultipleHello) Cancel(ctx context.Context) error {
 	return c.client.CancelWorkflow(ctx, c.WorkflowID, c.RunID)
 }
 
+// Returns the workflow ID
+func (c *HelloWorldSayMultipleHello) GetID() string {
+	return c.WorkflowID
+}
+
+// Returns the run ID
+func (c *HelloWorldSayMultipleHello) GetRunID() string {
+	return c.RunID
+}
+
 // Terminates terminates a given workflow
 func (c *HelloWorldSayMultipleHello) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return c.client.TerminateWorkflow(ctx, c.WorkflowID, c.RunID, reason, details...)
 }
 
-// Get gets the result of a given workflow
-func (c *HelloWorldSayMultipleHello) Get(ctx context.Context) (*MultipleHelloResponse, error) {
+// Get gets the result of a given workflow with its native type
+func (c *HelloWorldSayMultipleHello) Result(ctx context.Context) (*MultipleHelloResponse, error) {
 	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
 	var resp *MultipleHelloResponse
 	err := future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (c *HelloWorldSayMultipleHello) Get(ctx context.Context, valuePtr interface{}) error {
+	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
+	return future.Get(ctx, valuePtr)
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (c *HelloWorldSayMultipleHello) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
+	return future.GetWithOptions(ctx, valuePtr, options)
+}
+
+// ResultWithOptions gets the result of a given workflow with its native type
+func (c *HelloWorldSayMultipleHello) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*MultipleHelloResponse, error) {
+	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
+	var resp *MultipleHelloResponse
+	err := future.GetWithOptions(ctx, &resp, options)
 	if err != nil {
 		return nil, err
 	}
@@ -469,16 +502,49 @@ func (c *HelloWorldSomeOtherWorkflow) Cancel(ctx context.Context) error {
 	return c.client.CancelWorkflow(ctx, c.WorkflowID, c.RunID)
 }
 
+// Returns the workflow ID
+func (c *HelloWorldSomeOtherWorkflow) GetID() string {
+	return c.WorkflowID
+}
+
+// Returns the run ID
+func (c *HelloWorldSomeOtherWorkflow) GetRunID() string {
+	return c.RunID
+}
+
 // Terminates terminates a given workflow
 func (c *HelloWorldSomeOtherWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return c.client.TerminateWorkflow(ctx, c.WorkflowID, c.RunID, reason, details...)
 }
 
-// Get gets the result of a given workflow
-func (c *HelloWorldSomeOtherWorkflow) Get(ctx context.Context) (*emptypb.Empty, error) {
+// Get gets the result of a given workflow with its native type
+func (c *HelloWorldSomeOtherWorkflow) Result(ctx context.Context) (*emptypb.Empty, error) {
 	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
 	var resp *emptypb.Empty
 	err := future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (c *HelloWorldSomeOtherWorkflow) Get(ctx context.Context, valuePtr interface{}) error {
+	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
+	return future.Get(ctx, valuePtr)
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (c *HelloWorldSomeOtherWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
+	return future.GetWithOptions(ctx, valuePtr, options)
+}
+
+// ResultWithOptions gets the result of a given workflow with its native type
+func (c *HelloWorldSomeOtherWorkflow) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*emptypb.Empty, error) {
+	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
+	var resp *emptypb.Empty
+	err := future.GetWithOptions(ctx, &resp, options)
 	if err != nil {
 		return nil, err
 	}
