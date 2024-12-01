@@ -533,49 +533,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 					}))
 				}).Line().Line()
 
-			client.Comment("Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun").Line().
-				Func().Parens(jen.Id("c").Op("*").Id(wfObjName)).Id("Get").ParamsFunc(func(g *jen.Group) {
-				g.Add(jen.Id("ctx").Id(getContext(gf)))
-				g.Add(jen.Id("valuePtr").InterfaceFunc(func(g *jen.Group) {}))
-			}).ParamsFunc(func(g *jen.Group) {
-				g.Add(jen.Error())
-			}).
-				BlockFunc(func(g *jen.Group) {
-					g.Add(jen.Id("future").Op(":=").Id("c").Dot("client").Dot("GetWorkflow").CallFunc(func(g *jen.Group) {
-						g.Add(jen.Id("ctx"))
-						g.Add(jen.Id("c").Dot("WorkflowID"))
-						g.Add(jen.Id("c").Dot("RunID"))
-					}))
-
-					g.Add(jen.Return(jen.Id("future").Dot("Get").CallFunc(func(g *jen.Group) {
-						g.Add(jen.Id("ctx"))
-						g.Add(jen.Id("valuePtr"))
-					})))
-				}).Line().Line()
-
-			client.Comment("Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun").Line().
-				Func().Parens(jen.Id("c").Op("*").Id(wfObjName)).Id("GetWithOptions").ParamsFunc(func(g *jen.Group) {
-				g.Add(jen.Id("ctx").Id(getContext(gf)))
-				g.Add(jen.Id("valuePtr").InterfaceFunc(func(g *jen.Group) {}))
-				g.Add(jen.Id("options").Id(getTemporalClientObject(gf, "WorkflowRunGetOptions")))
-			}).ParamsFunc(func(g *jen.Group) {
-				g.Add(jen.Error())
-			}).
-				BlockFunc(func(g *jen.Group) {
-					g.Add(jen.Id("future").Op(":=").Id("c").Dot("client").Dot("GetWorkflow").CallFunc(func(g *jen.Group) {
-						g.Add(jen.Id("ctx"))
-						g.Add(jen.Id("c").Dot("WorkflowID"))
-						g.Add(jen.Id("c").Dot("RunID"))
-					}))
-
-					g.Add(jen.Return(jen.Id("future").Dot("GetWithOptions").CallFunc(func(g *jen.Group) {
-						g.Add(jen.Id("ctx"))
-						g.Add(jen.Id("valuePtr"))
-						g.Add(jen.Id("options"))
-					})))
-				}).Line().Line()
-
-			// Gets the result of a workflow
+			// Gets the result of a workflow with options
 			client.Comment("ResultWithOptions gets the result of a given workflow with its native type").Line().
 				Func().Parens(jen.Id("c").Op("*").Id(wfObjName)).Id("ResultWithOptions").ParamsFunc(func(g *jen.Group) {
 				g.Add(jen.Id("ctx").Id(getContext(gf)))
@@ -605,6 +563,49 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 						g.Add(jen.Id("resp"))
 						g.Add(jen.Nil())
 					}))
+				}).Line().Line()
+
+			client.Comment("Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun").Line().
+				Func().Parens(jen.Id("c").Op("*").Id(wfObjName)).Id("Get").ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Id("ctx").Id(getContext(gf)))
+				g.Add(jen.Id("valuePtr").InterfaceFunc(func(g *jen.Group) {}))
+			}).ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Error())
+			}).
+				BlockFunc(func(g *jen.Group) {
+					g.Add(jen.Id("future").Op(":=").Id("c").Dot("client").Dot("GetWorkflow").CallFunc(func(g *jen.Group) {
+						g.Add(jen.Id("ctx"))
+						g.Add(jen.Id("c").Dot("WorkflowID"))
+						g.Add(jen.Id("c").Dot("RunID"))
+					}))
+
+					g.Add(jen.Return(jen.Id("future").Dot("Get").CallFunc(func(g *jen.Group) {
+						g.Add(jen.Id("ctx"))
+						g.Add(jen.Id("valuePtr"))
+					})))
+				}).Line().Line()
+
+			// Gets the result of a workflow with options
+			client.Comment("Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun").Line().
+				Func().Parens(jen.Id("c").Op("*").Id(wfObjName)).Id("GetWithOptions").ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Id("ctx").Id(getContext(gf)))
+				g.Add(jen.Id("valuePtr").InterfaceFunc(func(g *jen.Group) {}))
+				g.Add(jen.Id("options").Id(getTemporalClientObject(gf, "WorkflowRunGetOptions")))
+			}).ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Error())
+			}).
+				BlockFunc(func(g *jen.Group) {
+					g.Add(jen.Id("future").Op(":=").Id("c").Dot("client").Dot("GetWorkflow").CallFunc(func(g *jen.Group) {
+						g.Add(jen.Id("ctx"))
+						g.Add(jen.Id("c").Dot("WorkflowID"))
+						g.Add(jen.Id("c").Dot("RunID"))
+					}))
+
+					g.Add(jen.Return(jen.Id("future").Dot("GetWithOptions").CallFunc(func(g *jen.Group) {
+						g.Add(jen.Id("ctx"))
+						g.Add(jen.Id("valuePtr"))
+						g.Add(jen.Id("options"))
+					})))
 				}).Line().Line()
 
 			client.Line()
