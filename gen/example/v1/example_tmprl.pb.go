@@ -497,6 +497,13 @@ func ReceiveSignalContinue(ctx workflow.Context) (*ContinueSignalRequest, bool) 
 	return result, ok
 }
 
+// ReceiveSignalContinueAsync recieves the the Continue signal asynchronously. It doesn't wait if there is no signal in the queue
+func ReceiveSignalContinueAsync(ctx workflow.Context) (*ContinueSignalRequest, bool) {
+	var result *ContinueSignalRequest
+	ok := workflow.GetSignalChannel(ctx, "example.v1.HelloWorld.Continue").ReceiveAsync(&result)
+	return result, ok
+}
+
 // QueryGetStatus sends the GetStatus query to a workflow
 func (c *HelloWorldClient) QueryGetStatus(ctx context.Context, workflowID string, runID string, req *GetStatusRequest) (*GetStatusResponse, error) {
 	future, err := c.client.QueryWorkflow(ctx, workflowID, runID, "example.v1.HelloWorld.GetStatus", req)

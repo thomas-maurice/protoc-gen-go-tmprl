@@ -38,7 +38,9 @@ func (s *HelloWorldService) SayHello(ctx context.Context, req *examplev1.HelloRe
 // A workflow that calls activities from that worker
 func (s *HelloWorldService) SayMultipleHello(ctx workflow.Context, req *examplev1.MultipleHelloRequest) (*examplev1.MultipleHelloResponse, error) {
 	firstTime := true
-	err := examplev1.HandleQueryGetStatus(ctx, func(gsr *examplev1.GetStatusRequest) (*examplev1.GetStatusResponse, error) {
+
+	// Here we register a query handler for the `GetStatus` query
+	err := examplev1.HandleQueryGetStatus(ctx, func(req *examplev1.GetStatusRequest) (*examplev1.GetStatusResponse, error) {
 		fmt.Println("progress update requested")
 		return &examplev1.GetStatusResponse{
 			Progress: int64(rand.Int() % 100),
@@ -71,6 +73,7 @@ func (s *HelloWorldService) SayMultipleHello(ctx workflow.Context, req *examplev
 			return nil, err
 		}
 
+		// Wait synchronously on the receive signal
 		r, ok := examplev1.ReceiveSignalContinue(ctx)
 		if !ok {
 			return &resp, nil

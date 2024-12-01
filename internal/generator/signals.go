@@ -85,6 +85,34 @@ func ServiceSignals(gf *protogen.GeneratedFile, service *protogen.Service) error
 			}))
 
 		}).Line()
+
+		signals.Comment(fmt.Sprintf("ReceiveSignal%sAsync recieves the the %s signal asynchronously. It doesn't wait if there is no signal in the queue", method.GoName, method.GoName)).Line().
+			Func().Id(fmt.Sprintf("ReceiveSignal%sAsync", method.GoName)).ParamsFunc(func(g *jen.Group) {
+			g.Add(jen.Id("ctx").Id(getTemporalWorkflowObject(gf, "Context")))
+		}).ParamsFunc(func(g *jen.Group) {
+			g.Add(jen.Op("*").Id(gf.QualifiedGoIdent(method.Input.GoIdent)))
+			g.Add(jen.Bool())
+		}).BlockFunc(func(g *jen.Group) {
+			sigName := methName
+			if sigOpts != nil && sigOpts.Name != "" {
+				sigName = sigOpts.Name
+			}
+
+			g.Add(jen.Var().Id("result").Op("*").Id(gf.QualifiedGoIdent(method.Output.GoIdent)))
+
+			g.Id("ok").Op(":=").Id(getTemporalWorkflowObject(gf, "GetSignalChannel")).CallFunc(func(g *jen.Group) {
+				g.Add(jen.Id("ctx"))
+				g.Add(jen.Lit(sigName))
+			}).Dot("ReceiveAsync").CallFunc(func(g *jen.Group) {
+				g.Add(jen.Op("&").Id("result"))
+			})
+
+			g.Add(jen.ReturnFunc(func(g *jen.Group) {
+				g.Add(jen.Id("result"))
+				g.Add(jen.Op("ok"))
+			}))
+
+		}).Line()
 	}
 
 	buf := bytes.NewBufferString("")
