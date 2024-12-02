@@ -10,6 +10,8 @@ option go_package = "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/
 extend google.protobuf.MethodOptions {
     optional ActivityOptions activity = 50000;
     optional WorkflowOptions workflow = 50001;
+    optional SignalOptions signal = 50002;
+    optional QueryOptions query = 50003;
 }
 
 extend google.protobuf.ServiceOptions {
@@ -37,8 +39,18 @@ message WorkflowOptions {
     // The timeout for processing workflow task from the time the worker
 	// pulled this task
     google.protobuf.Int32Value workflow_task_timeout = 4;
-     // Default retry policy
-     RetryPolicy retry_policy = 5;
+    // Default retry policy
+    RetryPolicy retry_policy = 5;
+    // Signals is a list of signals that the
+    // workflow can accept. They MUST be defined in
+    // the same service. The values of the list is
+    // simply the name of the corresonding RPC method
+    repeated string signals = 6;
+    // Queries is a list of queries that the
+    // workflow can process. They MUST be defined in
+    // the same service. The values of the list is
+    // simply the name of the corresponding RPC method
+    repeated string queries = 7;
 }
 
 message ServiceOptions {
@@ -62,4 +74,14 @@ message RetryPolicy {
     google.protobuf.Int32Value maximum_attempts = 4;
     // Non retryable error types
     repeated google.protobuf.StringValue non_retryable_error_types = 5;
+}
+
+message SignalOptions {
+    // Name is the name of the signal, better left auto generated
+    string name = 1;
+}
+
+message QueryOptions {
+    // Name is the name of the query, better left auto generated
+    string name = 1;
 }

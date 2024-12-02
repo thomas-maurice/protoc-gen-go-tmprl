@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/dave/jennifer/jen"
-	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/v1"
+	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 )
@@ -63,6 +63,8 @@ func UnimplementedServiceInterface(gf *protogen.GeneratedFile, service *protogen
 					}
 					g.Add(jen.Error())
 				}).Line()
+		case MethodTypeSignal:
+		case MethodTypeQuery:
 		default:
 			return fmt.Errorf("invalid method type: %s", t)
 		}

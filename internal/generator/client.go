@@ -8,8 +8,12 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
+func getClientName(service *protogen.Service) string {
+	return fmt.Sprintf("%sClient", service.GoName)
+}
+
 func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
-	clientName := fmt.Sprintf("%sClient", service.GoName)
+	clientName := getClientName(service)
 
 	client := jen.Comment(fmt.Sprintf("%s: Client for the %s service", clientName, service.GoName)).Line().
 		Type().Id(clientName).
@@ -352,129 +356,6 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 						g.Add(jen.Id("ctx"))
 						g.Add(jen.Id("req"))
 						g.Add(jen.Id("options").Op("..."))
-					}))
-
-					g.Add(jen.Var().Id("resp").Op("*").Id(gf.QualifiedGoIdent(method.Output.GoIdent)))
-
-					g.Add(jen.Id("err").Op(":=").Id("future").Dot("Get").CallFunc(func(g *jen.Group) {
-						g.Add(jen.Id("ctx"))
-						g.Add(jen.Op("&").Id("resp"))
-					}))
-
-					g.Add(IfErrNilDouble)
-
-					g.Add(jen.ReturnFunc(func(g *jen.Group) {
-						g.Add(jen.Id("resp"))
-						g.Add(jen.Nil())
-					}))
-				}).Line().Line()
-
-			/*
-				Workflow result structs
-
-				This creates a struct like so
-
-				type SomeServiceSomeFuncWorkflow struct {
-					WorkflowID string
-					RunID string
-
-					client temporal.Client
-				}
-
-				And a bunch of methods like
-				func (s *SomeServiceSomeFuncWorkflow).Cancel(ctx context.Context) error {
-					wf :=s.client.Cancel(ctx, s.WorkflowID, s.RunID)
-				}
-
-				and so on
-			*/
-
-			wfObjName := fmt.Sprintf("%s%s", service.GoName, method.GoName)
-			client.Comment(fmt.Sprintf("%s is a struct that wraps a workflow", wfObjName)).Line().
-				Type().Id(wfObjName).StructFunc(func(g *jen.Group) {
-				g.Add(jen.Id("WorkflowID").String())
-				g.Add(jen.Id("RunID").String())
-				g.Add(jen.Id("client").Id(getTemporalClientObject(gf, "Client")))
-			}).Line()
-
-			// Gets an instance of a workflow
-			client.Comment(fmt.Sprintf("Get%s gets an instance of a given workflow", method.GoName)).Line().
-				Func().Parens(jen.Id("c").Op("*").Id(clientName)).Id(fmt.Sprintf("Get%s", method.GoName)).ParamsFunc(func(g *jen.Group) {
-				g.Add(jen.Id("ctx").Id(getContext(gf)))
-				g.Add(jen.Id("workflowId").String())
-				g.Add(jen.Id("runId").String())
-			}).ParamsFunc(func(g *jen.Group) {
-				g.Add(jen.Op("*").Id(wfObjName))
-				g.Add(jen.Error())
-			}).
-				BlockFunc(func(g *jen.Group) {
-					g.Add(jen.Id("future").Op(":=").Id("c").Dot("client").Dot("GetWorkflow").CallFunc(func(g *jen.Group) {
-						g.Add(jen.Id("ctx"))
-						g.Add(jen.Id("workflowId"))
-						g.Add(jen.Id("runId"))
-					}))
-
-					g.Add(jen.ReturnFunc(func(g *jen.Group) {
-						g.Add(jen.Op("&").Id(wfObjName).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("WorkflowID").Op(":").Id("future").Dot("GetID").Call(jen.Null()).Op(","))
-							g.Add(jen.Id("RunID").Op(":").Id("future").Dot("GetRunID").Call(jen.Null()).Op(","))
-							g.Add(jen.Id("client").Op(":").Id("c").Dot("client").Op(","))
-						}))
-						g.Add(jen.Nil())
-					}))
-				}).Line().Line()
-
-			// Cancels the workflow
-			client.Comment("Cancel cancels a given workflow").Line().
-				Func().Parens(jen.Id("c").Op("*").Id(wfObjName)).Id("Cancel").ParamsFunc(func(g *jen.Group) {
-				g.Add(jen.Id("ctx").Id(getContext(gf)))
-			}).ParamsFunc(func(g *jen.Group) {
-				g.Add(jen.Error())
-			}).
-				BlockFunc(func(g *jen.Group) {
-					g.Add(jen.ReturnFunc(func(g *jen.Group) {
-						g.Add(jen.Id("c").Dot("client").Dot("CancelWorkflow").CallFunc(func(g *jen.Group) {
-							g.Add(jen.Id("ctx"))
-							g.Add(jen.Id("c").Dot("WorkflowID"))
-							g.Add(jen.Id("c").Dot("RunID"))
-						}))
-					}))
-				}).Line()
-
-			// Terminates the workflow
-			client.Comment("Terminates terminates a given workflow").Line().
-				Func().Parens(jen.Id("c").Op("*").Id(wfObjName)).Id("Terminate").ParamsFunc(func(g *jen.Group) {
-				g.Add(jen.Id("ctx").Id(getContext(gf)))
-				g.Add(jen.Id("reason").String())
-				g.Add(jen.Id("details").Op("...").Id("interface{}"))
-			}).ParamsFunc(func(g *jen.Group) {
-				g.Add(jen.Error())
-			}).
-				BlockFunc(func(g *jen.Group) {
-					g.Add(jen.ReturnFunc(func(g *jen.Group) {
-						g.Add(jen.Id("c").Dot("client").Dot("TerminateWorkflow").CallFunc(func(g *jen.Group) {
-							g.Add(jen.Id("ctx"))
-							g.Add(jen.Id("c").Dot("WorkflowID"))
-							g.Add(jen.Id("c").Dot("RunID"))
-							g.Add(jen.Id("reason"))
-							g.Add(jen.Id("details").Op("..."))
-						}))
-					}))
-				}).Line()
-
-			// Gets the result of a workflow
-			client.Comment("Get gets the result of a given workflow").Line().
-				Func().Parens(jen.Id("c").Op("*").Id(wfObjName)).Id("Get").ParamsFunc(func(g *jen.Group) {
-				g.Add(jen.Id("ctx").Id(getContext(gf)))
-			}).ParamsFunc(func(g *jen.Group) {
-				g.Add(jen.Op("*").Id(gf.QualifiedGoIdent(method.Output.GoIdent)))
-				g.Add(jen.Error())
-			}).
-				BlockFunc(func(g *jen.Group) {
-					g.Add(jen.Id("future").Op(":=").Id("c").Dot("client").Dot("GetWorkflow").CallFunc(func(g *jen.Group) {
-						g.Add(jen.Id("ctx"))
-						g.Add(jen.Id("c").Dot("WorkflowID"))
-						g.Add(jen.Id("c").Dot("RunID"))
 					}))
 
 					g.Add(jen.Var().Id("resp").Op("*").Id(gf.QualifiedGoIdent(method.Output.GoIdent)))
