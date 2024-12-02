@@ -48,7 +48,10 @@ service HelloWorld  {
 
     // Say hello to multiple people
     rpc SayMultipleHello(MultipleHelloRequest) returns (MultipleHelloResponse) {
-        option (temporal.v1.workflow) = {};
+        option (temporal.v1.workflow) = {
+            signals: ["Continue"]
+            queries: ["GetStatus"]
+        };
     }
 
     // Some other workflow we can call and does nothing

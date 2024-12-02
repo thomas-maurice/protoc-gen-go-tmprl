@@ -92,6 +92,71 @@ Similarly for the workflows
 
 You might have noticed that the options are wrapped in `{ value: something }` statements. While it might look ugly it is the only way for us to know if something is set to `0` (whatever `0` means, let it be numerical `0` or an empty string) on purpose, or not set.
 
+### The workflow objects
+
+Each workflow will get assigned a dedicated object in the generated code. All the workflow objects implement the `internal.WorkflowRun`
+interface from the Temporal SDK. They contain a few methods that can be useful for you. Let's take as an example the following
+protobuf:
+```protobuf
+    // Say hello to multiple people
+    rpc SayMultipleHello(MultipleHelloRequest) returns (MultipleHelloResponse) {
+        option (temporal.v1.workflow) = {};
+    }
+```
+
+The following methods will be generated for the workflow object:
+
+```golang
+// Cancel cancels a given workflow
+func (w *HelloWorldSayMultipleHello) Cancel(ctx context.Context) error
+// Returns the workflow ID
+func (w *HelloWorldSayMultipleHello) GetID() string
+// Returns the run ID
+func (w *HelloWorldSayMultipleHello) GetRunID() string
+// Terminates terminates a given workflow
+func (w *HelloWorldSayMultipleHello) Terminate(ctx context.Context, reason string, details ...interface{})
+// Get gets the result of a given workflow with its native type
+func (w *HelloWorldSayMultipleHello) Result(ctx context.Context) (*MultipleHelloResponse, error)
+// ResultWithOptions gets the result of a given workflow with its native type
+func (w *HelloWorldSayMultipleHello) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*MultipleHelloResponse, error)
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *HelloWorldSayMultipleHello) Get(ctx context.Context, valuePtr interface{}) error
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *HelloWorldSayMultipleHello) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error
+```
+
+You can retrieve this `HelloWorldSayMultipleHello` object from the client using one of these two methods:
+```golang
+func (c *HelloWorldClient) GetSayMultipleHello(ctx context.Context, workflowId string, runId string) *HelloWorldSayMultipleHello
+func (c *HelloWorldClient) GetSayMultipleHelloFromRun(future client.WorkflowRun) *HelloWorldSayMultipleHello
+```
+
+#### Workflow object signal and queries
+Additionally, if you have defined signal and queries in your workflow options like in the following protobuf
+```protobuf
+    rpc SayMultipleHello(MultipleHelloRequest) returns (MultipleHelloResponse) {
+        option (temporal.v1.workflow) = {
+            signals: ["Continue"]
+            queries: ["GetStatus"]
+        };
+    }
+```
+
+Then you will have access to the two following methods:
+
+```golang
+// SignalContinue sends the Continue signal to the workflow
+func (w *HelloWorldSayMultipleHello) SignalContinue(ctx context.Context, req *ContinueSignalRequest) error
+// QueryGetStatus queries the workflow with GetStatus
+func (w *HelloWorldSayMultipleHello) QueryGetStatus(ctx context.Context, req *GetStatusRequest) (*GetStatusResponse, error)
+```
+
+:warning: The name you pass to the protobuf must match the name of the generated go name for the signal, i.e. `some_func` would
+become `SomeFunc`
+
+:warning: The methods you set as signals and queries MUST be defined inside the service whose workflow uses them. You cannot use
+the signals/queries defined in `Service2` for `Service1`, you can reuse types, not methods.
+
 ### Signals and queries
 
 You can define signal and queries functions in your service, if they are annotated with the respective `temporal.v1.signal` and

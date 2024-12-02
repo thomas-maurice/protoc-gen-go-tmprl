@@ -259,12 +259,6 @@ func (c *HelloWorldClient) ExecuteWorkflowSayMultipleHello(ctx context.Context, 
 	if wOptions.ID == "" {
 		wOptions.ID = fmt.Sprintf("%s/%s", "example.v1.HelloWorld.SayMultipleHello", uuid.NewString())
 	}
-	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(int32(86400)) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(int32(7200)) * time.Second
-	}
 	return c.client.ExecuteWorkflow(ctx, wOptions, "example.v1.HelloWorld.SayMultipleHello", req)
 }
 
@@ -306,12 +300,6 @@ func (c *HelloWorldClient) ExecuteChildSayMultipleHello(ctx workflow.Context, re
 	}
 	if wOptions.WorkflowID == "" {
 		wOptions.WorkflowID = fmt.Sprintf("%s/%s", "example.v1.HelloWorld.SayMultipleHello", uuid.NewString())
-	}
-	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(int32(86400)) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(int32(7200)) * time.Second
 	}
 	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.HelloWorld.SayMultipleHello", req)
 }
@@ -486,6 +474,25 @@ func (w *HelloWorldSayMultipleHello) Get(ctx context.Context, valuePtr interface
 // Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *HelloWorldSayMultipleHello) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
 	return w.future.GetWithOptions(ctx, valuePtr, options)
+}
+
+// SignalContinue sends the Continue signal to the workflow
+func (w *HelloWorldSayMultipleHello) SignalContinue(ctx context.Context, req *ContinueSignalRequest) error {
+	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), "example.v1.HelloWorld.Continue", req)
+}
+
+// QueryGetStatus queries the workflow with GetStatus
+func (w *HelloWorldSayMultipleHello) QueryGetStatus(ctx context.Context, req *GetStatusRequest) (*GetStatusResponse, error) {
+	future, err := w.client.QueryWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), "example.v1.HelloWorld.GetStatus", req)
+	if err != nil {
+		return nil, err
+	}
+	var resp *GetStatusResponse
+	err = future.Get(&resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 // HelloWorldSomeOtherWorkflow is a struct that wraps a workflow

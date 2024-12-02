@@ -5,11 +5,32 @@ import (
 	"fmt"
 
 	"github.com/dave/jennifer/jen"
+	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1"
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
 )
 
 func WorkflowObjects(gf *protogen.GeneratedFile, service *protogen.Service) error {
 	clientName := getClientName(service)
+
+	// build a map of the queries and signals so we can do a lookup when a workflow
+	// can recieve them
+	signalsMap := make(map[string]*protogen.Method)
+	queriesMap := make(map[string]*protogen.Method)
+
+	for _, method := range service.Methods {
+		t, err := getMethodType(method)
+		if err != nil {
+			return err
+		}
+
+		switch t {
+		case MethodTypeQuery:
+			queriesMap[method.GoName] = method
+		case MethodTypeSignal:
+			signalsMap[method.GoName] = method
+		}
+	}
 
 	workflowObjects := jen.Null().Line()
 
@@ -19,10 +40,6 @@ func WorkflowObjects(gf *protogen.GeneratedFile, service *protogen.Service) erro
 			return err
 		}
 
-		activityOptions := getActivityOptions(method)
-		if activityOptions == nil {
-			activityOptions = getDefaultActivityOptions(service)
-		}
 		workflowOptions := getWorkflowOptions(method)
 		if workflowOptions == nil {
 			workflowOptions = getDefaultWorkflowOptions(service)
@@ -243,6 +260,92 @@ func WorkflowObjects(gf *protogen.GeneratedFile, service *protogen.Service) erro
 						g.Add(jen.Id("options"))
 					})))
 				}).Line().Line()
+
+			for _, sig := range workflowOptions.Signals {
+				meth, ok := signalsMap[sig]
+				if !ok {
+					return fmt.Errorf("no signal %s defined in service %s for workflow %s", sig, service.GoName, method.GoName)
+				}
+
+				sigName, err := getMethodRegisteredName(meth)
+				if err != nil {
+					return err
+				}
+				sigOpts, _ := proto.GetExtension(method.Desc.Options(), temporalv1.E_Signal).(*temporalv1.SignalOptions)
+
+				if sigOpts != nil && sigOpts.Name != "" {
+					sigName = sigOpts.Name
+				}
+
+				// Sends a signal to a workflow
+				workflowObjects.Comment(fmt.Sprintf("Signal%s sends the %s signal to the workflow", sig, sig)).Line().
+					Func().Parens(jen.Id("w").Op("*").Id(wfObjName)).Id("Signal" + sig).ParamsFunc(func(g *jen.Group) {
+					g.Add(jen.Id("ctx").Id(getContext(gf)))
+					g.Add(jen.Id("req").Op("*").Id(gf.QualifiedGoIdent(meth.Input.GoIdent)))
+				}).ParamsFunc(func(g *jen.Group) {
+					g.Add(jen.Error())
+				}).
+					BlockFunc(func(g *jen.Group) {
+						g.Add(jen.Return(jen.Id("w").Dot("client").Dot("SignalWorkflow").CallFunc(func(g *jen.Group) {
+							g.Add(jen.Id("ctx"))
+							g.Add(jen.Id("w").Dot("future").Dot("GetID").Parens(jen.Null()))
+							g.Add(jen.Id("w").Dot("future").Dot("GetRunID").Parens(jen.Null()))
+							g.Add(jen.Lit(sigName))
+							g.Add(jen.Id("req"))
+						})))
+					}).Line().Line()
+			}
+
+			for _, query := range workflowOptions.Queries {
+				meth, ok := queriesMap[query]
+				if !ok {
+					return fmt.Errorf("no query %s defined in service %s for workflow %s", query, service.GoName, method.GoName)
+				}
+
+				queryName, err := getMethodRegisteredName(meth)
+				if err != nil {
+					return err
+				}
+				queryOpts, _ := proto.GetExtension(method.Desc.Options(), temporalv1.E_Query).(*temporalv1.QueryOptions)
+
+				if queryOpts != nil && queryOpts.Name != "" {
+					queryName = queryOpts.Name
+				}
+
+				// Sens a query to a workflow
+				workflowObjects.Comment(fmt.Sprintf("Query%s queries the workflow with %s", query, query)).Line().
+					Func().Parens(jen.Id("w").Op("*").Id(wfObjName)).Id("Query" + query).ParamsFunc(func(g *jen.Group) {
+					g.Add(jen.Id("ctx").Id(getContext(gf)))
+					g.Add(jen.Id("req").Op("*").Id(gf.QualifiedGoIdent(meth.Input.GoIdent)))
+				}).ParamsFunc(func(g *jen.Group) {
+					g.Add(jen.Op("*").Id(gf.QualifiedGoIdent(meth.Output.GoIdent)))
+					g.Add(jen.Error())
+				}).
+					BlockFunc(func(g *jen.Group) {
+						g.Add(jen.Id("future").Op(",").Err().Op(":=").Id("w").Dot("client").Dot("QueryWorkflow").CallFunc(func(g *jen.Group) {
+							g.Add(jen.Id("ctx"))
+							g.Add(jen.Id("w").Dot("future").Dot("GetID").Parens(jen.Null()))
+							g.Add(jen.Id("w").Dot("future").Dot("GetRunID").Parens(jen.Null()))
+							g.Add(jen.Lit(queryName))
+							g.Add(jen.Id("req"))
+						}))
+
+						g.Add(IfErrNilDouble)
+
+						g.Add(jen.Var().Id("resp").Op("*").Id(gf.QualifiedGoIdent(meth.Output.GoIdent)))
+
+						g.Add(jen.Id("err").Op("=").Id("future").Dot("Get").CallFunc(func(g *jen.Group) {
+							g.Add(jen.Op("&").Id("resp"))
+						}))
+
+						g.Add(IfErrNilDouble)
+
+						g.Add(jen.ReturnFunc(func(g *jen.Group) {
+							g.Add(jen.Id("resp"))
+							g.Add(jen.Nil())
+						}))
+					}).Line().Line()
+			}
 
 			workflowObjects.Line()
 		}
