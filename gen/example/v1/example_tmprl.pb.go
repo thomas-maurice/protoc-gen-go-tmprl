@@ -332,6 +332,7 @@ type HelloWorldSayMultipleHello struct {
 	WorkflowID string
 	RunID      string
 	client     client.Client
+	future     client.WorkflowRun
 }
 
 // GetSayMultipleHello gets an instance of a given workflow
@@ -341,70 +342,68 @@ func (c *HelloWorldClient) GetSayMultipleHello(ctx context.Context, workflowId s
 		WorkflowID: future.GetID(),
 		RunID:      future.GetRunID(),
 		client:     c.client,
+		future:     future,
 	}
 }
 
-// GetSayMultipleHelloFromFuture gets an instance of a given workflow from a future
-func (c *HelloWorldClient) GetSayMultipleHelloFromFuture(future client.WorkflowRun) *HelloWorldSayMultipleHello {
+// GetSayMultipleHelloFromRun gets an instance of a given workflow from a future
+func (c *HelloWorldClient) GetSayMultipleHelloFromRun(future client.WorkflowRun) *HelloWorldSayMultipleHello {
 	return &HelloWorldSayMultipleHello{
 		WorkflowID: future.GetID(),
 		RunID:      future.GetRunID(),
 		client:     c.client,
+		future:     future,
 	}
 }
 
 // Cancel cancels a given workflow
-func (c *HelloWorldSayMultipleHello) Cancel(ctx context.Context) error {
-	return c.client.CancelWorkflow(ctx, c.WorkflowID, c.RunID)
+func (w *HelloWorldSayMultipleHello) Cancel(ctx context.Context) error {
+	return w.client.CancelWorkflow(ctx, w.WorkflowID, w.RunID)
 }
 
 // Returns the workflow ID
-func (c *HelloWorldSayMultipleHello) GetID() string {
-	return c.WorkflowID
+func (w *HelloWorldSayMultipleHello) GetID() string {
+	return w.future.GetID()
 }
 
 // Returns the run ID
-func (c *HelloWorldSayMultipleHello) GetRunID() string {
-	return c.RunID
+func (w *HelloWorldSayMultipleHello) GetRunID() string {
+	return w.future.GetRunID()
 }
 
 // Terminates terminates a given workflow
-func (c *HelloWorldSayMultipleHello) Terminate(ctx context.Context, reason string, details ...interface{}) error {
-	return c.client.TerminateWorkflow(ctx, c.WorkflowID, c.RunID, reason, details...)
+func (w *HelloWorldSayMultipleHello) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+	return w.client.TerminateWorkflow(ctx, w.WorkflowID, w.RunID, reason, details...)
 }
 
 // Get gets the result of a given workflow with its native type
-func (c *HelloWorldSayMultipleHello) Result(ctx context.Context) (*MultipleHelloResponse, error) {
-	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
+func (w *HelloWorldSayMultipleHello) Result(ctx context.Context) (*MultipleHelloResponse, error) {
 	var resp *MultipleHelloResponse
-	err := future.Get(ctx, &resp)
+	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (c *HelloWorldSayMultipleHello) Get(ctx context.Context, valuePtr interface{}) error {
-	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
-	return future.Get(ctx, valuePtr)
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (c *HelloWorldSayMultipleHello) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
-	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
-	return future.GetWithOptions(ctx, valuePtr, options)
 }
 
 // ResultWithOptions gets the result of a given workflow with its native type
-func (c *HelloWorldSayMultipleHello) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*MultipleHelloResponse, error) {
-	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
+func (w *HelloWorldSayMultipleHello) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*MultipleHelloResponse, error) {
 	var resp *MultipleHelloResponse
-	err := future.GetWithOptions(ctx, &resp, options)
+	err := w.future.GetWithOptions(ctx, &resp, options)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *HelloWorldSayMultipleHello) Get(ctx context.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *HelloWorldSayMultipleHello) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
 
 // ExecuteWorkflowSomeOtherWorkflow executes the workflow and returns a future to it
@@ -494,6 +493,7 @@ type HelloWorldSomeOtherWorkflow struct {
 	WorkflowID string
 	RunID      string
 	client     client.Client
+	future     client.WorkflowRun
 }
 
 // GetSomeOtherWorkflow gets an instance of a given workflow
@@ -503,70 +503,68 @@ func (c *HelloWorldClient) GetSomeOtherWorkflow(ctx context.Context, workflowId 
 		WorkflowID: future.GetID(),
 		RunID:      future.GetRunID(),
 		client:     c.client,
+		future:     future,
 	}
 }
 
-// GetSomeOtherWorkflowFromFuture gets an instance of a given workflow from a future
-func (c *HelloWorldClient) GetSomeOtherWorkflowFromFuture(future client.WorkflowRun) *HelloWorldSomeOtherWorkflow {
+// GetSomeOtherWorkflowFromRun gets an instance of a given workflow from a future
+func (c *HelloWorldClient) GetSomeOtherWorkflowFromRun(future client.WorkflowRun) *HelloWorldSomeOtherWorkflow {
 	return &HelloWorldSomeOtherWorkflow{
 		WorkflowID: future.GetID(),
 		RunID:      future.GetRunID(),
 		client:     c.client,
+		future:     future,
 	}
 }
 
 // Cancel cancels a given workflow
-func (c *HelloWorldSomeOtherWorkflow) Cancel(ctx context.Context) error {
-	return c.client.CancelWorkflow(ctx, c.WorkflowID, c.RunID)
+func (w *HelloWorldSomeOtherWorkflow) Cancel(ctx context.Context) error {
+	return w.client.CancelWorkflow(ctx, w.WorkflowID, w.RunID)
 }
 
 // Returns the workflow ID
-func (c *HelloWorldSomeOtherWorkflow) GetID() string {
-	return c.WorkflowID
+func (w *HelloWorldSomeOtherWorkflow) GetID() string {
+	return w.future.GetID()
 }
 
 // Returns the run ID
-func (c *HelloWorldSomeOtherWorkflow) GetRunID() string {
-	return c.RunID
+func (w *HelloWorldSomeOtherWorkflow) GetRunID() string {
+	return w.future.GetRunID()
 }
 
 // Terminates terminates a given workflow
-func (c *HelloWorldSomeOtherWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
-	return c.client.TerminateWorkflow(ctx, c.WorkflowID, c.RunID, reason, details...)
+func (w *HelloWorldSomeOtherWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+	return w.client.TerminateWorkflow(ctx, w.WorkflowID, w.RunID, reason, details...)
 }
 
 // Get gets the result of a given workflow with its native type
-func (c *HelloWorldSomeOtherWorkflow) Result(ctx context.Context) (*emptypb.Empty, error) {
-	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
+func (w *HelloWorldSomeOtherWorkflow) Result(ctx context.Context) (*emptypb.Empty, error) {
 	var resp *emptypb.Empty
-	err := future.Get(ctx, &resp)
+	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (c *HelloWorldSomeOtherWorkflow) Get(ctx context.Context, valuePtr interface{}) error {
-	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
-	return future.Get(ctx, valuePtr)
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (c *HelloWorldSomeOtherWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
-	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
-	return future.GetWithOptions(ctx, valuePtr, options)
 }
 
 // ResultWithOptions gets the result of a given workflow with its native type
-func (c *HelloWorldSomeOtherWorkflow) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*emptypb.Empty, error) {
-	future := c.client.GetWorkflow(ctx, c.WorkflowID, c.RunID)
+func (w *HelloWorldSomeOtherWorkflow) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*emptypb.Empty, error) {
 	var resp *emptypb.Empty
-	err := future.GetWithOptions(ctx, &resp, options)
+	err := w.future.GetWithOptions(ctx, &resp, options)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *HelloWorldSomeOtherWorkflow) Get(ctx context.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *HelloWorldSomeOtherWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
 
 // SendSignalContinue sends the Continue signal to a workflow
