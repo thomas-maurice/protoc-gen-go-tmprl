@@ -327,85 +327,6 @@ func (c *HelloWorldClient) ExecuteChildSayMultipleHelloSync(ctx workflow.Context
 	return resp, nil
 }
 
-// HelloWorldSayMultipleHello is a struct that wraps a workflow
-type HelloWorldSayMultipleHello struct {
-	WorkflowID string
-	RunID      string
-	client     client.Client
-	future     client.WorkflowRun
-}
-
-// GetSayMultipleHello gets an instance of a given workflow
-func (c *HelloWorldClient) GetSayMultipleHello(ctx context.Context, workflowId string, runId string) *HelloWorldSayMultipleHello {
-	future := c.client.GetWorkflow(ctx, workflowId, runId)
-	return &HelloWorldSayMultipleHello{
-		WorkflowID: future.GetID(),
-		RunID:      future.GetRunID(),
-		client:     c.client,
-		future:     future,
-	}
-}
-
-// GetSayMultipleHelloFromRun gets an instance of a given workflow from a future
-func (c *HelloWorldClient) GetSayMultipleHelloFromRun(future client.WorkflowRun) *HelloWorldSayMultipleHello {
-	return &HelloWorldSayMultipleHello{
-		WorkflowID: future.GetID(),
-		RunID:      future.GetRunID(),
-		client:     c.client,
-		future:     future,
-	}
-}
-
-// Cancel cancels a given workflow
-func (w *HelloWorldSayMultipleHello) Cancel(ctx context.Context) error {
-	return w.client.CancelWorkflow(ctx, w.WorkflowID, w.RunID)
-}
-
-// Returns the workflow ID
-func (w *HelloWorldSayMultipleHello) GetID() string {
-	return w.future.GetID()
-}
-
-// Returns the run ID
-func (w *HelloWorldSayMultipleHello) GetRunID() string {
-	return w.future.GetRunID()
-}
-
-// Terminates terminates a given workflow
-func (w *HelloWorldSayMultipleHello) Terminate(ctx context.Context, reason string, details ...interface{}) error {
-	return w.client.TerminateWorkflow(ctx, w.WorkflowID, w.RunID, reason, details...)
-}
-
-// Get gets the result of a given workflow with its native type
-func (w *HelloWorldSayMultipleHello) Result(ctx context.Context) (*MultipleHelloResponse, error) {
-	var resp *MultipleHelloResponse
-	err := w.future.Get(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-// ResultWithOptions gets the result of a given workflow with its native type
-func (w *HelloWorldSayMultipleHello) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*MultipleHelloResponse, error) {
-	var resp *MultipleHelloResponse
-	err := w.future.GetWithOptions(ctx, &resp, options)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *HelloWorldSayMultipleHello) Get(ctx context.Context, valuePtr interface{}) error {
-	return w.future.Get(ctx, valuePtr)
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *HelloWorldSayMultipleHello) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
-	return w.future.GetWithOptions(ctx, valuePtr, options)
-}
-
 // ExecuteWorkflowSomeOtherWorkflow executes the workflow and returns a future to it
 func (c *HelloWorldClient) ExecuteWorkflowSomeOtherWorkflow(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
 	wOptions := client.StartWorkflowOptions{
@@ -486,6 +407,85 @@ func (c *HelloWorldClient) ExecuteChildSomeOtherWorkflowSync(ctx workflow.Contex
 		return nil, err
 	}
 	return resp, nil
+}
+
+// HelloWorldSayMultipleHello is a struct that wraps a workflow
+type HelloWorldSayMultipleHello struct {
+	WorkflowID string
+	RunID      string
+	client     client.Client
+	future     client.WorkflowRun
+}
+
+// GetSayMultipleHello gets an instance of a given workflow
+func (c *HelloWorldClient) GetSayMultipleHello(ctx context.Context, workflowId string, runId string) *HelloWorldSayMultipleHello {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+	return &HelloWorldSayMultipleHello{
+		WorkflowID: future.GetID(),
+		RunID:      future.GetRunID(),
+		client:     c.client,
+		future:     future,
+	}
+}
+
+// GetSayMultipleHelloFromRun gets an instance of a given workflow from a future
+func (c *HelloWorldClient) GetSayMultipleHelloFromRun(future client.WorkflowRun) *HelloWorldSayMultipleHello {
+	return &HelloWorldSayMultipleHello{
+		WorkflowID: future.GetID(),
+		RunID:      future.GetRunID(),
+		client:     c.client,
+		future:     future,
+	}
+}
+
+// Cancel cancels a given workflow
+func (w *HelloWorldSayMultipleHello) Cancel(ctx context.Context) error {
+	return w.client.CancelWorkflow(ctx, w.WorkflowID, w.RunID)
+}
+
+// Returns the workflow ID
+func (w *HelloWorldSayMultipleHello) GetID() string {
+	return w.future.GetID()
+}
+
+// Returns the run ID
+func (w *HelloWorldSayMultipleHello) GetRunID() string {
+	return w.future.GetRunID()
+}
+
+// Terminates terminates a given workflow
+func (w *HelloWorldSayMultipleHello) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+	return w.client.TerminateWorkflow(ctx, w.WorkflowID, w.RunID, reason, details...)
+}
+
+// Get gets the result of a given workflow with its native type
+func (w *HelloWorldSayMultipleHello) Result(ctx context.Context) (*MultipleHelloResponse, error) {
+	var resp *MultipleHelloResponse
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ResultWithOptions gets the result of a given workflow with its native type
+func (w *HelloWorldSayMultipleHello) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*MultipleHelloResponse, error) {
+	var resp *MultipleHelloResponse
+	err := w.future.GetWithOptions(ctx, &resp, options)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *HelloWorldSayMultipleHello) Get(ctx context.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *HelloWorldSayMultipleHello) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
 
 // HelloWorldSomeOtherWorkflow is a struct that wraps a workflow

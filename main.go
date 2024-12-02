@@ -69,6 +69,11 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File) *protogen.Genera
 			plugin.Error(err)
 		}
 
+		err = generator.WorkflowObjects(gen, s)
+		if err != nil {
+			plugin.Error(err)
+		}
+
 		err = generator.ServiceSignals(gen, s)
 		if err != nil {
 			plugin.Error(err)
