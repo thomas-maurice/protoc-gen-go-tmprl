@@ -61,6 +61,10 @@ func main() {
 		Value: 1,
 	})
 
+	if err != nil {
+		logger.Error("cannot execute workflow", "error", err)
+	}
+
 	untilRun := dieRollClient.GetThrowUntilValueFromRun(until)
 
 	ticker := time.NewTicker(time.Second)
