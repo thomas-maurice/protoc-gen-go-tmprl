@@ -21,79 +21,79 @@ import (
 )
 
 const ( // Default task queue name for the service
-	DefaultHelloWorldTaskQueueName = "hello-task-queue"
+	DefaultDieRollTaskQueueName = "service-task-queue"
 
 	// Workflows names constants
 
-	// Name of workflow example.v1.HelloWorld.SayMultipleHello
-	WorkflowHelloWorldSayMultipleHelloName = "example.v1.HelloWorld.SayMultipleHello"
-	// Name of workflow example.v1.HelloWorld.SomeOtherWorkflow
-	WorkflowHelloWorldSomeOtherWorkflowName = "example.v1.HelloWorld.SomeOtherWorkflow"
+	// Name of workflow example.v1.DieRoll.ThrowDies
+	WorkflowDieRollThrowDiesName = "example.v1.DieRoll.ThrowDies"
+	// Name of workflow example.v1.DieRoll.ThrowUntilValue
+	WorkflowDieRollThrowUntilValueName = "example.v1.DieRoll.ThrowUntilValue"
 
 	// Activities names constants
 
-	// Name of activity example.v1.HelloWorld.SayHello
-	ActivityHelloWorldSayHelloName = "example.v1.HelloWorld.SayHello"
-	// Name of activity example.v1.HelloWorld.Ping
-	ActivityHelloWorldPingName = "ping.Ping"
+	// Name of activity example.v1.DieRoll.ThrowDie
+	ActivityDieRollThrowDieName = "example.v1.DieRoll.ThrowDie"
+	// Name of activity example.v1.DieRoll.Ping
+	ActivityDieRollPingName = "ping.Ping"
 
 	// Signals names constants
 
-	// Name of signal example.v1.HelloWorld.Continue
-	SignalHelloWorldContinueName = "example.v1.HelloWorld.Continue"
+	// Name of signal example.v1.DieRoll.Continue
+	SignalDieRollContinueName = "example.v1.DieRoll.Continue"
 
 	// Queries names constants
 
-	// Name of query example.v1.HelloWorld.GetStatus
-	QueryHelloWorldGetStatusName = "example.v1.HelloWorld.GetStatus"
+	// Name of query example.v1.DieRoll.GetThrowsStatus
+	QueryDieRollGetThrowsStatusName = "example.v1.DieRoll.GetThrowsStatus"
 
 	// Default timeout for activities when none is specified
-	DefaultHelloWorldScheduleToCloseTimeout = time.Hour
+	DefaultDieRollScheduleToCloseTimeout = time.Hour
 	// Default timeout for activities when none is specified
-	DefaultHelloWorldStartToCloseTimeout = time.Hour
+	DefaultDieRollStartToCloseTimeout = time.Hour
 )
 
-// HelloWorldService is the interface your service must implement
+// DieRollService is the interface your service must implement
 //
 // Service hello world is an example implementation of a service
 
-type HelloWorldService interface {
+type DieRollService interface {
 	// Workflows definitions
 
-	// Say hello to multiple people
-	SayMultipleHello(ctx workflow.Context, req *MultipleHelloRequest) (*MultipleHelloResponse, error)
-	// Some other workflow we can call and does nothing
-	SomeOtherWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error)
+	// Throws dies a few times and return the result
+	ThrowDies(ctx workflow.Context, req *ThrowDiesRequest) (*ThrowDiesResponse, error)
+	//
+	ThrowUntilValue(ctx workflow.Context, req *ThrowUntilValueRequest) (*emptypb.Empty, error)
 
 	// Activities definitions
 
-	// Says hello and returns a string
-	SayHello(ctx context.Context, req *HelloRequest) (*HelloResponse, error)
+	// Throws a d6 and returns the result
+	ThrowDie(ctx context.Context, req *emptypb.Empty) (*ThrowDieResponse, error)
 	// Just a simple ping
 	// Takes no parameters
 	// returns nothing
 	Ping(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error)
 }
 
-// HelloWorldWorker: Worker for the HelloWorld service
-type HelloWorldWorker struct {
+// DieRollWorker: Worker for the DieRoll service
+type DieRollWorker struct {
 	client client.Client
 	worker worker.Worker
-	svc    HelloWorldService
+	svc    DieRollService
 }
 
-// NewHelloWorldWorker: Returns a new instance of the worker.
+// NewDieRollWorker: Returns a new instance of the worker.
 // If `taskQueue` stays empty the default one will be used
-func NewHelloWorldWorker(client client.Client, svc HelloWorldService, taskQueue string, workerOptions ...worker.Options) (*HelloWorldWorker, error) {
+func NewDieRollWorker(client client.Client, svc DieRollService, taskQueue string, workerOptions ...worker.Options) (*DieRollWorker, error) {
 	wOpts := worker.Options{}
 	if taskQueue == "" {
-		taskQueue = DefaultHelloWorldTaskQueueName
+		taskQueue = DefaultDieRollTaskQueueName
 	}
 	if len(workerOptions) > 0 {
 		wOpts = workerOptions[0]
 	}
 	w := worker.New(client, taskQueue, wOpts)
-	return &HelloWorldWorker{
+	return &DieRollWorker{
 		client: client,
 		svc:    svc,
 		worker: w,
@@ -101,71 +101,71 @@ func NewHelloWorldWorker(client client.Client, svc HelloWorldService, taskQueue 
 }
 
 // Register registers the worker and its activities/workflows in temporal
-func (w *HelloWorldWorker) Register() {
-	// Registers activity SayHello
-	w.worker.RegisterActivityWithOptions(w.svc.SayHello, activity.RegisterOptions{
-		Name: "example.v1.HelloWorld.SayHello",
+func (w *DieRollWorker) Register() {
+	// Registers activity ThrowDie
+	w.worker.RegisterActivityWithOptions(w.svc.ThrowDie, activity.RegisterOptions{
+		Name: "example.v1.DieRoll.ThrowDie",
 	})
 	// Registers activity Ping
 	w.worker.RegisterActivityWithOptions(w.svc.Ping, activity.RegisterOptions{
 		Name: "ping.Ping",
 	})
-	// Registers workflow SayMultipleHello
-	w.worker.RegisterWorkflowWithOptions(w.svc.SayMultipleHello, workflow.RegisterOptions{
-		Name: "example.v1.HelloWorld.SayMultipleHello",
+	// Registers workflow ThrowDies
+	w.worker.RegisterWorkflowWithOptions(w.svc.ThrowDies, workflow.RegisterOptions{
+		Name: "example.v1.DieRoll.ThrowDies",
 	})
-	// Registers workflow SomeOtherWorkflow
-	w.worker.RegisterWorkflowWithOptions(w.svc.SomeOtherWorkflow, workflow.RegisterOptions{
-		Name: "example.v1.HelloWorld.SomeOtherWorkflow",
+	// Registers workflow ThrowUntilValue
+	w.worker.RegisterWorkflowWithOptions(w.svc.ThrowUntilValue, workflow.RegisterOptions{
+		Name: "example.v1.DieRoll.ThrowUntilValue",
 	})
 }
 
 // Run will run the worker
-func (w *HelloWorldWorker) Run() error {
+func (w *DieRollWorker) Run() error {
 	return w.worker.Run(worker.InterruptCh())
 }
 
 // Stop will stop the worker, may panic if called twice
-func (w *HelloWorldWorker) Stop() {
+func (w *DieRollWorker) Stop() {
 	w.worker.Stop()
 }
 
-// HelloWorldClient: Client for the HelloWorld service
-type HelloWorldClient struct {
+// DieRollClient: Client for the DieRoll service
+type DieRollClient struct {
 	client    client.Client
 	taskQueue string
 }
 
-// NewHelloWorldClient: Returns a new instance of the client.
+// NewDieRollClient: Returns a new instance of the client.
 // If `taskQueue` stays empty the default one will be used
-func NewHelloWorldClient(client client.Client, taskQueue ...string) (*HelloWorldClient, error) {
-	clientTaskQueue := DefaultHelloWorldTaskQueueName
+func NewDieRollClient(client client.Client, taskQueue ...string) (*DieRollClient, error) {
+	clientTaskQueue := DefaultDieRollTaskQueueName
 	if len(taskQueue) > 0 {
 		clientTaskQueue = taskQueue[0]
 	}
-	return &HelloWorldClient{
+	return &DieRollClient{
 		client:    client,
 		taskQueue: clientTaskQueue,
 	}, nil
 }
 
-// ExecuteActivitySayHello executes the activity asynchronously and returns a future to it
-func (c *HelloWorldClient) ExecuteActivitySayHello(ctx workflow.Context, req *HelloRequest, options ...workflow.ActivityOptions) workflow.Future {
+// ExecuteActivityThrowDie executes the activity asynchronously and returns a future to it
+func (c *DieRollClient) ExecuteActivityThrowDie(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) workflow.Future {
 	var aOptions workflow.ActivityOptions
 	if len(options) > 0 {
 		aOptions = options[0]
 	}
 	if aOptions.TaskQueue == "" {
-		aOptions.TaskQueue = DefaultHelloWorldTaskQueueName
+		aOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if aOptions.ActivityID == "" {
-		aOptions.ActivityID = fmt.Sprintf("%s/%s", "example.v1.HelloWorld.SayHello", uuid.NewString())
+		aOptions.ActivityID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowDie", uuid.NewString())
 	}
 	if aOptions.ScheduleToCloseTimeout == 0 {
-		aOptions.ScheduleToCloseTimeout = DefaultHelloWorldScheduleToCloseTimeout
+		aOptions.ScheduleToCloseTimeout = DefaultDieRollScheduleToCloseTimeout
 	}
 	if aOptions.StartToCloseTimeout == 0 {
-		aOptions.StartToCloseTimeout = DefaultHelloWorldStartToCloseTimeout
+		aOptions.StartToCloseTimeout = DefaultDieRollStartToCloseTimeout
 	}
 	if aOptions.StartToCloseTimeout == 0 {
 		aOptions.StartToCloseTimeout = time.Duration(int32(120)) * time.Second
@@ -187,19 +187,19 @@ func (c *HelloWorldClient) ExecuteActivitySayHello(ctx workflow.Context, req *He
 			},
 		}
 	}
-	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), "example.v1.HelloWorld.SayHello", req)
+	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), "example.v1.DieRoll.ThrowDie", req)
 }
 
-// ExecuteActivitySayHelloSync executes the activity synchronously and returns the result when finished
-func (c *HelloWorldClient) ExecuteActivitySayHelloSync(ctx workflow.Context, req *HelloRequest, options ...workflow.ActivityOptions) (*HelloResponse, error) {
+// ExecuteActivityThrowDieSync executes the activity synchronously and returns the result when finished
+func (c *DieRollClient) ExecuteActivityThrowDieSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) (*ThrowDieResponse, error) {
 	aOptions := workflow.ActivityOptions{
 		TaskQueue: c.taskQueue,
 	}
 	if len(options) > 0 {
 		aOptions = options[0]
 	}
-	future := c.ExecuteActivitySayHello(ctx, req, aOptions)
-	var resp *HelloResponse
+	future := c.ExecuteActivityThrowDie(ctx, req, aOptions)
+	var resp *ThrowDieResponse
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -208,28 +208,28 @@ func (c *HelloWorldClient) ExecuteActivitySayHelloSync(ctx workflow.Context, req
 }
 
 // ExecuteActivityPing executes the activity asynchronously and returns a future to it
-func (c *HelloWorldClient) ExecuteActivityPing(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) workflow.Future {
+func (c *DieRollClient) ExecuteActivityPing(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) workflow.Future {
 	var aOptions workflow.ActivityOptions
 	if len(options) > 0 {
 		aOptions = options[0]
 	}
 	if aOptions.TaskQueue == "" {
-		aOptions.TaskQueue = DefaultHelloWorldTaskQueueName
+		aOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if aOptions.ActivityID == "" {
 		aOptions.ActivityID = fmt.Sprintf("%s/%s", "ping.Ping", uuid.NewString())
 	}
 	if aOptions.ScheduleToCloseTimeout == 0 {
-		aOptions.ScheduleToCloseTimeout = DefaultHelloWorldScheduleToCloseTimeout
+		aOptions.ScheduleToCloseTimeout = DefaultDieRollScheduleToCloseTimeout
 	}
 	if aOptions.StartToCloseTimeout == 0 {
-		aOptions.StartToCloseTimeout = DefaultHelloWorldStartToCloseTimeout
+		aOptions.StartToCloseTimeout = DefaultDieRollStartToCloseTimeout
 	}
 	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), "ping.Ping", req)
 }
 
 // ExecuteActivityPingSync executes the activity synchronously and returns the result when finished
-func (c *HelloWorldClient) ExecuteActivityPingSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) (*emptypb.Empty, error) {
+func (c *DieRollClient) ExecuteActivityPingSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) (*emptypb.Empty, error) {
 	aOptions := workflow.ActivityOptions{
 		TaskQueue: c.taskQueue,
 	}
@@ -245,8 +245,8 @@ func (c *HelloWorldClient) ExecuteActivityPingSync(ctx workflow.Context, req *em
 	return resp, nil
 }
 
-// ExecuteWorkflowSayMultipleHello executes the workflow and returns a future to it
-func (c *HelloWorldClient) ExecuteWorkflowSayMultipleHello(ctx context.Context, req *MultipleHelloRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
+// ExecuteWorkflowThrowDies executes the workflow and returns a future to it
+func (c *DieRollClient) ExecuteWorkflowThrowDies(ctx context.Context, req *ThrowDiesRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
 	wOptions := client.StartWorkflowOptions{
 		TaskQueue: c.taskQueue,
 	}
@@ -254,21 +254,21 @@ func (c *HelloWorldClient) ExecuteWorkflowSayMultipleHello(ctx context.Context, 
 		wOptions = options[0]
 	}
 	if wOptions.TaskQueue == "" {
-		wOptions.TaskQueue = DefaultHelloWorldTaskQueueName
+		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.ID == "" {
-		wOptions.ID = fmt.Sprintf("%s/%s", "example.v1.HelloWorld.SayMultipleHello", uuid.NewString())
+		wOptions.ID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowDies", uuid.NewString())
 	}
-	return c.client.ExecuteWorkflow(ctx, wOptions, "example.v1.HelloWorld.SayMultipleHello", req)
+	return c.client.ExecuteWorkflow(ctx, wOptions, "example.v1.DieRoll.ThrowDies", req)
 }
 
-// ExecuteWorkflowSayMultipleHelloSync executes the workflow and returns the result when finished
-func (c *HelloWorldClient) ExecuteWorkflowSayMultipleHelloSync(ctx context.Context, req *MultipleHelloRequest, options ...client.StartWorkflowOptions) (*MultipleHelloResponse, error) {
-	future, err := c.ExecuteWorkflowSayMultipleHello(ctx, req, options...)
+// ExecuteWorkflowThrowDiesSync executes the workflow and returns the result when finished
+func (c *DieRollClient) ExecuteWorkflowThrowDiesSync(ctx context.Context, req *ThrowDiesRequest, options ...client.StartWorkflowOptions) (*ThrowDiesResponse, error) {
+	future, err := c.ExecuteWorkflowThrowDies(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
-	var resp *MultipleHelloResponse
+	var resp *ThrowDiesResponse
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -276,10 +276,10 @@ func (c *HelloWorldClient) ExecuteWorkflowSayMultipleHelloSync(ctx context.Conte
 	return resp, nil
 }
 
-// GetWorkflowSayMultipleHelloResult gets the result of a given workflow
-func (c *HelloWorldClient) GetWorkflowSayMultipleHelloResult(ctx context.Context, workflowId string, runId string) (*MultipleHelloResponse, error) {
+// GetWorkflowThrowDiesResult gets the result of a given workflow
+func (c *DieRollClient) GetWorkflowThrowDiesResult(ctx context.Context, workflowId string, runId string) (*ThrowDiesResponse, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
-	var resp *MultipleHelloResponse
+	var resp *ThrowDiesResponse
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -287,8 +287,8 @@ func (c *HelloWorldClient) GetWorkflowSayMultipleHelloResult(ctx context.Context
 	return resp, nil
 }
 
-// ExecuteChildSayMultipleHello executes the workflow as a child workflow and returns a future to it
-func (c *HelloWorldClient) ExecuteChildSayMultipleHello(ctx workflow.Context, req *MultipleHelloRequest, options ...workflow.ChildWorkflowOptions) workflow.ChildWorkflowFuture {
+// ExecuteChildThrowDies executes the workflow as a child workflow and returns a future to it
+func (c *DieRollClient) ExecuteChildThrowDies(ctx workflow.Context, req *ThrowDiesRequest, options ...workflow.ChildWorkflowOptions) workflow.ChildWorkflowFuture {
 	wOptions := workflow.ChildWorkflowOptions{
 		TaskQueue: c.taskQueue,
 	}
@@ -296,18 +296,18 @@ func (c *HelloWorldClient) ExecuteChildSayMultipleHello(ctx workflow.Context, re
 		wOptions = options[0]
 	}
 	if wOptions.TaskQueue == "" {
-		wOptions.TaskQueue = DefaultHelloWorldTaskQueueName
+		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.WorkflowID == "" {
-		wOptions.WorkflowID = fmt.Sprintf("%s/%s", "example.v1.HelloWorld.SayMultipleHello", uuid.NewString())
+		wOptions.WorkflowID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowDies", uuid.NewString())
 	}
-	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.HelloWorld.SayMultipleHello", req)
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ThrowDies", req)
 }
 
-// ExecuteChildSayMultipleHelloSync executes the workflow as a child workflow and returns the result when finished
-func (c *HelloWorldClient) ExecuteChildSayMultipleHelloSync(ctx workflow.Context, req *MultipleHelloRequest, options ...workflow.ChildWorkflowOptions) (*MultipleHelloResponse, error) {
-	future := c.ExecuteChildSayMultipleHello(ctx, req, options...)
-	var resp *MultipleHelloResponse
+// ExecuteChildThrowDiesSync executes the workflow as a child workflow and returns the result when finished
+func (c *DieRollClient) ExecuteChildThrowDiesSync(ctx workflow.Context, req *ThrowDiesRequest, options ...workflow.ChildWorkflowOptions) (*ThrowDiesResponse, error) {
+	future := c.ExecuteChildThrowDies(ctx, req, options...)
+	var resp *ThrowDiesResponse
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -315,8 +315,8 @@ func (c *HelloWorldClient) ExecuteChildSayMultipleHelloSync(ctx workflow.Context
 	return resp, nil
 }
 
-// ExecuteWorkflowSomeOtherWorkflow executes the workflow and returns a future to it
-func (c *HelloWorldClient) ExecuteWorkflowSomeOtherWorkflow(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
+// ExecuteWorkflowThrowUntilValue executes the workflow and returns a future to it
+func (c *DieRollClient) ExecuteWorkflowThrowUntilValue(ctx context.Context, req *ThrowUntilValueRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
 	wOptions := client.StartWorkflowOptions{
 		TaskQueue: c.taskQueue,
 	}
@@ -324,23 +324,17 @@ func (c *HelloWorldClient) ExecuteWorkflowSomeOtherWorkflow(ctx context.Context,
 		wOptions = options[0]
 	}
 	if wOptions.TaskQueue == "" {
-		wOptions.TaskQueue = DefaultHelloWorldTaskQueueName
+		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.ID == "" {
-		wOptions.ID = fmt.Sprintf("%s/%s", "example.v1.HelloWorld.SomeOtherWorkflow", uuid.NewString())
+		wOptions.ID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowUntilValue", uuid.NewString())
 	}
-	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(int32(86400)) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(int32(7200)) * time.Second
-	}
-	return c.client.ExecuteWorkflow(ctx, wOptions, "example.v1.HelloWorld.SomeOtherWorkflow", req)
+	return c.client.ExecuteWorkflow(ctx, wOptions, "example.v1.DieRoll.ThrowUntilValue", req)
 }
 
-// ExecuteWorkflowSomeOtherWorkflowSync executes the workflow and returns the result when finished
-func (c *HelloWorldClient) ExecuteWorkflowSomeOtherWorkflowSync(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (*emptypb.Empty, error) {
-	future, err := c.ExecuteWorkflowSomeOtherWorkflow(ctx, req, options...)
+// ExecuteWorkflowThrowUntilValueSync executes the workflow and returns the result when finished
+func (c *DieRollClient) ExecuteWorkflowThrowUntilValueSync(ctx context.Context, req *ThrowUntilValueRequest, options ...client.StartWorkflowOptions) (*emptypb.Empty, error) {
+	future, err := c.ExecuteWorkflowThrowUntilValue(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -352,8 +346,8 @@ func (c *HelloWorldClient) ExecuteWorkflowSomeOtherWorkflowSync(ctx context.Cont
 	return resp, nil
 }
 
-// GetWorkflowSomeOtherWorkflowResult gets the result of a given workflow
-func (c *HelloWorldClient) GetWorkflowSomeOtherWorkflowResult(ctx context.Context, workflowId string, runId string) (*emptypb.Empty, error) {
+// GetWorkflowThrowUntilValueResult gets the result of a given workflow
+func (c *DieRollClient) GetWorkflowThrowUntilValueResult(ctx context.Context, workflowId string, runId string) (*emptypb.Empty, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 	var resp *emptypb.Empty
 	err := future.Get(ctx, &resp)
@@ -363,8 +357,8 @@ func (c *HelloWorldClient) GetWorkflowSomeOtherWorkflowResult(ctx context.Contex
 	return resp, nil
 }
 
-// ExecuteChildSomeOtherWorkflow executes the workflow as a child workflow and returns a future to it
-func (c *HelloWorldClient) ExecuteChildSomeOtherWorkflow(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) workflow.ChildWorkflowFuture {
+// ExecuteChildThrowUntilValue executes the workflow as a child workflow and returns a future to it
+func (c *DieRollClient) ExecuteChildThrowUntilValue(ctx workflow.Context, req *ThrowUntilValueRequest, options ...workflow.ChildWorkflowOptions) workflow.ChildWorkflowFuture {
 	wOptions := workflow.ChildWorkflowOptions{
 		TaskQueue: c.taskQueue,
 	}
@@ -372,23 +366,17 @@ func (c *HelloWorldClient) ExecuteChildSomeOtherWorkflow(ctx workflow.Context, r
 		wOptions = options[0]
 	}
 	if wOptions.TaskQueue == "" {
-		wOptions.TaskQueue = DefaultHelloWorldTaskQueueName
+		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.WorkflowID == "" {
-		wOptions.WorkflowID = fmt.Sprintf("%s/%s", "example.v1.HelloWorld.SomeOtherWorkflow", uuid.NewString())
+		wOptions.WorkflowID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowUntilValue", uuid.NewString())
 	}
-	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(int32(86400)) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(int32(7200)) * time.Second
-	}
-	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.HelloWorld.SomeOtherWorkflow", req)
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ThrowUntilValue", req)
 }
 
-// ExecuteChildSomeOtherWorkflowSync executes the workflow as a child workflow and returns the result when finished
-func (c *HelloWorldClient) ExecuteChildSomeOtherWorkflowSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (*emptypb.Empty, error) {
-	future := c.ExecuteChildSomeOtherWorkflow(ctx, req, options...)
+// ExecuteChildThrowUntilValueSync executes the workflow as a child workflow and returns the result when finished
+func (c *DieRollClient) ExecuteChildThrowUntilValueSync(ctx workflow.Context, req *ThrowUntilValueRequest, options ...workflow.ChildWorkflowOptions) (*emptypb.Empty, error) {
+	future := c.ExecuteChildThrowUntilValue(ctx, req, options...)
 	var resp *emptypb.Empty
 	err := future.Get(ctx, &resp)
 	if err != nil {
@@ -397,18 +385,18 @@ func (c *HelloWorldClient) ExecuteChildSomeOtherWorkflowSync(ctx workflow.Contex
 	return resp, nil
 }
 
-// HelloWorldSayMultipleHello is a struct that wraps a workflow
-type HelloWorldSayMultipleHello struct {
+// DieRollThrowDies is a struct that wraps a workflow
+type DieRollThrowDies struct {
 	client     client.Client
 	future     client.WorkflowRun
 	workflowId string
 	runId      string
 }
 
-// GetSayMultipleHello gets an instance of a given workflow
-func (c *HelloWorldClient) GetSayMultipleHello(ctx context.Context, workflowId string, runId string) *HelloWorldSayMultipleHello {
+// GetThrowDies gets an instance of a given workflow
+func (c *DieRollClient) GetThrowDies(ctx context.Context, workflowId string, runId string) *DieRollThrowDies {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
-	return &HelloWorldSayMultipleHello{
+	return &DieRollThrowDies{
 		client:     c.client,
 		future:     future,
 		workflowId: workflowId,
@@ -416,9 +404,9 @@ func (c *HelloWorldClient) GetSayMultipleHello(ctx context.Context, workflowId s
 	}
 }
 
-// GetSayMultipleHelloFromRun gets an instance of a given workflow from a future
-func (c *HelloWorldClient) GetSayMultipleHelloFromRun(future client.WorkflowRun) *HelloWorldSayMultipleHello {
-	return &HelloWorldSayMultipleHello{
+// GetThrowDiesFromRun gets an instance of a given workflow from a future
+func (c *DieRollClient) GetThrowDiesFromRun(future client.WorkflowRun) *DieRollThrowDies {
+	return &DieRollThrowDies{
 		workflowId: future.GetID(),
 		runId:      future.GetRunID(),
 		client:     c.client,
@@ -427,28 +415,28 @@ func (c *HelloWorldClient) GetSayMultipleHelloFromRun(future client.WorkflowRun)
 }
 
 // Cancel cancels a given workflow
-func (w *HelloWorldSayMultipleHello) Cancel(ctx context.Context) error {
+func (w *DieRollThrowDies) Cancel(ctx context.Context) error {
 	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
 }
 
 // Returns the workflow ID
-func (w *HelloWorldSayMultipleHello) GetID() string {
+func (w *DieRollThrowDies) GetID() string {
 	return w.future.GetID()
 }
 
 // Returns the run ID
-func (w *HelloWorldSayMultipleHello) GetRunID() string {
+func (w *DieRollThrowDies) GetRunID() string {
 	return w.future.GetRunID()
 }
 
 // Terminates terminates a given workflow
-func (w *HelloWorldSayMultipleHello) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+func (w *DieRollThrowDies) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
 }
 
 // Get gets the result of a given workflow with its native type
-func (w *HelloWorldSayMultipleHello) Result(ctx context.Context) (*MultipleHelloResponse, error) {
-	var resp *MultipleHelloResponse
+func (w *DieRollThrowDies) Result(ctx context.Context) (*ThrowDiesResponse, error) {
+	var resp *ThrowDiesResponse
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -457,8 +445,8 @@ func (w *HelloWorldSayMultipleHello) Result(ctx context.Context) (*MultipleHello
 }
 
 // ResultWithOptions gets the result of a given workflow with its native type
-func (w *HelloWorldSayMultipleHello) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*MultipleHelloResponse, error) {
-	var resp *MultipleHelloResponse
+func (w *DieRollThrowDies) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*ThrowDiesResponse, error) {
+	var resp *ThrowDiesResponse
 	err := w.future.GetWithOptions(ctx, &resp, options)
 	if err != nil {
 		return nil, err
@@ -467,27 +455,155 @@ func (w *HelloWorldSayMultipleHello) ResultWithOptions(ctx context.Context, opti
 }
 
 // Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *HelloWorldSayMultipleHello) Get(ctx context.Context, valuePtr interface{}) error {
+func (w *DieRollThrowDies) Get(ctx context.Context, valuePtr interface{}) error {
 	return w.future.Get(ctx, valuePtr)
 }
 
 // Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *HelloWorldSayMultipleHello) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+func (w *DieRollThrowDies) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
 	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
 
 // SignalContinue sends the Continue signal to the workflow
-func (w *HelloWorldSayMultipleHello) SignalContinue(ctx context.Context, req *ContinueSignalRequest) error {
-	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), "example.v1.HelloWorld.Continue", req)
+func (w *DieRollThrowDies) SignalContinue(ctx context.Context, req *ContinueSignalRequest) error {
+	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), "example.v1.DieRoll.Continue", req)
 }
 
-// QueryGetStatus queries the workflow with GetStatus
-func (w *HelloWorldSayMultipleHello) QueryGetStatus(ctx context.Context, req *GetStatusRequest) (*GetStatusResponse, error) {
-	future, err := w.client.QueryWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), "example.v1.HelloWorld.GetStatus", req)
+// ChildDieRollThrowDiesExecution is a struct that wraps a workflow execution (called from another workflow)
+type ChildDieRollThrowDiesExecution struct {
+	client client.Client
+	future workflow.ChildWorkflowFuture
+}
+
+// GetChildDieRollThrowDiesExecution gets an instance of a given workflow from a future
+func (c *DieRollClient) GetChildDieRollThrowDiesExecution(future workflow.ChildWorkflowFuture) *ChildDieRollThrowDiesExecution {
+	return &ChildDieRollThrowDiesExecution{
+		client: c.client,
+		future: future,
+	}
+}
+
+// Get gets the result of a given workflow with its native type
+func (w *ChildDieRollThrowDiesExecution) Result(ctx workflow.Context) (*ThrowDiesResponse, error) {
+	var resp *ThrowDiesResponse
+	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
-	var resp *GetStatusResponse
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
+func (w *ChildDieRollThrowDiesExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildDieRollThrowDiesExecution) GetChildWorkflowExecution() (ctx workflow.Future) {
+	return w.future
+}
+
+// Wraps the IsReady method from the future
+func (w *ChildDieRollThrowDiesExecution) IsReady() bool {
+	return w.future.IsReady()
+}
+
+// Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+func (w *ChildDieRollThrowDiesExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
+	return w.future.SignalChildWorkflow(ctx, sigName, data)
+}
+
+// SignalContinue sends the Continue signal to the workflow
+func (w *ChildDieRollThrowDiesExecution) SignalContinue(ctx workflow.Context, req *ContinueSignalRequest) error {
+	return w.future.SignalChildWorkflow(ctx, "example.v1.DieRoll.Continue", req).Get(ctx, nil)
+}
+
+// DieRollThrowUntilValue is a struct that wraps a workflow
+type DieRollThrowUntilValue struct {
+	client     client.Client
+	future     client.WorkflowRun
+	workflowId string
+	runId      string
+}
+
+// GetThrowUntilValue gets an instance of a given workflow
+func (c *DieRollClient) GetThrowUntilValue(ctx context.Context, workflowId string, runId string) *DieRollThrowUntilValue {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+	return &DieRollThrowUntilValue{
+		client:     c.client,
+		future:     future,
+		workflowId: workflowId,
+		runId:      runId,
+	}
+}
+
+// GetThrowUntilValueFromRun gets an instance of a given workflow from a future
+func (c *DieRollClient) GetThrowUntilValueFromRun(future client.WorkflowRun) *DieRollThrowUntilValue {
+	return &DieRollThrowUntilValue{
+		workflowId: future.GetID(),
+		runId:      future.GetRunID(),
+		client:     c.client,
+		future:     future,
+	}
+}
+
+// Cancel cancels a given workflow
+func (w *DieRollThrowUntilValue) Cancel(ctx context.Context) error {
+	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
+}
+
+// Returns the workflow ID
+func (w *DieRollThrowUntilValue) GetID() string {
+	return w.future.GetID()
+}
+
+// Returns the run ID
+func (w *DieRollThrowUntilValue) GetRunID() string {
+	return w.future.GetRunID()
+}
+
+// Terminates terminates a given workflow
+func (w *DieRollThrowUntilValue) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
+}
+
+// Get gets the result of a given workflow with its native type
+func (w *DieRollThrowUntilValue) Result(ctx context.Context) (*emptypb.Empty, error) {
+	var resp *emptypb.Empty
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ResultWithOptions gets the result of a given workflow with its native type
+func (w *DieRollThrowUntilValue) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*emptypb.Empty, error) {
+	var resp *emptypb.Empty
+	err := w.future.GetWithOptions(ctx, &resp, options)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *DieRollThrowUntilValue) Get(ctx context.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *DieRollThrowUntilValue) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+	return w.future.GetWithOptions(ctx, valuePtr, options)
+}
+
+// QueryGetThrowsStatus queries the workflow with GetThrowsStatus
+func (w *DieRollThrowUntilValue) QueryGetThrowsStatus(ctx context.Context, req *emptypb.Empty) (*ThrowStatusResponse, error) {
+	future, err := w.client.QueryWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), "example.v1.DieRoll.GetThrowsStatus", req)
+	if err != nil {
+		return nil, err
+	}
+	var resp *ThrowStatusResponse
 	err = future.Get(&resp)
 	if err != nil {
 		return nil, err
@@ -495,150 +611,22 @@ func (w *HelloWorldSayMultipleHello) QueryGetStatus(ctx context.Context, req *Ge
 	return resp, nil
 }
 
-// ChildHelloWorldSayMultipleHelloExecution is a struct that wraps a workflow execution (called from another workflow)
-type ChildHelloWorldSayMultipleHelloExecution struct {
+// ChildDieRollThrowUntilValueExecution is a struct that wraps a workflow execution (called from another workflow)
+type ChildDieRollThrowUntilValueExecution struct {
 	client client.Client
 	future workflow.ChildWorkflowFuture
 }
 
-// GetChildHelloWorldSayMultipleHelloExecution gets an instance of a given workflow from a future
-func (c *HelloWorldClient) GetChildHelloWorldSayMultipleHelloExecution(future workflow.ChildWorkflowFuture) *ChildHelloWorldSayMultipleHelloExecution {
-	return &ChildHelloWorldSayMultipleHelloExecution{
+// GetChildDieRollThrowUntilValueExecution gets an instance of a given workflow from a future
+func (c *DieRollClient) GetChildDieRollThrowUntilValueExecution(future workflow.ChildWorkflowFuture) *ChildDieRollThrowUntilValueExecution {
+	return &ChildDieRollThrowUntilValueExecution{
 		client: c.client,
 		future: future,
 	}
 }
 
 // Get gets the result of a given workflow with its native type
-func (w *ChildHelloWorldSayMultipleHelloExecution) Result(ctx workflow.Context) (*MultipleHelloResponse, error) {
-	var resp *MultipleHelloResponse
-	err := w.future.Get(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
-func (w *ChildHelloWorldSayMultipleHelloExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
-	return w.future.Get(ctx, valuePtr)
-}
-
-// Wraps the GetChildWorkflowExecution and returns an workflow.Future
-func (w *ChildHelloWorldSayMultipleHelloExecution) GetChildWorkflowExecution() (ctx workflow.Future) {
-	return w.future
-}
-
-// Wraps the IsReady method from the future
-func (w *ChildHelloWorldSayMultipleHelloExecution) IsReady() bool {
-	return w.future.IsReady()
-}
-
-// Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
-func (w *ChildHelloWorldSayMultipleHelloExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
-	return w.future.SignalChildWorkflow(ctx, sigName, data)
-}
-
-// SignalContinue sends the Continue signal to the workflow
-func (w *ChildHelloWorldSayMultipleHelloExecution) SignalContinue(ctx workflow.Context, req *ContinueSignalRequest) error {
-	return w.future.SignalChildWorkflow(ctx, "example.v1.HelloWorld.Continue", req).Get(ctx, nil)
-}
-
-// HelloWorldSomeOtherWorkflow is a struct that wraps a workflow
-type HelloWorldSomeOtherWorkflow struct {
-	client     client.Client
-	future     client.WorkflowRun
-	workflowId string
-	runId      string
-}
-
-// GetSomeOtherWorkflow gets an instance of a given workflow
-func (c *HelloWorldClient) GetSomeOtherWorkflow(ctx context.Context, workflowId string, runId string) *HelloWorldSomeOtherWorkflow {
-	future := c.client.GetWorkflow(ctx, workflowId, runId)
-	return &HelloWorldSomeOtherWorkflow{
-		client:     c.client,
-		future:     future,
-		workflowId: workflowId,
-		runId:      runId,
-	}
-}
-
-// GetSomeOtherWorkflowFromRun gets an instance of a given workflow from a future
-func (c *HelloWorldClient) GetSomeOtherWorkflowFromRun(future client.WorkflowRun) *HelloWorldSomeOtherWorkflow {
-	return &HelloWorldSomeOtherWorkflow{
-		workflowId: future.GetID(),
-		runId:      future.GetRunID(),
-		client:     c.client,
-		future:     future,
-	}
-}
-
-// Cancel cancels a given workflow
-func (w *HelloWorldSomeOtherWorkflow) Cancel(ctx context.Context) error {
-	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
-}
-
-// Returns the workflow ID
-func (w *HelloWorldSomeOtherWorkflow) GetID() string {
-	return w.future.GetID()
-}
-
-// Returns the run ID
-func (w *HelloWorldSomeOtherWorkflow) GetRunID() string {
-	return w.future.GetRunID()
-}
-
-// Terminates terminates a given workflow
-func (w *HelloWorldSomeOtherWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
-	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
-}
-
-// Get gets the result of a given workflow with its native type
-func (w *HelloWorldSomeOtherWorkflow) Result(ctx context.Context) (*emptypb.Empty, error) {
-	var resp *emptypb.Empty
-	err := w.future.Get(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-// ResultWithOptions gets the result of a given workflow with its native type
-func (w *HelloWorldSomeOtherWorkflow) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*emptypb.Empty, error) {
-	var resp *emptypb.Empty
-	err := w.future.GetWithOptions(ctx, &resp, options)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *HelloWorldSomeOtherWorkflow) Get(ctx context.Context, valuePtr interface{}) error {
-	return w.future.Get(ctx, valuePtr)
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *HelloWorldSomeOtherWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
-	return w.future.GetWithOptions(ctx, valuePtr, options)
-}
-
-// ChildHelloWorldSomeOtherWorkflowExecution is a struct that wraps a workflow execution (called from another workflow)
-type ChildHelloWorldSomeOtherWorkflowExecution struct {
-	client client.Client
-	future workflow.ChildWorkflowFuture
-}
-
-// GetChildHelloWorldSomeOtherWorkflowExecution gets an instance of a given workflow from a future
-func (c *HelloWorldClient) GetChildHelloWorldSomeOtherWorkflowExecution(future workflow.ChildWorkflowFuture) *ChildHelloWorldSomeOtherWorkflowExecution {
-	return &ChildHelloWorldSomeOtherWorkflowExecution{
-		client: c.client,
-		future: future,
-	}
-}
-
-// Get gets the result of a given workflow with its native type
-func (w *ChildHelloWorldSomeOtherWorkflowExecution) Result(ctx workflow.Context) (*emptypb.Empty, error) {
+func (w *ChildDieRollThrowUntilValueExecution) Result(ctx workflow.Context) (*emptypb.Empty, error) {
 	var resp *emptypb.Empty
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
@@ -648,51 +636,51 @@ func (w *ChildHelloWorldSomeOtherWorkflowExecution) Result(ctx workflow.Context)
 }
 
 // Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
-func (w *ChildHelloWorldSomeOtherWorkflowExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
+func (w *ChildDieRollThrowUntilValueExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
 	return w.future.Get(ctx, valuePtr)
 }
 
 // Wraps the GetChildWorkflowExecution and returns an workflow.Future
-func (w *ChildHelloWorldSomeOtherWorkflowExecution) GetChildWorkflowExecution() (ctx workflow.Future) {
+func (w *ChildDieRollThrowUntilValueExecution) GetChildWorkflowExecution() (ctx workflow.Future) {
 	return w.future
 }
 
 // Wraps the IsReady method from the future
-func (w *ChildHelloWorldSomeOtherWorkflowExecution) IsReady() bool {
+func (w *ChildDieRollThrowUntilValueExecution) IsReady() bool {
 	return w.future.IsReady()
 }
 
 // Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
-func (w *ChildHelloWorldSomeOtherWorkflowExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
+func (w *ChildDieRollThrowUntilValueExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
 	return w.future.SignalChildWorkflow(ctx, sigName, data)
 }
 
 // SendSignalContinue sends the Continue signal to a workflow
-func (c *HelloWorldClient) SendSignalContinue(ctx context.Context, workflowID string, runID string, req *ContinueSignalRequest) error {
-	return c.client.SignalWorkflow(ctx, workflowID, runID, "example.v1.HelloWorld.Continue", req)
+func (c *DieRollClient) SendSignalContinue(ctx context.Context, workflowID string, runID string, req *ContinueSignalRequest) error {
+	return c.client.SignalWorkflow(ctx, workflowID, runID, "example.v1.DieRoll.Continue", req)
 }
 
 // ReceiveSignalContinue waits for the the Continue signal
 func ReceiveSignalContinue(ctx workflow.Context) (*ContinueSignalRequest, bool) {
 	var result *ContinueSignalRequest
-	ok := workflow.GetSignalChannel(ctx, "example.v1.HelloWorld.Continue").Receive(ctx, &result)
+	ok := workflow.GetSignalChannel(ctx, "example.v1.DieRoll.Continue").Receive(ctx, &result)
 	return result, ok
 }
 
 // ReceiveSignalContinueAsync recieves the the Continue signal asynchronously. It doesn't wait if there is no signal in the queue
 func ReceiveSignalContinueAsync(ctx workflow.Context) (*ContinueSignalRequest, bool) {
 	var result *ContinueSignalRequest
-	ok := workflow.GetSignalChannel(ctx, "example.v1.HelloWorld.Continue").ReceiveAsync(&result)
+	ok := workflow.GetSignalChannel(ctx, "example.v1.DieRoll.Continue").ReceiveAsync(&result)
 	return result, ok
 }
 
-// QueryGetStatus sends the GetStatus query to a workflow
-func (c *HelloWorldClient) QueryGetStatus(ctx context.Context, workflowID string, runID string, req *GetStatusRequest) (*GetStatusResponse, error) {
-	future, err := c.client.QueryWorkflow(ctx, workflowID, runID, "example.v1.HelloWorld.GetStatus", req)
+// QueryGetThrowsStatus sends the GetThrowsStatus query to a workflow
+func (c *DieRollClient) QueryGetThrowsStatus(ctx context.Context, workflowID string, runID string, req *emptypb.Empty) (*ThrowStatusResponse, error) {
+	future, err := c.client.QueryWorkflow(ctx, workflowID, runID, "example.v1.DieRoll.GetThrowsStatus", req)
 	if err != nil {
 		return nil, err
 	}
-	var resp *GetStatusResponse
+	var resp *ThrowStatusResponse
 	err = future.Get(&resp)
 	if err != nil {
 		return nil, err
@@ -700,7 +688,7 @@ func (c *HelloWorldClient) QueryGetStatus(ctx context.Context, workflowID string
 	return resp, nil
 }
 
-// HandleQueryGetStatus sets up the GetStatus query and responds accordingly, returns an error if it failed
-func HandleQueryGetStatus(ctx workflow.Context, queryFunc func(req *GetStatusRequest) (*GetStatusResponse, error)) error {
-	return workflow.SetQueryHandler(ctx, "example.v1.HelloWorld.GetStatus", queryFunc)
+// HandleQueryGetThrowsStatus sets up the GetThrowsStatus query and responds accordingly, returns an error if it failed
+func HandleQueryGetThrowsStatus(ctx workflow.Context, queryFunc func(req *emptypb.Empty) (*ThrowStatusResponse, error)) error {
+	return workflow.SetQueryHandler(ctx, "example.v1.DieRoll.GetThrowsStatus", queryFunc)
 }
