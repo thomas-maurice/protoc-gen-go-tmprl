@@ -10,6 +10,14 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func getWorkflowObjectName(service *protogen.Service, method *protogen.Method) string {
+	return fmt.Sprintf("%s%s", service.GoName, method.GoName)
+}
+
+func getChildWorkflowObjectName(service *protogen.Service, method *protogen.Method) string {
+	return fmt.Sprintf("Child%s%sExecution", service.GoName, method.GoName)
+}
+
 func WorkflowObjects(gf *protogen.GeneratedFile, service *protogen.Service) error {
 	clientName := getClientName(service)
 
@@ -67,13 +75,14 @@ func WorkflowObjects(gf *protogen.GeneratedFile, service *protogen.Service) erro
 				and so on
 			*/
 
-			wfObjName := fmt.Sprintf("%s%s", service.GoName, method.GoName)
+			wfObjName := getWorkflowObjectName(service, method)
+			wfChildObjName := getChildWorkflowObjectName(service, method)
 			workflowObjects.Comment(fmt.Sprintf("%s is a struct that wraps a workflow", wfObjName)).Line().
 				Type().Id(wfObjName).StructFunc(func(g *jen.Group) {
-				g.Add(jen.Id("WorkflowID").String())
-				g.Add(jen.Id("RunID").String())
 				g.Add(jen.Id("client").Id(getTemporalClientObject(gf, "Client")))
 				g.Add(jen.Id("future").Id(getTemporalClientObject(gf, "WorkflowRun")))
+				g.Add(jen.Id("workflowId").String())
+				g.Add(jen.Id("runId").String())
 			}).Line()
 
 			// Gets an instance of a workflow
@@ -94,10 +103,10 @@ func WorkflowObjects(gf *protogen.GeneratedFile, service *protogen.Service) erro
 
 					g.Add(jen.ReturnFunc(func(g *jen.Group) {
 						g.Add(jen.Op("&").Id(wfObjName).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("WorkflowID").Op(":").Id("future").Dot("GetID").Call(jen.Null()).Op(","))
-							g.Add(jen.Id("RunID").Op(":").Id("future").Dot("GetRunID").Call(jen.Null()).Op(","))
 							g.Add(jen.Id("client").Op(":").Id("c").Dot("client").Op(","))
 							g.Add(jen.Id("future").Op(":").Id("future").Op(","))
+							g.Add(jen.Id("workflowId").Op(":").Id("workflowId").Op(","))
+							g.Add(jen.Id("runId").Op(":").Id("runId").Op(","))
 						}))
 					}))
 				}).Line().Line()
@@ -112,8 +121,8 @@ func WorkflowObjects(gf *protogen.GeneratedFile, service *protogen.Service) erro
 				BlockFunc(func(g *jen.Group) {
 					g.Add(jen.ReturnFunc(func(g *jen.Group) {
 						g.Add(jen.Op("&").Id(wfObjName).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("WorkflowID").Op(":").Id("future").Dot("GetID").Call(jen.Null()).Op(","))
-							g.Add(jen.Id("RunID").Op(":").Id("future").Dot("GetRunID").Call(jen.Null()).Op(","))
+							g.Add(jen.Id("workflowId").Op(":").Id("future").Dot("GetID").Call(jen.Null()).Op(","))
+							g.Add(jen.Id("runId").Op(":").Id("future").Dot("GetRunID").Call(jen.Null()).Op(","))
 							g.Add(jen.Id("client").Op(":").Id("c").Dot("client").Op(","))
 							g.Add(jen.Id("future").Op(":").Id("future").Op(","))
 						}))
@@ -131,8 +140,8 @@ func WorkflowObjects(gf *protogen.GeneratedFile, service *protogen.Service) erro
 					g.Add(jen.ReturnFunc(func(g *jen.Group) {
 						g.Add(jen.Id("w").Dot("client").Dot("CancelWorkflow").CallFunc(func(g *jen.Group) {
 							g.Add(jen.Id("ctx"))
-							g.Add(jen.Id("w").Dot("WorkflowID"))
-							g.Add(jen.Id("w").Dot("RunID"))
+							g.Add(jen.Id("w").Dot("workflowId"))
+							g.Add(jen.Id("w").Dot("runId"))
 						}))
 					}))
 				}).Line()
@@ -172,8 +181,8 @@ func WorkflowObjects(gf *protogen.GeneratedFile, service *protogen.Service) erro
 					g.Add(jen.ReturnFunc(func(g *jen.Group) {
 						g.Add(jen.Id("w").Dot("client").Dot("TerminateWorkflow").CallFunc(func(g *jen.Group) {
 							g.Add(jen.Id("ctx"))
-							g.Add(jen.Id("w").Dot("WorkflowID"))
-							g.Add(jen.Id("w").Dot("RunID"))
+							g.Add(jen.Id("w").Dot("workflowId"))
+							g.Add(jen.Id("w").Dot("runId"))
 							g.Add(jen.Id("reason"))
 							g.Add(jen.Id("details").Op("..."))
 						}))
@@ -312,7 +321,7 @@ func WorkflowObjects(gf *protogen.GeneratedFile, service *protogen.Service) erro
 					queryName = queryOpts.Name
 				}
 
-				// Sens a query to a workflow
+				// Send a query to a workflow
 				workflowObjects.Comment(fmt.Sprintf("Query%s queries the workflow with %s", query, query)).Line().
 					Func().Parens(jen.Id("w").Op("*").Id(wfObjName)).Id("Query" + query).ParamsFunc(func(g *jen.Group) {
 					g.Add(jen.Id("ctx").Id(getContext(gf)))
@@ -344,6 +353,140 @@ func WorkflowObjects(gf *protogen.GeneratedFile, service *protogen.Service) erro
 							g.Add(jen.Id("resp"))
 							g.Add(jen.Nil())
 						}))
+					}).Line().Line()
+			}
+
+			/*
+				Workflow execution object (called from a workflow)
+			*/
+
+			workflowObjects.Comment(fmt.Sprintf("%s is a struct that wraps a workflow execution (called from another workflow)", wfChildObjName)).Line().
+				Type().Id(wfChildObjName).StructFunc(func(g *jen.Group) {
+				g.Add(jen.Id("client").Id(getTemporalClientObject(gf, "Client")))
+				g.Add(jen.Id("future").Id(getTemporalWorkflowObject(gf, "ChildWorkflowFuture")))
+			}).Line()
+
+			// Gets an instance of a workflow from a future
+			workflowObjects.Comment(fmt.Sprintf("Get%s gets an instance of a given workflow from a future", wfChildObjName)).Line().
+				Func().Parens(jen.Id("c").Op("*").Id(clientName)).Id(fmt.Sprintf("Get%s", wfChildObjName)).ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Id("future").Id(getTemporalWorkflowObject(gf, "ChildWorkflowFuture")))
+			}).ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Op("*").Id(wfChildObjName))
+			}).
+				BlockFunc(func(g *jen.Group) {
+					g.Add(jen.ReturnFunc(func(g *jen.Group) {
+						g.Add(jen.Op("&").Id(wfChildObjName).BlockFunc(func(g *jen.Group) {
+							g.Add(jen.Id("client").Op(":").Id("c").Dot("client").Op(","))
+							g.Add(jen.Id("future").Op(":").Id("future").Op(","))
+						}))
+					}))
+				}).Line().Line()
+
+			// Gets the result of a workflow
+			workflowObjects.Comment("Get gets the result of a given workflow with its native type").Line().
+				Func().Parens(jen.Id("w").Op("*").Id(wfChildObjName)).Id("Result").ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Id("ctx").Id(getTemporalWorkflowObject(gf, "Context")))
+			}).ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Op("*").Id(gf.QualifiedGoIdent(method.Output.GoIdent)))
+				g.Add(jen.Error())
+			}).
+				BlockFunc(func(g *jen.Group) {
+					g.Add(jen.Var().Id("resp").Op("*").Id(gf.QualifiedGoIdent(method.Output.GoIdent)))
+
+					g.Add(jen.Id("err").Op(":=").Id("w").Dot("future").Dot("Get").CallFunc(func(g *jen.Group) {
+						g.Add(jen.Id("ctx"))
+						g.Add(jen.Op("&").Id("resp"))
+					}))
+
+					g.Add(IfErrNilDouble)
+
+					g.Add(jen.ReturnFunc(func(g *jen.Group) {
+						g.Add(jen.Id("resp"))
+						g.Add(jen.Nil())
+					}))
+				}).Line().Line()
+
+			workflowObjects.Comment("Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future").Line().
+				Func().Parens(jen.Id("w").Op("*").Id(wfChildObjName)).Id("Get").ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Id("ctx").Id(getTemporalWorkflowObject(gf, "Context")))
+				g.Add(jen.Id("valuePtr").InterfaceFunc(func(g *jen.Group) {}))
+			}).ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Error())
+			}).
+				BlockFunc(func(g *jen.Group) {
+					g.Add(jen.Return(jen.Id("w").Dot("future").Dot("Get").CallFunc(func(g *jen.Group) {
+						g.Add(jen.Id("ctx"))
+						g.Add(jen.Id("valuePtr"))
+					})))
+				}).Line().Line()
+
+			workflowObjects.Comment("Wraps the GetChildWorkflowExecution and returns an workflow.Future").Line().
+				Func().Parens(jen.Id("w").Op("*").Id(wfChildObjName)).Id("GetChildWorkflowExecution").Parens(jen.Null()).
+				ParamsFunc(func(g *jen.Group) {
+					g.Add(jen.Id("ctx").Id(getTemporalWorkflowObject(gf, "Future")))
+				}).
+				BlockFunc(func(g *jen.Group) {
+					g.Add(jen.Return(jen.Id("w").Dot("future")))
+				}).Line().Line()
+
+			workflowObjects.Comment("Wraps the IsReady method from the future").Line().
+				Func().Parens(jen.Id("w").Op("*").Id(wfChildObjName)).Id("IsReady").Parens(jen.Null()).
+				ParamsFunc(func(g *jen.Group) {
+					g.Add(jen.Bool())
+				}).
+				BlockFunc(func(g *jen.Group) {
+					g.Add(jen.Return(jen.Id("w").Dot("future").Dot("IsReady").Parens(jen.Null())))
+				}).Line().Line()
+
+			workflowObjects.Comment("Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future").Line().
+				Func().Parens(jen.Id("w").Op("*").Id(wfChildObjName)).Id("SignalChildWorkflow").ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Id("ctx").Id(getTemporalWorkflowObject(gf, "Context")))
+				g.Add(jen.Id("sigName").String())
+				g.Add(jen.Id("data").InterfaceFunc(func(g *jen.Group) {}))
+			}).ParamsFunc(func(g *jen.Group) {
+				g.Add(jen.Id(getTemporalWorkflowObject(gf, "Future")))
+			}).
+				BlockFunc(func(g *jen.Group) {
+					g.Add(jen.Return(jen.Id("w").Dot("future").Dot("SignalChildWorkflow").CallFunc(func(g *jen.Group) {
+						g.Add(jen.Id("ctx"))
+						g.Add(jen.Id("sigName"))
+						g.Add(jen.Id("data"))
+					})))
+				}).Line().Line()
+
+			for _, sig := range workflowOptions.Signals {
+				meth, ok := signalsMap[sig]
+				if !ok {
+					return fmt.Errorf("no signal %s defined in service %s for workflow %s", sig, service.GoName, method.GoName)
+				}
+
+				sigName, err := getMethodRegisteredName(meth)
+				if err != nil {
+					return err
+				}
+				sigOpts, _ := proto.GetExtension(method.Desc.Options(), temporalv1.E_Signal).(*temporalv1.SignalOptions)
+
+				if sigOpts != nil && sigOpts.Name != "" {
+					sigName = sigOpts.Name
+				}
+
+				// Sends a signal to a workflow
+				workflowObjects.Comment(fmt.Sprintf("Signal%s sends the %s signal to the workflow", sig, sig)).Line().
+					Func().Parens(jen.Id("w").Op("*").Id(wfChildObjName)).Id("Signal" + sig).ParamsFunc(func(g *jen.Group) {
+					g.Add(jen.Id("ctx").Id(getTemporalWorkflowObject(gf, "Context")))
+					g.Add(jen.Id("req").Op("*").Id(gf.QualifiedGoIdent(meth.Input.GoIdent)))
+				}).ParamsFunc(func(g *jen.Group) {
+					g.Add(jen.Error())
+				}).
+					BlockFunc(func(g *jen.Group) {
+						g.Add(jen.Return(jen.Id("w").Dot("future").Dot("SignalChildWorkflow").CallFunc(func(g *jen.Group) {
+							g.Add(jen.Id("ctx"))
+							g.Add(jen.Lit(sigName))
+							g.Add(jen.Id("req"))
+						}).Dot("Get").CallFunc(func(g *jen.Group) {
+							g.Add(jen.Id("ctx"))
+							g.Add(jen.Nil())
+						})))
 					}).Line().Line()
 			}
 

@@ -207,6 +207,19 @@ func (c *ServiceClient) QueryGetStatus(ctx context.Context, workflowID string, r
 func HandleQueryGetStatus(ctx workflow.Context, queryFunc func(req *GetStatusRequest) (*GetStatusResponse, error)) error
 ```
 
+### Child workflow executions
+You get access to a similar API with the child workflows executions, something like so
+```golang
+func (c *HelloWorldClient) GetChildHelloWorldSayMultipleHelloExecution(future workflow.ChildWorkflowFuture) *ChildHelloWorldSayMultipleHelloExecution
+```
+
+However the API is a bit more limited (no way to query for example) because it is a wrapper around the `internal.ChildWorkflowExecution` object.
+The method type you'd be interested in are the ones that allow you to signal the child workflow, for example:
+
+```golang
+func (w *ChildHelloWorldSayMultipleHelloExecution) SignalContinue(ctx workflow.Context, req *ContinueSignalRequest) error
+```
+
 ### The exposed API
 
 The generated code exposes a lot of primitives such as (non exhaustive list):

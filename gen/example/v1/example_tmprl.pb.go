@@ -399,28 +399,28 @@ func (c *HelloWorldClient) ExecuteChildSomeOtherWorkflowSync(ctx workflow.Contex
 
 // HelloWorldSayMultipleHello is a struct that wraps a workflow
 type HelloWorldSayMultipleHello struct {
-	WorkflowID string
-	RunID      string
 	client     client.Client
 	future     client.WorkflowRun
+	workflowId string
+	runId      string
 }
 
 // GetSayMultipleHello gets an instance of a given workflow
 func (c *HelloWorldClient) GetSayMultipleHello(ctx context.Context, workflowId string, runId string) *HelloWorldSayMultipleHello {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 	return &HelloWorldSayMultipleHello{
-		WorkflowID: future.GetID(),
-		RunID:      future.GetRunID(),
 		client:     c.client,
 		future:     future,
+		workflowId: workflowId,
+		runId:      runId,
 	}
 }
 
 // GetSayMultipleHelloFromRun gets an instance of a given workflow from a future
 func (c *HelloWorldClient) GetSayMultipleHelloFromRun(future client.WorkflowRun) *HelloWorldSayMultipleHello {
 	return &HelloWorldSayMultipleHello{
-		WorkflowID: future.GetID(),
-		RunID:      future.GetRunID(),
+		workflowId: future.GetID(),
+		runId:      future.GetRunID(),
 		client:     c.client,
 		future:     future,
 	}
@@ -428,7 +428,7 @@ func (c *HelloWorldClient) GetSayMultipleHelloFromRun(future client.WorkflowRun)
 
 // Cancel cancels a given workflow
 func (w *HelloWorldSayMultipleHello) Cancel(ctx context.Context) error {
-	return w.client.CancelWorkflow(ctx, w.WorkflowID, w.RunID)
+	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
 }
 
 // Returns the workflow ID
@@ -443,7 +443,7 @@ func (w *HelloWorldSayMultipleHello) GetRunID() string {
 
 // Terminates terminates a given workflow
 func (w *HelloWorldSayMultipleHello) Terminate(ctx context.Context, reason string, details ...interface{}) error {
-	return w.client.TerminateWorkflow(ctx, w.WorkflowID, w.RunID, reason, details...)
+	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
 }
 
 // Get gets the result of a given workflow with its native type
@@ -495,30 +495,79 @@ func (w *HelloWorldSayMultipleHello) QueryGetStatus(ctx context.Context, req *Ge
 	return resp, nil
 }
 
+// ChildHelloWorldSayMultipleHelloExecution is a struct that wraps a workflow execution (called from another workflow)
+type ChildHelloWorldSayMultipleHelloExecution struct {
+	client client.Client
+	future workflow.ChildWorkflowFuture
+}
+
+// GetChildHelloWorldSayMultipleHelloExecution gets an instance of a given workflow from a future
+func (c *HelloWorldClient) GetChildHelloWorldSayMultipleHelloExecution(future workflow.ChildWorkflowFuture) *ChildHelloWorldSayMultipleHelloExecution {
+	return &ChildHelloWorldSayMultipleHelloExecution{
+		client: c.client,
+		future: future,
+	}
+}
+
+// Get gets the result of a given workflow with its native type
+func (w *ChildHelloWorldSayMultipleHelloExecution) Result(ctx workflow.Context) (*MultipleHelloResponse, error) {
+	var resp *MultipleHelloResponse
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
+func (w *ChildHelloWorldSayMultipleHelloExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildHelloWorldSayMultipleHelloExecution) GetChildWorkflowExecution() (ctx workflow.Future) {
+	return w.future
+}
+
+// Wraps the IsReady method from the future
+func (w *ChildHelloWorldSayMultipleHelloExecution) IsReady() bool {
+	return w.future.IsReady()
+}
+
+// Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+func (w *ChildHelloWorldSayMultipleHelloExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
+	return w.future.SignalChildWorkflow(ctx, sigName, data)
+}
+
+// SignalContinue sends the Continue signal to the workflow
+func (w *ChildHelloWorldSayMultipleHelloExecution) SignalContinue(ctx workflow.Context, req *ContinueSignalRequest) error {
+	return w.future.SignalChildWorkflow(ctx, "example.v1.HelloWorld.Continue", req).Get(ctx, nil)
+}
+
 // HelloWorldSomeOtherWorkflow is a struct that wraps a workflow
 type HelloWorldSomeOtherWorkflow struct {
-	WorkflowID string
-	RunID      string
 	client     client.Client
 	future     client.WorkflowRun
+	workflowId string
+	runId      string
 }
 
 // GetSomeOtherWorkflow gets an instance of a given workflow
 func (c *HelloWorldClient) GetSomeOtherWorkflow(ctx context.Context, workflowId string, runId string) *HelloWorldSomeOtherWorkflow {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 	return &HelloWorldSomeOtherWorkflow{
-		WorkflowID: future.GetID(),
-		RunID:      future.GetRunID(),
 		client:     c.client,
 		future:     future,
+		workflowId: workflowId,
+		runId:      runId,
 	}
 }
 
 // GetSomeOtherWorkflowFromRun gets an instance of a given workflow from a future
 func (c *HelloWorldClient) GetSomeOtherWorkflowFromRun(future client.WorkflowRun) *HelloWorldSomeOtherWorkflow {
 	return &HelloWorldSomeOtherWorkflow{
-		WorkflowID: future.GetID(),
-		RunID:      future.GetRunID(),
+		workflowId: future.GetID(),
+		runId:      future.GetRunID(),
 		client:     c.client,
 		future:     future,
 	}
@@ -526,7 +575,7 @@ func (c *HelloWorldClient) GetSomeOtherWorkflowFromRun(future client.WorkflowRun
 
 // Cancel cancels a given workflow
 func (w *HelloWorldSomeOtherWorkflow) Cancel(ctx context.Context) error {
-	return w.client.CancelWorkflow(ctx, w.WorkflowID, w.RunID)
+	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
 }
 
 // Returns the workflow ID
@@ -541,7 +590,7 @@ func (w *HelloWorldSomeOtherWorkflow) GetRunID() string {
 
 // Terminates terminates a given workflow
 func (w *HelloWorldSomeOtherWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
-	return w.client.TerminateWorkflow(ctx, w.WorkflowID, w.RunID, reason, details...)
+	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
 }
 
 // Get gets the result of a given workflow with its native type
@@ -572,6 +621,50 @@ func (w *HelloWorldSomeOtherWorkflow) Get(ctx context.Context, valuePtr interfac
 // Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *HelloWorldSomeOtherWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
 	return w.future.GetWithOptions(ctx, valuePtr, options)
+}
+
+// ChildHelloWorldSomeOtherWorkflowExecution is a struct that wraps a workflow execution (called from another workflow)
+type ChildHelloWorldSomeOtherWorkflowExecution struct {
+	client client.Client
+	future workflow.ChildWorkflowFuture
+}
+
+// GetChildHelloWorldSomeOtherWorkflowExecution gets an instance of a given workflow from a future
+func (c *HelloWorldClient) GetChildHelloWorldSomeOtherWorkflowExecution(future workflow.ChildWorkflowFuture) *ChildHelloWorldSomeOtherWorkflowExecution {
+	return &ChildHelloWorldSomeOtherWorkflowExecution{
+		client: c.client,
+		future: future,
+	}
+}
+
+// Get gets the result of a given workflow with its native type
+func (w *ChildHelloWorldSomeOtherWorkflowExecution) Result(ctx workflow.Context) (*emptypb.Empty, error) {
+	var resp *emptypb.Empty
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
+func (w *ChildHelloWorldSomeOtherWorkflowExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildHelloWorldSomeOtherWorkflowExecution) GetChildWorkflowExecution() (ctx workflow.Future) {
+	return w.future
+}
+
+// Wraps the IsReady method from the future
+func (w *ChildHelloWorldSomeOtherWorkflowExecution) IsReady() bool {
+	return w.future.IsReady()
+}
+
+// Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+func (w *ChildHelloWorldSomeOtherWorkflowExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
+	return w.future.SignalChildWorkflow(ctx, sigName, data)
 }
 
 // SendSignalContinue sends the Continue signal to a workflow
