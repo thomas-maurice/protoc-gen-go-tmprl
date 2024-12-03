@@ -11,6 +11,8 @@ import (
 func ServiceConstants(gf *protogen.GeneratedFile, service *protogen.Service) error {
 	workflowsNames := jen.Line().Comment("Workflows names constants").Line().Line()
 	activitiesNames := jen.Line().Comment("Activities names constants").Line().Line()
+	signalsNames := jen.Line().Comment("Signals names constants").Line().Line()
+	queriesNames := jen.Line().Comment("Queries names constants").Line().Line()
 
 	for _, method := range service.Methods {
 		t, err := getMethodType(method)
@@ -18,24 +20,26 @@ func ServiceConstants(gf *protogen.GeneratedFile, service *protogen.Service) err
 			return err
 		}
 
+		name, err := getMethodRegisteredName(method)
+		if err != nil {
+			panic(err)
+		}
+
 		switch t {
 		case MethodTypeNone:
 			continue
 		case MethodTypeActivity:
-			name, err := getMethodRegisteredName(method)
-			if err != nil {
-				panic(err)
-			}
 			activitiesNames.Comment(fmt.Sprintf("Name of activity %s", method.Desc.FullName())).Line().
 				Id(fmt.Sprintf("Activity%s%sName", service.GoName, method.GoName)).Op("=").Lit(name).Line()
 		case MethodTypeWorkflow:
-			name, err := getMethodRegisteredName(method)
-			if err != nil {
-				panic(err)
-			}
 			workflowsNames.Comment(fmt.Sprintf("Name of workflow %s", method.Desc.FullName())).Line().
 				Id(fmt.Sprintf("Workflow%s%sName", service.GoName, method.GoName)).Op("=").Lit(name).Line()
-
+		case MethodTypeSignal:
+			signalsNames.Comment(fmt.Sprintf("Name of signal %s", method.Desc.FullName())).Line().
+				Id(fmt.Sprintf("Signal%s%sName", service.GoName, method.GoName)).Op("=").Lit(name).Line()
+		case MethodTypeQuery:
+			queriesNames.Comment(fmt.Sprintf("Name of query %s", method.Desc.FullName())).Line().
+				Id(fmt.Sprintf("Query%s%sName", service.GoName, method.GoName)).Op("=").Lit(name).Line()
 		default:
 			return fmt.Errorf("invalid method type: %s", t)
 		}
@@ -45,7 +49,7 @@ func ServiceConstants(gf *protogen.GeneratedFile, service *protogen.Service) err
 		Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName)).Op("=").Lit(getServiceTaskQueue(service)).Line()
 
 	generated := jen.Const().Parens(
-		defaultTaskQueueName.Add(workflowsNames.Add(activitiesNames)).Line().Line().
+		defaultTaskQueueName.Add(workflowsNames.Add(activitiesNames).Add(signalsNames).Add(queriesNames)).Line().Line().
 			Comment("Default timeout for activities when none is specified").Line().
 			Id(fmt.Sprintf("Default%sScheduleToCloseTimeout", service.GoName)).Op("=").Id(getTimeObject(gf, "Hour")).Line().
 			Comment("Default timeout for activities when none is specified").Line().

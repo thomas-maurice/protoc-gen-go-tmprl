@@ -8,9 +8,9 @@ import "temporal/v1/temporal.proto";
 import "google/protobuf/empty.proto";
 
 // Service hello world is an example implementation of a service
-service HelloWorld  {
+service DieRoll  {
     option (temporal.v1.service) = {
-        task_queue: "hello-task-queue"
+        task_queue: "service-task-queue"
         default_workflow_options: {
             // one day
             workflow_execution_timeout: { value: 86400 }
@@ -19,8 +19,8 @@ service HelloWorld  {
         }
     };
 
-    // Says hello and returns a string
-    rpc SayHello(HelloRequest) returns (HelloResponse) {
+    // Throws a d6 and returns the result
+    rpc ThrowDie(google.protobuf.Empty) returns (ThrowDieResponse) {
         option (temporal.v1.activity) = {
             schedule_to_start_timeout: { value: 30 }
             schedule_to_close_timeout: { value: 120 }
@@ -46,29 +46,60 @@ service HelloWorld  {
         };
     }
 
-    // Say hello to multiple people
-    rpc SayMultipleHello(MultipleHelloRequest) returns (MultipleHelloResponse) {
-        option (temporal.v1.workflow) = {};
+    // Throws dies a few times and return the result
+    rpc ThrowDies(ThrowDiesRequest) returns (ThrowDiesResponse) {
+        option (temporal.v1.workflow) = {
+            signals: ["Continue"]
+        };
     }
 
-    // Some other workflow we can call and does nothing
-    rpc SomeOtherWorkflow(google.protobuf.Empty) returns (google.protobuf.Empty) {
-        option (temporal.v1.workflow) = {};
+    rpc ThrowUntilValue(ThrowUntilValueRequest) returns (google.protobuf.Empty) {
+        option (temporal.v1.workflow) = {
+            queries: ["GetThrowsStatus"]
+        };
+    }
+
+    // Signals can be defined with whatever return type you want as they
+    // do not expect an answer
+
+    // Instruct the workflow to proceed
+    rpc Continue(ContinueSignalRequest) returns (ContinueSignalRequest) {
+        option (temporal.v1.signal) = {};
+    }
+
+    // Query the state of a workflow
+
+    // Query the state of the workflow
+    rpc GetThrowsStatus(google.protobuf.Empty) returns (ThrowStatusResponse) {
+        option (temporal.v1.query) = {};
     }
 }
 
-message HelloRequest {
-    string name = 1;
+message ContinueSignalRequest {
+    bool continue = 1;
 }
 
-message HelloResponse {
-    string data = 1;
+message GetStatusResponse {
+    int64 progress = 1;
 }
 
-message MultipleHelloRequest {
-    repeated string names = 1;
+message ThrowDieResponse {
+    int32 result = 1;
 }
 
-message MultipleHelloResponse {
-    repeated string data = 1;
+message ThrowDiesResponse {
+    repeated int32 results = 1;
+}
+
+message ThrowDiesRequest {
+    int32 results = 1;
+    bool loop = 2;
+}
+
+message ThrowUntilValueRequest {
+    int32 value = 1;
+}
+
+message ThrowStatusResponse {
+    int32 throws = 1;
 }

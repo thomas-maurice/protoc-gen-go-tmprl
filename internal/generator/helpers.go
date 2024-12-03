@@ -13,6 +13,7 @@ const (
 	workerImport   = "go.temporal.io/sdk/worker"
 	clientImport   = "go.temporal.io/sdk/client"
 	temporalImport = "go.temporal.io/sdk/temporal"
+	internalImport = "go.temporal.io/sdk/internal"
 	uuidImport     = "github.com/google/uuid"
 	fmtImport      = "fmt"
 )
@@ -72,6 +73,15 @@ func getUUIDObject(gf *protogen.GeneratedFile, o string) string {
 	return gf.QualifiedGoIdent(
 		protogen.GoIdent{
 			GoImportPath: uuidImport,
+			GoName:       o,
+		},
+	)
+}
+
+func getTemporalInternalObject(gf *protogen.GeneratedFile, o string) string {
+	return gf.QualifiedGoIdent(
+		protogen.GoIdent{
+			GoImportPath: internalImport,
 			GoName:       o,
 		},
 	)
