@@ -14,4 +14,4 @@ plugins:
     out: gen
     opt:
     - paths=source_relative
-    - gen-prefix=true
+    - gen-workflow-prefix=true
