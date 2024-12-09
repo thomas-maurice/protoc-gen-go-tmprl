@@ -1,0 +1,23 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+  - id: check-yaml
+    args: ["--allow-multiple-documents"]
+  - id: end-of-file-fixer
+  - id: trailing-whitespace
+- repo: https://github.com/golangci/golangci-lint
+  rev: v1.61.0
+  hooks:
+  - id: golangci-lint
+- repo: https://github.com/dnephin/pre-commit-golang
+  rev: v0.5.1
+  hooks:
+  - id: go-mod-tidy
+  - id: go-fmt
+- repo: https://github.com/bufbuild/buf
+  rev: v1.47.2
+  hooks:
+  - id: buf-generate
+  - id: buf-lint
+  - id: buf-format

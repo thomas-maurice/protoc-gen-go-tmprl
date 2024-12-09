@@ -25,6 +25,10 @@ const ( // Default task queue name for the service
 
 	// Workflows names constants
 
+	// Name of workflow example.v1.DieRoll.ParentWorkflow
+	WorkflowDieRollParentWorkflowName = "example.v1.DieRoll.ParentWorkflow"
+	// Name of workflow example.v1.DieRoll.ChildWorkflow
+	WorkflowDieRollChildWorkflowName = "example.v1.DieRoll.ChildWorkflow"
 	// Name of workflow example.v1.DieRoll.ThrowDies
 	WorkflowDieRollThrowDiesName = "example.v1.DieRoll.ThrowDies"
 	// Name of workflow example.v1.DieRoll.ThrowUntilValue
@@ -60,6 +64,10 @@ const ( // Default task queue name for the service
 type DieRollService interface {
 	// Workflows definitions
 
+	// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
+	ParentWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error)
+	//
+	ChildWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error)
 	// Throws dies a few times and return the result
 	ThrowDies(ctx workflow.Context, req *ThrowDiesRequest) (*ThrowDiesResponse, error)
 	//
@@ -110,6 +118,14 @@ func (w *DieRollWorker) Register() {
 	w.worker.RegisterActivityWithOptions(w.svc.Ping, activity.RegisterOptions{
 		Name: "ping.Ping",
 	})
+	// Registers workflow ParentWorkflow
+	w.worker.RegisterWorkflowWithOptions(w.svc.ParentWorkflow, workflow.RegisterOptions{
+		Name: "example.v1.DieRoll.ParentWorkflow",
+	})
+	// Registers workflow ChildWorkflow
+	w.worker.RegisterWorkflowWithOptions(w.svc.ChildWorkflow, workflow.RegisterOptions{
+		Name: "example.v1.DieRoll.ChildWorkflow",
+	})
 	// Registers workflow ThrowDies
 	w.worker.RegisterWorkflowWithOptions(w.svc.ThrowDies, workflow.RegisterOptions{
 		Name: "example.v1.DieRoll.ThrowDies",
@@ -158,15 +174,6 @@ func (c *DieRollClient) ExecuteActivityThrowDie(ctx workflow.Context, req *empty
 	if aOptions.TaskQueue == "" {
 		aOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
-	if aOptions.ActivityID == "" {
-		aOptions.ActivityID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowDie", uuid.NewString())
-	}
-	if aOptions.ScheduleToCloseTimeout == 0 {
-		aOptions.ScheduleToCloseTimeout = DefaultDieRollScheduleToCloseTimeout
-	}
-	if aOptions.StartToCloseTimeout == 0 {
-		aOptions.StartToCloseTimeout = DefaultDieRollStartToCloseTimeout
-	}
 	if aOptions.StartToCloseTimeout == 0 {
 		aOptions.StartToCloseTimeout = time.Duration(int32(120)) * time.Second
 	}
@@ -186,6 +193,12 @@ func (c *DieRollClient) ExecuteActivityThrowDie(ctx workflow.Context, req *empty
 				"FATAL",
 			},
 		}
+	}
+	if aOptions.ScheduleToCloseTimeout == 0 {
+		aOptions.ScheduleToCloseTimeout = DefaultDieRollScheduleToCloseTimeout
+	}
+	if aOptions.StartToCloseTimeout == 0 {
+		aOptions.StartToCloseTimeout = DefaultDieRollStartToCloseTimeout
 	}
 	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), "example.v1.DieRoll.ThrowDie", req)
 }
@@ -216,9 +229,6 @@ func (c *DieRollClient) ExecuteActivityPing(ctx workflow.Context, req *emptypb.E
 	if aOptions.TaskQueue == "" {
 		aOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
-	if aOptions.ActivityID == "" {
-		aOptions.ActivityID = fmt.Sprintf("%s/%s", "ping.Ping", uuid.NewString())
-	}
 	if aOptions.ScheduleToCloseTimeout == 0 {
 		aOptions.ScheduleToCloseTimeout = DefaultDieRollScheduleToCloseTimeout
 	}
@@ -239,6 +249,192 @@ func (c *DieRollClient) ExecuteActivityPingSync(ctx workflow.Context, req *empty
 	future := c.ExecuteActivityPing(ctx, req, aOptions)
 	var resp *emptypb.Empty
 	err := future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ExecuteWorkflowParentWorkflow executes the workflow and returns a future to it
+func (c *DieRollClient) ExecuteWorkflowParentWorkflow(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
+	wOptions := client.StartWorkflowOptions{
+		TaskQueue: c.taskQueue,
+	}
+	if len(options) > 0 {
+		wOptions = options[0]
+	}
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = DefaultDieRollTaskQueueName
+	}
+	if wOptions.ID == "" {
+		wOptions.ID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ParentWorkflow", uuid.NewString())
+	}
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = time.Duration(int32(86400)) * time.Second
+	}
+	if wOptions.WorkflowRunTimeout == 0 {
+		wOptions.WorkflowRunTimeout = time.Duration(int32(7200)) * time.Second
+	}
+	return c.client.ExecuteWorkflow(ctx, wOptions, "example.v1.DieRoll.ParentWorkflow", req)
+}
+
+// ExecuteWorkflowParentWorkflowSync executes the workflow and returns the result when finished
+func (c *DieRollClient) ExecuteWorkflowParentWorkflowSync(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (*emptypb.Empty, error) {
+	future, err := c.ExecuteWorkflowParentWorkflow(ctx, req, options...)
+	if err != nil {
+		return nil, err
+	}
+	var resp *emptypb.Empty
+	err = future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// GetWorkflowParentWorkflowResult gets the result of a given workflow
+func (c *DieRollClient) GetWorkflowParentWorkflowResult(ctx context.Context, workflowId string, runId string) (*emptypb.Empty, error) {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+	var resp *emptypb.Empty
+	err := future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ExecuteChildParentWorkflow executes the workflow as a child workflow and returns a future to it
+func (c *DieRollClient) ExecuteChildParentWorkflow(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
+	wOptions := workflow.ChildWorkflowOptions{
+		TaskQueue: c.taskQueue,
+	}
+	if len(options) > 0 {
+		wOptions = options[0]
+	}
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = DefaultDieRollTaskQueueName
+	}
+	if wOptions.WorkflowID == "" {
+		var id string
+		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
+			return fmt.Sprintf("%s/%s", "example.v1.DieRoll.ParentWorkflow", uuid.NewString())
+		})
+		err := genId.Get(&id)
+		if err != nil {
+			return nil, err
+		}
+		wOptions.WorkflowID = id
+	}
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = time.Duration(int32(86400)) * time.Second
+	}
+	if wOptions.WorkflowRunTimeout == 0 {
+		wOptions.WorkflowRunTimeout = time.Duration(int32(7200)) * time.Second
+	}
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ParentWorkflow", req), nil
+}
+
+// ExecuteChildParentWorkflowSync executes the workflow as a child workflow and returns the result when finished
+func (c *DieRollClient) ExecuteChildParentWorkflowSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (*emptypb.Empty, error) {
+	future, err := c.ExecuteChildParentWorkflow(ctx, req, options...)
+	if err != nil {
+		return nil, err
+	}
+	var resp *emptypb.Empty
+	err = future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ExecuteWorkflowChildWorkflow executes the workflow and returns a future to it
+func (c *DieRollClient) ExecuteWorkflowChildWorkflow(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
+	wOptions := client.StartWorkflowOptions{
+		TaskQueue: c.taskQueue,
+	}
+	if len(options) > 0 {
+		wOptions = options[0]
+	}
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = DefaultDieRollTaskQueueName
+	}
+	if wOptions.ID == "" {
+		wOptions.ID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ChildWorkflow", uuid.NewString())
+	}
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = time.Duration(int32(86400)) * time.Second
+	}
+	if wOptions.WorkflowRunTimeout == 0 {
+		wOptions.WorkflowRunTimeout = time.Duration(int32(7200)) * time.Second
+	}
+	return c.client.ExecuteWorkflow(ctx, wOptions, "example.v1.DieRoll.ChildWorkflow", req)
+}
+
+// ExecuteWorkflowChildWorkflowSync executes the workflow and returns the result when finished
+func (c *DieRollClient) ExecuteWorkflowChildWorkflowSync(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (*emptypb.Empty, error) {
+	future, err := c.ExecuteWorkflowChildWorkflow(ctx, req, options...)
+	if err != nil {
+		return nil, err
+	}
+	var resp *emptypb.Empty
+	err = future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// GetWorkflowChildWorkflowResult gets the result of a given workflow
+func (c *DieRollClient) GetWorkflowChildWorkflowResult(ctx context.Context, workflowId string, runId string) (*emptypb.Empty, error) {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+	var resp *emptypb.Empty
+	err := future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ExecuteChildChildWorkflow executes the workflow as a child workflow and returns a future to it
+func (c *DieRollClient) ExecuteChildChildWorkflow(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
+	wOptions := workflow.ChildWorkflowOptions{
+		TaskQueue: c.taskQueue,
+	}
+	if len(options) > 0 {
+		wOptions = options[0]
+	}
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = DefaultDieRollTaskQueueName
+	}
+	if wOptions.WorkflowID == "" {
+		var id string
+		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
+			return fmt.Sprintf("%s/%s", "example.v1.DieRoll.ChildWorkflow", uuid.NewString())
+		})
+		err := genId.Get(&id)
+		if err != nil {
+			return nil, err
+		}
+		wOptions.WorkflowID = id
+	}
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = time.Duration(int32(86400)) * time.Second
+	}
+	if wOptions.WorkflowRunTimeout == 0 {
+		wOptions.WorkflowRunTimeout = time.Duration(int32(7200)) * time.Second
+	}
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ChildWorkflow", req), nil
+}
+
+// ExecuteChildChildWorkflowSync executes the workflow as a child workflow and returns the result when finished
+func (c *DieRollClient) ExecuteChildChildWorkflowSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (*emptypb.Empty, error) {
+	future, err := c.ExecuteChildChildWorkflow(ctx, req, options...)
+	if err != nil {
+		return nil, err
+	}
+	var resp *emptypb.Empty
+	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +484,7 @@ func (c *DieRollClient) GetWorkflowThrowDiesResult(ctx context.Context, workflow
 }
 
 // ExecuteChildThrowDies executes the workflow as a child workflow and returns a future to it
-func (c *DieRollClient) ExecuteChildThrowDies(ctx workflow.Context, req *ThrowDiesRequest, options ...workflow.ChildWorkflowOptions) workflow.ChildWorkflowFuture {
+func (c *DieRollClient) ExecuteChildThrowDies(ctx workflow.Context, req *ThrowDiesRequest, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
 	wOptions := workflow.ChildWorkflowOptions{
 		TaskQueue: c.taskQueue,
 	}
@@ -299,16 +495,27 @@ func (c *DieRollClient) ExecuteChildThrowDies(ctx workflow.Context, req *ThrowDi
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.WorkflowID == "" {
-		wOptions.WorkflowID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowDies", uuid.NewString())
+		var id string
+		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
+			return fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowDies", uuid.NewString())
+		})
+		err := genId.Get(&id)
+		if err != nil {
+			return nil, err
+		}
+		wOptions.WorkflowID = id
 	}
-	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ThrowDies", req)
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ThrowDies", req), nil
 }
 
 // ExecuteChildThrowDiesSync executes the workflow as a child workflow and returns the result when finished
 func (c *DieRollClient) ExecuteChildThrowDiesSync(ctx workflow.Context, req *ThrowDiesRequest, options ...workflow.ChildWorkflowOptions) (*ThrowDiesResponse, error) {
-	future := c.ExecuteChildThrowDies(ctx, req, options...)
+	future, err := c.ExecuteChildThrowDies(ctx, req, options...)
+	if err != nil {
+		return nil, err
+	}
 	var resp *ThrowDiesResponse
-	err := future.Get(ctx, &resp)
+	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +565,7 @@ func (c *DieRollClient) GetWorkflowThrowUntilValueResult(ctx context.Context, wo
 }
 
 // ExecuteChildThrowUntilValue executes the workflow as a child workflow and returns a future to it
-func (c *DieRollClient) ExecuteChildThrowUntilValue(ctx workflow.Context, req *ThrowUntilValueRequest, options ...workflow.ChildWorkflowOptions) workflow.ChildWorkflowFuture {
+func (c *DieRollClient) ExecuteChildThrowUntilValue(ctx workflow.Context, req *ThrowUntilValueRequest, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
 	wOptions := workflow.ChildWorkflowOptions{
 		TaskQueue: c.taskQueue,
 	}
@@ -369,20 +576,277 @@ func (c *DieRollClient) ExecuteChildThrowUntilValue(ctx workflow.Context, req *T
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.WorkflowID == "" {
-		wOptions.WorkflowID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowUntilValue", uuid.NewString())
+		var id string
+		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
+			return fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowUntilValue", uuid.NewString())
+		})
+		err := genId.Get(&id)
+		if err != nil {
+			return nil, err
+		}
+		wOptions.WorkflowID = id
 	}
-	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ThrowUntilValue", req)
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ThrowUntilValue", req), nil
 }
 
 // ExecuteChildThrowUntilValueSync executes the workflow as a child workflow and returns the result when finished
 func (c *DieRollClient) ExecuteChildThrowUntilValueSync(ctx workflow.Context, req *ThrowUntilValueRequest, options ...workflow.ChildWorkflowOptions) (*emptypb.Empty, error) {
-	future := c.ExecuteChildThrowUntilValue(ctx, req, options...)
+	future, err := c.ExecuteChildThrowUntilValue(ctx, req, options...)
+	if err != nil {
+		return nil, err
+	}
 	var resp *emptypb.Empty
-	err := future.Get(ctx, &resp)
+	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
+}
+
+// DieRollParentWorkflow is a struct that wraps a workflow
+type DieRollParentWorkflow struct {
+	client     client.Client
+	future     client.WorkflowRun
+	workflowId string
+	runId      string
+}
+
+// GetParentWorkflow gets an instance of a given workflow
+func (c *DieRollClient) GetParentWorkflow(ctx context.Context, workflowId string, runId string) *DieRollParentWorkflow {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+	return &DieRollParentWorkflow{
+		client:     c.client,
+		future:     future,
+		workflowId: workflowId,
+		runId:      runId,
+	}
+}
+
+// GetParentWorkflowFromRun gets an instance of a given workflow from a future
+func (c *DieRollClient) GetParentWorkflowFromRun(future client.WorkflowRun) *DieRollParentWorkflow {
+	return &DieRollParentWorkflow{
+		workflowId: future.GetID(),
+		runId:      future.GetRunID(),
+		client:     c.client,
+		future:     future,
+	}
+}
+
+// Cancel cancels a given workflow
+func (w *DieRollParentWorkflow) Cancel(ctx context.Context) error {
+	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
+}
+
+// Returns the workflow ID
+func (w *DieRollParentWorkflow) GetID() string {
+	return w.future.GetID()
+}
+
+// Returns the run ID
+func (w *DieRollParentWorkflow) GetRunID() string {
+	return w.future.GetRunID()
+}
+
+// Terminates terminates a given workflow
+func (w *DieRollParentWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
+}
+
+// Get gets the result of a given workflow with its native type
+func (w *DieRollParentWorkflow) Result(ctx context.Context) (*emptypb.Empty, error) {
+	var resp *emptypb.Empty
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ResultWithOptions gets the result of a given workflow with its native type
+func (w *DieRollParentWorkflow) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*emptypb.Empty, error) {
+	var resp *emptypb.Empty
+	err := w.future.GetWithOptions(ctx, &resp, options)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *DieRollParentWorkflow) Get(ctx context.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *DieRollParentWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+	return w.future.GetWithOptions(ctx, valuePtr, options)
+}
+
+// ChildDieRollParentWorkflowExecution is a struct that wraps a workflow execution (called from another workflow)
+type ChildDieRollParentWorkflowExecution struct {
+	client client.Client
+	future workflow.ChildWorkflowFuture
+}
+
+// GetChildDieRollParentWorkflowExecution gets an instance of a given workflow from a future
+func (c *DieRollClient) GetChildDieRollParentWorkflowExecution(future workflow.ChildWorkflowFuture) *ChildDieRollParentWorkflowExecution {
+	return &ChildDieRollParentWorkflowExecution{
+		client: c.client,
+		future: future,
+	}
+}
+
+// Get gets the result of a given workflow with its native type
+func (w *ChildDieRollParentWorkflowExecution) Result(ctx workflow.Context) (*emptypb.Empty, error) {
+	var resp *emptypb.Empty
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
+func (w *ChildDieRollParentWorkflowExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildDieRollParentWorkflowExecution) GetChildWorkflowExecution() (ctx workflow.Future) {
+	return w.future
+}
+
+// Wraps the IsReady method from the future
+func (w *ChildDieRollParentWorkflowExecution) IsReady() bool {
+	return w.future.IsReady()
+}
+
+// Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+func (w *ChildDieRollParentWorkflowExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
+	return w.future.SignalChildWorkflow(ctx, sigName, data)
+}
+
+// DieRollChildWorkflow is a struct that wraps a workflow
+type DieRollChildWorkflow struct {
+	client     client.Client
+	future     client.WorkflowRun
+	workflowId string
+	runId      string
+}
+
+// GetChildWorkflow gets an instance of a given workflow
+func (c *DieRollClient) GetChildWorkflow(ctx context.Context, workflowId string, runId string) *DieRollChildWorkflow {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+	return &DieRollChildWorkflow{
+		client:     c.client,
+		future:     future,
+		workflowId: workflowId,
+		runId:      runId,
+	}
+}
+
+// GetChildWorkflowFromRun gets an instance of a given workflow from a future
+func (c *DieRollClient) GetChildWorkflowFromRun(future client.WorkflowRun) *DieRollChildWorkflow {
+	return &DieRollChildWorkflow{
+		workflowId: future.GetID(),
+		runId:      future.GetRunID(),
+		client:     c.client,
+		future:     future,
+	}
+}
+
+// Cancel cancels a given workflow
+func (w *DieRollChildWorkflow) Cancel(ctx context.Context) error {
+	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
+}
+
+// Returns the workflow ID
+func (w *DieRollChildWorkflow) GetID() string {
+	return w.future.GetID()
+}
+
+// Returns the run ID
+func (w *DieRollChildWorkflow) GetRunID() string {
+	return w.future.GetRunID()
+}
+
+// Terminates terminates a given workflow
+func (w *DieRollChildWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
+}
+
+// Get gets the result of a given workflow with its native type
+func (w *DieRollChildWorkflow) Result(ctx context.Context) (*emptypb.Empty, error) {
+	var resp *emptypb.Empty
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ResultWithOptions gets the result of a given workflow with its native type
+func (w *DieRollChildWorkflow) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*emptypb.Empty, error) {
+	var resp *emptypb.Empty
+	err := w.future.GetWithOptions(ctx, &resp, options)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *DieRollChildWorkflow) Get(ctx context.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *DieRollChildWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+	return w.future.GetWithOptions(ctx, valuePtr, options)
+}
+
+// ChildDieRollChildWorkflowExecution is a struct that wraps a workflow execution (called from another workflow)
+type ChildDieRollChildWorkflowExecution struct {
+	client client.Client
+	future workflow.ChildWorkflowFuture
+}
+
+// GetChildDieRollChildWorkflowExecution gets an instance of a given workflow from a future
+func (c *DieRollClient) GetChildDieRollChildWorkflowExecution(future workflow.ChildWorkflowFuture) *ChildDieRollChildWorkflowExecution {
+	return &ChildDieRollChildWorkflowExecution{
+		client: c.client,
+		future: future,
+	}
+}
+
+// Get gets the result of a given workflow with its native type
+func (w *ChildDieRollChildWorkflowExecution) Result(ctx workflow.Context) (*emptypb.Empty, error) {
+	var resp *emptypb.Empty
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
+func (w *ChildDieRollChildWorkflowExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildDieRollChildWorkflowExecution) GetChildWorkflowExecution() (ctx workflow.Future) {
+	return w.future
+}
+
+// Wraps the IsReady method from the future
+func (w *ChildDieRollChildWorkflowExecution) IsReady() bool {
+	return w.future.IsReady()
+}
+
+// Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+func (w *ChildDieRollChildWorkflowExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
+	return w.future.SignalChildWorkflow(ctx, sigName, data)
 }
 
 // DieRollThrowDies is a struct that wraps a workflow
