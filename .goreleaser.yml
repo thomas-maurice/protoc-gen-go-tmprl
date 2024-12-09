@@ -17,7 +17,7 @@ builds:
       -s -w
       -X github.com/thomas-maurice/protoc-gen-go-tmprl/internal/version.Version={{ .Version }}
       -X github.com/thomas-maurice/protoc-gen-go-tmprl/internal/version.Commit={{ .Commit }}
-      -X github.com/thomas-maurice/protoc-gen-go-tmprl/internal/version.BuildTime={{ .Date }}      
+      -X github.com/thomas-maurice/protoc-gen-go-tmprl/internal/version.BuildTime={{ .Date }}
 archives:
 - format: tar.gz
   name_template: >-
@@ -26,7 +26,7 @@ archives:
     {{- if eq .Arch "amd64" }}x86_64
     {{- else if eq .Arch "386" }}i386
     {{- else }}{{ .Arch }}{{ end }}
-    {{- if .Arm }}v{{ .Arm }}{{ end }}    
+    {{- if .Arm }}v{{ .Arm }}{{ end }}
   format_overrides:
   - goos: windows
     format: zip
@@ -60,7 +60,7 @@ changelog:
     - title: "Documentation updates"
       regexp: ^.*?doc(\([[:word:]]+\))??!?:.+$
       order: 400
-    - title: Other miscellaneous work 
+    - title: Other miscellaneous work
       order: 500
 release:
   prerelease: auto

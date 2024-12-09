@@ -12,7 +12,7 @@ func getClientName(service *protogen.Service) string {
 	return fmt.Sprintf("%sClient", service.GoName)
 }
 
-func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
+func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Config) error {
 	clientName := getClientName(service)
 
 	client := jen.Comment(fmt.Sprintf("%s: Client for the %s service", clientName, service.GoName)).Line().
@@ -249,6 +249,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 				g.Add(jen.Id("options").Op("...").Id(getTemporalWorkflowObject(gf, "ChildWorkflowOptions")))
 			}).ParamsFunc(func(g *jen.Group) {
 				g.Add(jen.Id(getTemporalWorkflowObject(gf, "ChildWorkflowFuture")))
+				g.Add(jen.Error())
 			}).
 				BlockFunc(func(g *jen.Group) {
 					g.Add(jen.Id("wOptions").Op(":=").Id(getTemporalWorkflowObject(gf, "ChildWorkflowOptions")).BlockFunc(func(g *jen.Group) {
@@ -262,16 +263,31 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 						g.Add(jen.Id("wOptions").Dot("TaskQueue").Op("=").Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName)))
 					}))
 
-					g.Add(
-						jen.If(jen.Id("wOptions").Dot("WorkflowID").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("wOptions").Dot("WorkflowID").Op("=").Id(getFmtObject(gf, "Sprintf")).CallFunc(func(g *jen.Group) {
-								g.Add(jen.Lit("%s/%s"))
-								g.Add(jen.Lit(methName))
-								g.Add(jen.Id(getUUIDObject(gf, "NewString")).Parens(jen.Null()))
-							}))
-						},
-						),
-					)
+					if config.GenWorkflowPrefix {
+						// we use side effects here to ensure that the workflow history won't be altered in case of replay
+						g.Add(
+							jen.If(jen.Id("wOptions").Dot("WorkflowID").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
+								g.Add(jen.Var().Id("id").String())
+								g.Add(jen.Id("genId").Op(":=").Id(getTemporalWorkflowObject(gf, "SideEffect")).CallFunc(func(g *jen.Group) {
+									g.Add(jen.Id("ctx"))
+									g.Add(jen.Func().Params(jen.Id("ctx").Id(getTemporalWorkflowObject(gf, "Context"))).Interface(jen.Null()).BlockFunc(func(g *jen.Group) {
+										g.Add(jen.Return(jen.Id(getFmtObject(gf, "Sprintf")).CallFunc(func(g *jen.Group) {
+											g.Add(jen.Lit("%s/%s"))
+											g.Add(jen.Lit(methName))
+											g.Add(jen.Id(getUUIDObject(gf, "NewString")).Parens(jen.Null()))
+										})))
+									}))
+								}))
+
+								g.Add(jen.Id("err").Op(":=").Id("genId").Dot("Get").Params(jen.Op("&").Id("id")))
+
+								g.Add(IfErrNilDouble)
+
+								g.Add(jen.Id("wOptions").Dot("WorkflowID").Op("=").Id("id"))
+							},
+							),
+						)
+					}
 
 					if workflowOptions != nil {
 						if workflowOptions.WorkflowExecutionTimeout != nil {
@@ -338,6 +354,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 							g.Add(jen.Lit(methName))
 							g.Add(jen.Id("req"))
 						}))
+						g.Add(jen.Nil())
 					}))
 				}).Line().Line()
 
@@ -352,15 +369,17 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 				g.Add(jen.Error())
 			}).
 				BlockFunc(func(g *jen.Group) {
-					g.Add(jen.Id("future").Op(":=").Id("c").Dot(fmt.Sprintf("ExecuteChild%s", method.GoName)).CallFunc(func(g *jen.Group) {
+					g.Add(jen.Id("future").Op(",").Id("err").Op(":=").Id("c").Dot(fmt.Sprintf("ExecuteChild%s", method.GoName)).CallFunc(func(g *jen.Group) {
 						g.Add(jen.Id("ctx"))
 						g.Add(jen.Id("req"))
 						g.Add(jen.Id("options").Op("..."))
 					}))
 
+					g.Add(IfErrNilDouble)
+
 					g.Add(jen.Var().Id("resp").Op("*").Id(gf.QualifiedGoIdent(method.Output.GoIdent)))
 
-					g.Add(jen.Id("err").Op(":=").Id("future").Dot("Get").CallFunc(func(g *jen.Group) {
+					g.Add(jen.Id("err").Op("=").Id("future").Dot("Get").CallFunc(func(g *jen.Group) {
 						g.Add(jen.Id("ctx"))
 						g.Add(jen.Op("&").Id("resp"))
 					}))
@@ -398,7 +417,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 						),
 					)
 
-					g.Add(
+					/*g.Add(
 						jen.If(jen.Id("aOptions").Dot("ActivityID").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
 							g.Add(jen.Id("aOptions").Dot("ActivityID").Op("=").Id(getFmtObject(gf, "Sprintf")).CallFunc(func(g *jen.Group) {
 								g.Add(jen.Lit("%s/%s"))
@@ -407,17 +426,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 							}))
 						},
 						),
-					)
-
-					g.Add(
-						jen.If(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("=").Id(fmt.Sprintf("Default%sScheduleToCloseTimeout", service.GoName)))
-						}),
-					)
-
-					g.Add(jen.If(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
-						g.Add(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("=").Id(fmt.Sprintf("Default%sStartToCloseTimeout", service.GoName)))
-					}))
+					)*/
 
 					if activityOptions != nil {
 						if activityOptions.StartToCloseTimeout != nil {
@@ -474,6 +483,18 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service) error {
 							})
 						}
 					}
+
+					g.Add(
+						jen.If(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
+							g.Add(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("=").Id(fmt.Sprintf("Default%sScheduleToCloseTimeout", service.GoName)))
+						}),
+					)
+
+					g.Add(
+						jen.If(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
+							g.Add(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("=").Id(fmt.Sprintf("Default%sStartToCloseTimeout", service.GoName)))
+						}),
+					)
 
 					g.Add(jen.ReturnFunc(func(g *jen.Group) {
 						g.Add(jen.Id("workflow").Dot("ExecuteActivity").CallFunc(func(g *jen.Group) {

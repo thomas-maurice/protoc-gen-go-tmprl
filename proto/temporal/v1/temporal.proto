@@ -8,80 +8,80 @@ import "google/protobuf/wrappers.proto";
 option go_package = "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1";
 
 extend google.protobuf.MethodOptions {
-    optional ActivityOptions activity = 50000;
-    optional WorkflowOptions workflow = 50001;
-    optional SignalOptions signal = 50002;
-    optional QueryOptions query = 50003;
+  optional ActivityOptions activity = 50000;
+  optional WorkflowOptions workflow = 50001;
+  optional SignalOptions signal = 50002;
+  optional QueryOptions query = 50003;
 }
 
 extend google.protobuf.ServiceOptions {
-    optional ServiceOptions service = 50002;
+  optional ServiceOptions service = 50002;
 }
 
 message ActivityOptions {
-    string name = 1;
-    // Timeout from schedule to close - in seconds
-    google.protobuf.Int32Value schedule_to_close_timeout = 2;
-    // Timeout from start to close - in seconds
-    google.protobuf.Int32Value start_to_close_timeout = 3;
-    // Timeout from schedule to  - in seconds
-    google.protobuf.Int32Value schedule_to_start_timeout = 4;
-    // Default retry policy
-    RetryPolicy retry_policy = 5;
+  string name = 1;
+  // Timeout from schedule to close - in seconds
+  google.protobuf.Int32Value schedule_to_close_timeout = 2;
+  // Timeout from start to close - in seconds
+  google.protobuf.Int32Value start_to_close_timeout = 3;
+  // Timeout from schedule to  - in seconds
+  google.protobuf.Int32Value schedule_to_start_timeout = 4;
+  // Default retry policy
+  RetryPolicy retry_policy = 5;
 }
 
 message WorkflowOptions {
-    string name = 1;
-    // Execution timeout for the workflow - in seconds
-    google.protobuf.Int32Value workflow_execution_timeout = 2;
-    // The timeout for duration of a single workflow run - in seconds
-    google.protobuf.Int32Value workflow_run_timeout = 3;
-    // The timeout for processing workflow task from the time the worker
-	// pulled this task
-    google.protobuf.Int32Value workflow_task_timeout = 4;
-    // Default retry policy
-    RetryPolicy retry_policy = 5;
-    // Signals is a list of signals that the
-    // workflow can accept. They MUST be defined in
-    // the same service. The values of the list is
-    // simply the name of the corresonding RPC method
-    repeated string signals = 6;
-    // Queries is a list of queries that the
-    // workflow can process. They MUST be defined in
-    // the same service. The values of the list is
-    // simply the name of the corresponding RPC method
-    repeated string queries = 7;
+  string name = 1;
+  // Execution timeout for the workflow - in seconds
+  google.protobuf.Int32Value workflow_execution_timeout = 2;
+  // The timeout for duration of a single workflow run - in seconds
+  google.protobuf.Int32Value workflow_run_timeout = 3;
+  // The timeout for processing workflow task from the time the worker
+  // pulled this task
+  google.protobuf.Int32Value workflow_task_timeout = 4;
+  // Default retry policy
+  RetryPolicy retry_policy = 5;
+  // Signals is a list of signals that the
+  // workflow can accept. They MUST be defined in
+  // the same service. The values of the list is
+  // simply the name of the corresonding RPC method
+  repeated string signals = 6;
+  // Queries is a list of queries that the
+  // workflow can process. They MUST be defined in
+  // the same service. The values of the list is
+  // simply the name of the corresponding RPC method
+  repeated string queries = 7;
 }
 
 message ServiceOptions {
-    string task_queue = 1;
-    // These will apply to all workflows unless defined otherwise
-    // appart from the `name` one that is ignored here
-    WorkflowOptions default_workflow_options = 2;
-    // These settings will apply to all activities unless defined otherwise
-    // appart from the `name` one that is ignored here
-    ActivityOptions default_activity_options = 3;
+  string task_queue = 1;
+  // These will apply to all workflows unless defined otherwise
+  // appart from the `name` one that is ignored here
+  WorkflowOptions default_workflow_options = 2;
+  // These settings will apply to all activities unless defined otherwise
+  // appart from the `name` one that is ignored here
+  ActivityOptions default_activity_options = 3;
 }
 
 message RetryPolicy {
-    // Initial interval in seconds for the first retry
-    google.protobuf.Int32Value initial_interval = 1;
-    // Backoff coefficient for exponential backoff
-    google.protobuf.FloatValue backoff_coefficient = 2;
-    // Max inteval between two retries
-    google.protobuf.Int32Value maximum_interval = 3;
-    // Maximum of attempts
-    google.protobuf.Int32Value maximum_attempts = 4;
-    // Non retryable error types
-    repeated google.protobuf.StringValue non_retryable_error_types = 5;
+  // Initial interval in seconds for the first retry
+  google.protobuf.Int32Value initial_interval = 1;
+  // Backoff coefficient for exponential backoff
+  google.protobuf.FloatValue backoff_coefficient = 2;
+  // Max inteval between two retries
+  google.protobuf.Int32Value maximum_interval = 3;
+  // Maximum of attempts
+  google.protobuf.Int32Value maximum_attempts = 4;
+  // Non retryable error types
+  repeated google.protobuf.StringValue non_retryable_error_types = 5;
 }
 
 message SignalOptions {
-    // Name is the name of the signal, better left auto generated
-    string name = 1;
+  // Name is the name of the signal, better left auto generated
+  string name = 1;
 }
 
 message QueryOptions {
-    // Name is the name of the query, better left auto generated
-    string name = 1;
+  // Name is the name of the query, better left auto generated
+  string name = 1;
 }

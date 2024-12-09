@@ -5,6 +5,7 @@ go 1.22.8
 require (
 	github.com/dave/jennifer v1.7.1
 	github.com/google/uuid v1.6.0
+	github.com/phsym/console-slog v0.3.1
 	go.temporal.io/sdk v1.30.0
 	google.golang.org/protobuf v1.35.2
 )
@@ -18,7 +19,6 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 // indirect
 	github.com/nexus-rpc/sdk-go v0.0.11 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
-	github.com/phsym/console-slog v0.3.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect

@@ -2,104 +2,114 @@ syntax = "proto3";
 
 package example.v1;
 
+import "google/protobuf/empty.proto";
+import "temporal/v1/temporal.proto";
+
 option go_package = "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/example/v1";
 
-import "temporal/v1/temporal.proto";
-import "google/protobuf/empty.proto";
-
 // Service hello world is an example implementation of a service
-service DieRoll  {
-    option (temporal.v1.service) = {
-        task_queue: "service-task-queue"
-        default_workflow_options: {
-            // one day
-            workflow_execution_timeout: { value: 86400 }
-            // one hour
-            workflow_run_timeout: { value: 7200 }
-        }
+service DieRoll {
+  option (temporal.v1.service) = {
+    task_queue: "service-task-queue"
+    default_workflow_options: {
+      // one day
+      workflow_execution_timeout: {value: 86400}
+      // one hour
+      workflow_run_timeout: {value: 7200}
+    }
+  };
+
+  // Throws a d6 and returns the result
+  rpc ThrowDie(google.protobuf.Empty) returns (ThrowDieResponse) {
+    option (temporal.v1.activity) = {
+      schedule_to_start_timeout: {value: 30}
+      schedule_to_close_timeout: {value: 120}
+      start_to_close_timeout: {value: 120}
+      retry_policy: {
+        initial_interval: {value: 1}
+        backoff_coefficient: {value: 1.5}
+        maximum_interval: {value: 10}
+        maximum_attempts: {value: 10}
+        non_retryable_error_types: [
+          {value: "FATAL"}]
+      }
     };
+  }
 
-    // Throws a d6 and returns the result
-    rpc ThrowDie(google.protobuf.Empty) returns (ThrowDieResponse) {
-        option (temporal.v1.activity) = {
-            schedule_to_start_timeout: { value: 30 }
-            schedule_to_close_timeout: { value: 120 }
-            start_to_close_timeout: { value: 120 }
-            retry_policy: {
-                initial_interval: { value: 1 }
-                backoff_coefficient: { value: 1.5 }
-                maximum_interval: { value: 10 }
-                maximum_attempts: { value: 10 }
-                non_retryable_error_types: [{value: "FATAL"}]
-            }
-        };
-    }
+  // Just a simple ping
+  // Takes no parameters
+  // returns nothing
+  rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (temporal.v1.activity) = {
+      // Specify a name for the activity. This is not required as
+      // the generator will name it automatically <package>.<service>.<rpc>
+      name: "ping.Ping"
+    };
+  }
 
-    // Just a simple ping
-    // Takes no parameters
-    // returns nothing
-    rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty) {
-        option (temporal.v1.activity) = {
-            // Specify a name for the activity. This is not required as
-            // the generator will name it automatically <package>.<service>.<rpc>
-            name: "ping.Ping"
-        };
-    }
+  // Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
+  rpc ParentWorkflow(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (temporal.v1.workflow) = {};
+  }
 
-    // Throws dies a few times and return the result
-    rpc ThrowDies(ThrowDiesRequest) returns (ThrowDiesResponse) {
-        option (temporal.v1.workflow) = {
-            signals: ["Continue"]
-        };
-    }
+  rpc ChildWorkflow(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (temporal.v1.workflow) = {};
+  }
 
-    rpc ThrowUntilValue(ThrowUntilValueRequest) returns (google.protobuf.Empty) {
-        option (temporal.v1.workflow) = {
-            queries: ["GetThrowsStatus"]
-        };
-    }
+  // Throws dies a few times and return the result
+  rpc ThrowDies(ThrowDiesRequest) returns (ThrowDiesResponse) {
+    option (temporal.v1.workflow) = {
+      signals: ["Continue"]
+    };
+  }
 
-    // Signals can be defined with whatever return type you want as they
-    // do not expect an answer
+  rpc ThrowUntilValue(ThrowUntilValueRequest) returns (google.protobuf.Empty) {
+    option (temporal.v1.workflow) = {
+      queries: ["GetThrowsStatus"]
+    };
+  }
 
-    // Instruct the workflow to proceed
-    rpc Continue(ContinueSignalRequest) returns (ContinueSignalRequest) {
-        option (temporal.v1.signal) = {};
-    }
+  // Signals can be defined with whatever return type you want as they
+  // do not expect an answer
 
-    // Query the state of a workflow
+  // Instruct the workflow to proceed
+  rpc Continue(ContinueSignalRequest) returns (ContinueSignalRequest) {
+    option (temporal.v1.signal) = {};
+  }
 
-    // Query the state of the workflow
-    rpc GetThrowsStatus(google.protobuf.Empty) returns (ThrowStatusResponse) {
-        option (temporal.v1.query) = {};
-    }
+  // Query the state of a workflow
+
+  // Query the state of the workflow
+  rpc GetThrowsStatus(google.protobuf.Empty) returns (ThrowStatusResponse) {
+    option (temporal.v1.query) = {};
+  }
 }
 
 message ContinueSignalRequest {
-    bool continue = 1;
+  bool continue = 1;
 }
 
 message GetStatusResponse {
-    int64 progress = 1;
+  int64 progress = 1;
 }
 
 message ThrowDieResponse {
-    int32 result = 1;
+  int32 result = 1;
 }
 
 message ThrowDiesResponse {
-    repeated int32 results = 1;
+  repeated int32 results = 1;
 }
 
 message ThrowDiesRequest {
-    int32 results = 1;
-    bool loop = 2;
+  int32 results = 1;
+  bool loop = 2;
 }
 
 message ThrowUntilValueRequest {
-    int32 value = 1;
+  int32 value = 1;
 }
 
 message ThrowStatusResponse {
-    int32 throws = 1;
+  int32 throws = 1;
 }

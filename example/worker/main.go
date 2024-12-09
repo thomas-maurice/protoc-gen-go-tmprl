@@ -30,6 +30,36 @@ func (s *DieRollService) ThrowDie(ctx context.Context, req *emptypb.Empty) (*exa
 	}, nil
 }
 
+func (s *DieRollService) ParentWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+	var repetitions int
+	repetitionsSideEffect := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
+		return rand.Int() % 20
+	})
+
+	err := repetitionsSideEffect.Get(&repetitions)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := 0; i < repetitions; i++ {
+		_, err = s.c.ExecuteChildChildWorkflow(ctx, &emptypb.Empty{})
+		if err != nil {
+			return nil, nil
+		}
+
+		err = workflow.Sleep(ctx, time.Second*10)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return nil, nil
+}
+
+func (s *DieRollService) ChildWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, nil
+}
+
 func (s *DieRollService) ThrowDies(ctx workflow.Context, req *examplev1.ThrowDiesRequest) (*examplev1.ThrowDiesResponse, error) {
 	results := make([]int32, 0)
 
