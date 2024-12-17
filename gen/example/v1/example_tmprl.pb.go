@@ -52,9 +52,9 @@ const ( // Default task queue name for the service
 	QueryDieRollGetThrowsStatusName = "example.v1.DieRoll.GetThrowsStatus"
 
 	// Default timeout for activities when none is specified
-	DefaultDieRollScheduleToCloseTimeout = time.Hour
+	DefaultDieRollActivityScheduleToCloseTimeout = time.Hour
 	// Default timeout for activities when none is specified
-	DefaultDieRollStartToCloseTimeout = time.Hour
+	DefaultDieRollActivityStartToCloseTimeout = time.Hour
 )
 
 // DieRollService is the interface your service must implement
@@ -195,10 +195,13 @@ func (c *DieRollClient) ExecuteActivityThrowDie(ctx workflow.Context, req *empty
 		}
 	}
 	if aOptions.ScheduleToCloseTimeout == 0 {
-		aOptions.ScheduleToCloseTimeout = DefaultDieRollScheduleToCloseTimeout
+		aOptions.ScheduleToCloseTimeout = time.Duration(int32(120)) * time.Second
 	}
 	if aOptions.StartToCloseTimeout == 0 {
-		aOptions.StartToCloseTimeout = DefaultDieRollStartToCloseTimeout
+		aOptions.StartToCloseTimeout = time.Duration(int32(120)) * time.Second
+	}
+	if aOptions.ScheduleToStartTimeout == 0 {
+		aOptions.ScheduleToStartTimeout = time.Duration(int32(30)) * time.Second
 	}
 	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), "example.v1.DieRoll.ThrowDie", req)
 }
@@ -228,12 +231,6 @@ func (c *DieRollClient) ExecuteActivityPing(ctx workflow.Context, req *emptypb.E
 	}
 	if aOptions.TaskQueue == "" {
 		aOptions.TaskQueue = DefaultDieRollTaskQueueName
-	}
-	if aOptions.ScheduleToCloseTimeout == 0 {
-		aOptions.ScheduleToCloseTimeout = DefaultDieRollScheduleToCloseTimeout
-	}
-	if aOptions.StartToCloseTimeout == 0 {
-		aOptions.StartToCloseTimeout = DefaultDieRollStartToCloseTimeout
 	}
 	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), "ping.Ping", req)
 }

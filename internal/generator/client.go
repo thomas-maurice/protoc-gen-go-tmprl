@@ -66,12 +66,41 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 		}
 
 		activityOptions := getActivityOptions(method)
+		defaultActivityOptions := getDefaultActivityOptions(service)
 		if activityOptions == nil {
-			activityOptions = getDefaultActivityOptions(service)
+			activityOptions = defaultActivityOptions
+		} else if defaultActivityOptions != nil {
+			if activityOptions.ScheduleToStartTimeout == nil {
+				activityOptions.ScheduleToStartTimeout = defaultActivityOptions.ScheduleToStartTimeout
+			}
+			if activityOptions.ScheduleToCloseTimeout == nil {
+				activityOptions.ScheduleToCloseTimeout = defaultActivityOptions.ScheduleToCloseTimeout
+			}
+			if activityOptions.StartToCloseTimeout == nil {
+				activityOptions.StartToCloseTimeout = defaultActivityOptions.StartToCloseTimeout
+			}
+			if activityOptions.RetryPolicy == nil {
+				activityOptions.RetryPolicy = defaultActivityOptions.RetryPolicy
+			}
 		}
+
 		workflowOptions := getWorkflowOptions(method)
+		defaultWorkflowOptions := getDefaultWorkflowOptions(service)
 		if workflowOptions == nil {
-			workflowOptions = getDefaultWorkflowOptions(service)
+			workflowOptions = defaultWorkflowOptions
+		} else if defaultActivityOptions != nil {
+			if workflowOptions.WorkflowExecutionTimeout == nil {
+				workflowOptions.WorkflowExecutionTimeout = defaultWorkflowOptions.WorkflowExecutionTimeout
+			}
+			if workflowOptions.WorkflowRunTimeout == nil {
+				workflowOptions.WorkflowRunTimeout = defaultWorkflowOptions.WorkflowRunTimeout
+			}
+			if workflowOptions.WorkflowTaskTimeout == nil {
+				workflowOptions.WorkflowTaskTimeout = defaultWorkflowOptions.WorkflowTaskTimeout
+			}
+			if workflowOptions.RetryPolicy == nil {
+				workflowOptions.RetryPolicy = defaultWorkflowOptions.RetryPolicy
+			}
 		}
 
 		switch t {
@@ -484,17 +513,29 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						}
 					}
 
-					g.Add(
-						jen.If(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("=").Id(fmt.Sprintf("Default%sScheduleToCloseTimeout", service.GoName)))
-						}),
-					)
+					if activityOptions.ScheduleToCloseTimeout != nil {
+						g.Add(jen.If(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
+							g.Add(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
+								g.Add(jen.Lit(*activityOptions.ScheduleToCloseTimeout))
+							}).Op("*").Id(getTimeObject(gf, "Second")))
+						}))
+					}
 
-					g.Add(
-						jen.If(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("=").Id(fmt.Sprintf("Default%sStartToCloseTimeout", service.GoName)))
-						}),
-					)
+					if activityOptions.StartToCloseTimeout != nil {
+						g.Add(jen.If(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
+							g.Add(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
+								g.Add(jen.Lit(*activityOptions.StartToCloseTimeout))
+							}).Op("*").Id(getTimeObject(gf, "Second")))
+						}))
+					}
+
+					if activityOptions.ScheduleToStartTimeout != nil {
+						g.Add(jen.If(jen.Id("aOptions").Dot("ScheduleToStartTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
+							g.Add(jen.Id("aOptions").Dot("ScheduleToStartTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
+								g.Add(jen.Lit(*activityOptions.ScheduleToStartTimeout))
+							}).Op("*").Id(getTimeObject(gf, "Second")))
+						}))
+					}
 
 					g.Add(jen.ReturnFunc(func(g *jen.Group) {
 						g.Add(jen.Id("workflow").Dot("ExecuteActivity").CallFunc(func(g *jen.Group) {
