@@ -236,6 +236,22 @@ The generated code exposes a lot of primitives such as (non exhaustive list):
 
 Generally a good starting point to get familiar with the generated code is to have a look at the [example](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/example/proto/example/main.go) provided.
 
+## Options
+* `gen-workflow-prefix`, if set to true, instead of using an UUID for workflow IDs, the worker will generate a name that looks like `<module>.v<X>.<service>.<rpcMethodName>/<uuid>`, like `example.v1.DieRoll.ThrowDies/e2715d07-7bc0-495d-90c5-c396c0a17b46` for example.
+* `paths`, like on the protoc-gen-go, for example `paths=source_relative`
+
+You can enable it in buf using:
+```yaml
+version: v2
+plugins:
+  - local: protoc-gen-go-tmprl
+    out: gen
+    opt:
+    - paths=source_relative
+    - gen-workflow-prefix=true
+```
+
+
 ## Hacking on it
 ### Install `buf`
 
@@ -251,7 +267,3 @@ You need [direnv](https://direnv.net/) to load some env variables into your shel
 $ make build
 $ make
 ```
-
-Should be sufficient
-
-Good luck, have fun
