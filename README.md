@@ -234,7 +234,7 @@ The generated code exposes a lot of primitives such as (non exhaustive list):
 * `workflow.Get`: Gets the result of a workflow like you would on a normal future (you probably don't want that because no type safety)
 * `workflow.Result`: Gets the result of a workflow *with type safety*
 
-Generally a good starting point to get familiar with the generated code is to have a look at the [example](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/example/proto/example/main.go) provided.
+Generally a good starting point to get familiar with the generated code is to have a look at the [example client](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/example/client/main.go) and [example worker](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/example/worker/main.go) provided.
 
 ## Options
 * `gen-workflow-prefix`, if set to true, instead of using an UUID for workflow IDs, the worker will generate a name that looks like `<module>.v<X>.<service>.<rpcMethodName>/<uuid>`, like `example.v1.DieRoll.ThrowDies/e2715d07-7bc0-495d-90c5-c396c0a17b46` for example.
