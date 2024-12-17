@@ -13,25 +13,24 @@ service DieRoll {
     task_queue: "service-task-queue"
     default_workflow_options: {
       // one day
-      workflow_execution_timeout: {value: 86400}
+      workflow_execution_timeout: 86400
       // one hour
-      workflow_run_timeout: {value: 7200}
+      workflow_run_timeout: 7200
     }
   };
 
   // Throws a d6 and returns the result
   rpc ThrowDie(google.protobuf.Empty) returns (ThrowDieResponse) {
     option (temporal.v1.activity) = {
-      schedule_to_start_timeout: {value: 30}
-      schedule_to_close_timeout: {value: 120}
-      start_to_close_timeout: {value: 120}
+      schedule_to_start_timeout: 30
+      schedule_to_close_timeout: 120
+      start_to_close_timeout: 120
       retry_policy: {
-        initial_interval: {value: 1}
-        backoff_coefficient: {value: 1.5}
-        maximum_interval: {value: 10}
-        maximum_attempts: {value: 10}
-        non_retryable_error_types: [
-          {value: "FATAL"}]
+        initial_interval: 1
+        backoff_coefficient: 1.5
+        maximum_interval: 10
+        maximum_attempts: 10
+        non_retryable_error_types: ["FATAL"]
       }
     };
   }
@@ -49,7 +48,9 @@ service DieRoll {
 
   // Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
   rpc ParentWorkflow(google.protobuf.Empty) returns (google.protobuf.Empty) {
-    option (temporal.v1.workflow) = {};
+    option (temporal.v1.workflow) = {
+      signals: ["Continue"]
+    };
   }
 
   rpc ChildWorkflow(google.protobuf.Empty) returns (google.protobuf.Empty) {

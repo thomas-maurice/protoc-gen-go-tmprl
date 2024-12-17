@@ -269,12 +269,6 @@ func (c *DieRollClient) ExecuteWorkflowParentWorkflow(ctx context.Context, req *
 	if wOptions.ID == "" {
 		wOptions.ID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ParentWorkflow", uuid.NewString())
 	}
-	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(int32(86400)) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(int32(7200)) * time.Second
-	}
 	return c.client.ExecuteWorkflow(ctx, wOptions, "example.v1.DieRoll.ParentWorkflow", req)
 }
 
@@ -324,12 +318,6 @@ func (c *DieRollClient) ExecuteChildParentWorkflow(ctx workflow.Context, req *em
 			return nil, err
 		}
 		wOptions.WorkflowID = id
-	}
-	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(int32(86400)) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(int32(7200)) * time.Second
 	}
 	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ParentWorkflow", req), nil
 }
@@ -682,6 +670,11 @@ func (w *DieRollParentWorkflow) GetWithOptions(ctx context.Context, valuePtr int
 	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
 
+// SignalContinue sends the Continue signal to the workflow
+func (w *DieRollParentWorkflow) SignalContinue(ctx context.Context, req *ContinueSignalRequest) error {
+	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), "example.v1.DieRoll.Continue", req)
+}
+
 // ChildDieRollParentWorkflowExecution is a struct that wraps a workflow execution (called from another workflow)
 type ChildDieRollParentWorkflowExecution struct {
 	client client.Client
@@ -724,6 +717,11 @@ func (w *ChildDieRollParentWorkflowExecution) IsReady() bool {
 // Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
 func (w *ChildDieRollParentWorkflowExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
 	return w.future.SignalChildWorkflow(ctx, sigName, data)
+}
+
+// SignalContinue sends the Continue signal to the workflow
+func (w *ChildDieRollParentWorkflowExecution) SignalContinue(ctx workflow.Context, req *ContinueSignalRequest) error {
+	return w.future.SignalChildWorkflow(ctx, "example.v1.DieRoll.Continue", req).Get(ctx, nil)
 }
 
 // DieRollChildWorkflow is a struct that wraps a workflow
