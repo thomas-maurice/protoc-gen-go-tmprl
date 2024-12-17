@@ -32,15 +32,15 @@ func (s *DieRollService) ThrowDie(ctx context.Context, req *emptypb.Empty) (*exa
 	}, nil
 }
 
-func (s *DieRollService) ParentWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *DieRollService) ParentWorkflow(ctx workflow.Context, req *emptypb.Empty) (*examplev1.ParentWorkflowReply, error) {
 	var repetitions int
 	repetitionsSideEffect := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
-		return rand.Int() % 20
+		return rand.Int() % 10
 	})
 
 	err := repetitionsSideEffect.Get(&repetitions)
 	if err != nil {
-		return nil, err
+		return &examplev1.ParentWorkflowReply{Status: examplev1.Status_FAILURE}, err
 	}
 
 	workflow.Go(ctx, func(ctx workflow.Context) {
@@ -55,16 +55,16 @@ func (s *DieRollService) ParentWorkflow(ctx workflow.Context, req *emptypb.Empty
 	for i := 0; i < repetitions; i++ {
 		_, err := s.c.ExecuteChildChildWorkflow(ctx, &emptypb.Empty{})
 		if err != nil {
-			return nil, nil
+			return &examplev1.ParentWorkflowReply{Status: examplev1.Status_SUCCESS}, nil
 		}
 
 		err = workflow.Sleep(ctx, time.Second*10)
 		if err != nil {
-			return nil, err
+			return &examplev1.ParentWorkflowReply{Status: examplev1.Status_FAILURE}, err
 		}
 	}
 
-	return nil, nil
+	return &examplev1.ParentWorkflowReply{Status: examplev1.Status_SUCCESS}, nil
 }
 
 func (s *DieRollService) ChildWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error) {

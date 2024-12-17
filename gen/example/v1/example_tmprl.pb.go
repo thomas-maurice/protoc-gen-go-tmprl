@@ -65,7 +65,7 @@ type DieRollService interface {
 	// Workflows definitions
 
 	// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-	ParentWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error)
+	ParentWorkflow(ctx workflow.Context, req *emptypb.Empty) (*ParentWorkflowReply, error)
 	//
 	ChildWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error)
 	// Throws dies a few times and return the result
@@ -270,12 +270,12 @@ func (c *DieRollClient) ExecuteWorkflowParentWorkflow(ctx context.Context, req *
 }
 
 // ExecuteWorkflowParentWorkflowSync executes the workflow and returns the result when finished
-func (c *DieRollClient) ExecuteWorkflowParentWorkflowSync(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (*emptypb.Empty, error) {
+func (c *DieRollClient) ExecuteWorkflowParentWorkflowSync(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (*ParentWorkflowReply, error) {
 	future, err := c.ExecuteWorkflowParentWorkflow(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
-	var resp *emptypb.Empty
+	var resp *ParentWorkflowReply
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -284,9 +284,9 @@ func (c *DieRollClient) ExecuteWorkflowParentWorkflowSync(ctx context.Context, r
 }
 
 // GetWorkflowParentWorkflowResult gets the result of a given workflow
-func (c *DieRollClient) GetWorkflowParentWorkflowResult(ctx context.Context, workflowId string, runId string) (*emptypb.Empty, error) {
+func (c *DieRollClient) GetWorkflowParentWorkflowResult(ctx context.Context, workflowId string, runId string) (*ParentWorkflowReply, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
-	var resp *emptypb.Empty
+	var resp *ParentWorkflowReply
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -320,12 +320,12 @@ func (c *DieRollClient) ExecuteChildParentWorkflow(ctx workflow.Context, req *em
 }
 
 // ExecuteChildParentWorkflowSync executes the workflow as a child workflow and returns the result when finished
-func (c *DieRollClient) ExecuteChildParentWorkflowSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (*emptypb.Empty, error) {
+func (c *DieRollClient) ExecuteChildParentWorkflowSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (*ParentWorkflowReply, error) {
 	future, err := c.ExecuteChildParentWorkflow(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
-	var resp *emptypb.Empty
+	var resp *ParentWorkflowReply
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -638,8 +638,8 @@ func (w *DieRollParentWorkflow) Terminate(ctx context.Context, reason string, de
 }
 
 // Get gets the result of a given workflow with its native type
-func (w *DieRollParentWorkflow) Result(ctx context.Context) (*emptypb.Empty, error) {
-	var resp *emptypb.Empty
+func (w *DieRollParentWorkflow) Result(ctx context.Context) (*ParentWorkflowReply, error) {
+	var resp *ParentWorkflowReply
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -648,8 +648,8 @@ func (w *DieRollParentWorkflow) Result(ctx context.Context) (*emptypb.Empty, err
 }
 
 // ResultWithOptions gets the result of a given workflow with its native type
-func (w *DieRollParentWorkflow) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*emptypb.Empty, error) {
-	var resp *emptypb.Empty
+func (w *DieRollParentWorkflow) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*ParentWorkflowReply, error) {
+	var resp *ParentWorkflowReply
 	err := w.future.GetWithOptions(ctx, &resp, options)
 	if err != nil {
 		return nil, err
@@ -687,8 +687,8 @@ func (c *DieRollClient) GetChildDieRollParentWorkflowExecution(future workflow.C
 }
 
 // Get gets the result of a given workflow with its native type
-func (w *ChildDieRollParentWorkflowExecution) Result(ctx workflow.Context) (*emptypb.Empty, error) {
-	var resp *emptypb.Empty
+func (w *ChildDieRollParentWorkflowExecution) Result(ctx workflow.Context) (*ParentWorkflowReply, error) {
+	var resp *ParentWorkflowReply
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err

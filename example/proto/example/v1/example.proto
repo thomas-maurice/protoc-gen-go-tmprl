@@ -7,6 +7,12 @@ import "temporal/v1/temporal.proto";
 
 option go_package = "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/example/v1";
 
+enum Status {
+  UNDEFINED = 0;
+  SUCCESS = 1;
+  FAILURE = 2;
+}
+
 // Service hello world is an example implementation of a service
 service DieRoll {
   option (temporal.v1.service) = {
@@ -47,7 +53,7 @@ service DieRoll {
   }
 
   // Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-  rpc ParentWorkflow(google.protobuf.Empty) returns (google.protobuf.Empty) {
+  rpc ParentWorkflow(google.protobuf.Empty) returns (ParentWorkflowReply) {
     option (temporal.v1.workflow) = {
       signals: ["Continue"]
     };
@@ -113,4 +119,8 @@ message ThrowUntilValueRequest {
 
 message ThrowStatusResponse {
   int32 throws = 1;
+}
+
+message ParentWorkflowReply {
+  Status status = 1;
 }
