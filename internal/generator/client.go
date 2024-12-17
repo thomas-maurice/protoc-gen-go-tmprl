@@ -113,7 +113,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						if workflowOptions.WorkflowExecutionTimeout != nil {
 							g.Add(jen.If(jen.Id("wOptions").Dot("WorkflowExecutionTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
 								g.Add(jen.Id("wOptions").Dot("WorkflowExecutionTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-									g.Add(jen.Lit(workflowOptions.WorkflowExecutionTimeout.Value))
+									g.Add(jen.Lit(*workflowOptions.WorkflowExecutionTimeout))
 								}).Op("*").Id(getTimeObject(gf, "Second")))
 							}))
 						}
@@ -121,7 +121,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						if workflowOptions.WorkflowRunTimeout != nil {
 							g.Add(jen.If(jen.Id("wOptions").Dot("WorkflowRunTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
 								g.Add(jen.Id("wOptions").Dot("WorkflowRunTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-									g.Add(jen.Lit(workflowOptions.WorkflowRunTimeout.Value))
+									g.Add(jen.Lit(*workflowOptions.WorkflowRunTimeout))
 								}).Op("*").Id(getTimeObject(gf, "Second")))
 							}))
 						}
@@ -129,7 +129,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						if workflowOptions.WorkflowTaskTimeout != nil {
 							g.Add(jen.If(jen.Id("wOptions").Dot("WorkflowTaskTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
 								g.Add(jen.Id("wOptions").Dot("WorkflowTaskTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-									g.Add(jen.Lit(workflowOptions.WorkflowRunTimeout.Value))
+									g.Add(jen.Lit(*workflowOptions.WorkflowRunTimeout))
 								}).Op("*").Id(getTimeObject(gf, "Second")))
 							}))
 						}
@@ -139,24 +139,24 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 								g.Add(jen.Id("wOptions").Dot("RetryPolicy").Op("=").Op("&").Id(getTemporalObject(gf, "RetryPolicy")).BlockFunc(func(g *jen.Group) {
 									if workflowOptions.RetryPolicy.InitialInterval != nil {
 										g.Add(jen.Id("InitialInterval").Op(":").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-											g.Add(jen.Lit(workflowOptions.RetryPolicy.InitialInterval.Value))
+											g.Add(jen.Lit(*workflowOptions.RetryPolicy.InitialInterval))
 										}).Op("*").Id(getTimeObject(gf, "Second")).Op(","))
 									}
 									if workflowOptions.RetryPolicy.MaximumInterval != nil {
 										g.Add(jen.Id("MaximumInterval").Op(":").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-											g.Add(jen.Lit(workflowOptions.RetryPolicy.MaximumInterval.Value))
+											g.Add(jen.Lit(*workflowOptions.RetryPolicy.MaximumInterval))
 										}).Op("*").Id(getTimeObject(gf, "Second")).Op(","))
 									}
 									if workflowOptions.RetryPolicy.BackoffCoefficient != nil {
-										g.Add(jen.Id("BackoffCoefficient").Op(":").Float64().Call(jen.Lit(workflowOptions.RetryPolicy.BackoffCoefficient.Value)).Op(","))
+										g.Add(jen.Id("BackoffCoefficient").Op(":").Float64().Call(jen.Lit(*workflowOptions.RetryPolicy.BackoffCoefficient)).Op(","))
 									}
 									if workflowOptions.RetryPolicy.MaximumAttempts != nil {
-										g.Add(jen.Id("MaximumAttempts").Op(":").Lit(workflowOptions.RetryPolicy.MaximumAttempts.Value).Op(","))
+										g.Add(jen.Id("MaximumAttempts").Op(":").Lit(*workflowOptions.RetryPolicy.MaximumAttempts).Op(","))
 									}
 									if workflowOptions.RetryPolicy.NonRetryableErrorTypes != nil {
 										g.Add(jen.Id("NonRetryableErrorTypes").Op(":").Index(jen.Null()).String().Block(jen.ListFunc(func(g *jen.Group) {
 											for i := 0; i < len(workflowOptions.RetryPolicy.NonRetryableErrorTypes); i++ {
-												g.Add(jen.Lit(workflowOptions.RetryPolicy.NonRetryableErrorTypes[i].Value).Op(","))
+												g.Add(jen.Lit(workflowOptions.RetryPolicy.NonRetryableErrorTypes[i]).Op(","))
 											}
 										})).Op(","))
 									}
@@ -293,7 +293,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						if workflowOptions.WorkflowExecutionTimeout != nil {
 							g.Add(jen.If(jen.Id("wOptions").Dot("WorkflowExecutionTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
 								g.Add(jen.Id("wOptions").Dot("WorkflowExecutionTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-									g.Add(jen.Lit(workflowOptions.WorkflowExecutionTimeout.Value))
+									g.Add(jen.Lit(*workflowOptions.WorkflowExecutionTimeout))
 								}).Op("*").Id(getTimeObject(gf, "Second")))
 							}))
 						}
@@ -301,7 +301,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						if workflowOptions.WorkflowRunTimeout != nil {
 							g.Add(jen.If(jen.Id("wOptions").Dot("WorkflowRunTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
 								g.Add(jen.Id("wOptions").Dot("WorkflowRunTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-									g.Add(jen.Lit(workflowOptions.WorkflowRunTimeout.Value))
+									g.Add(jen.Lit(*workflowOptions.WorkflowRunTimeout))
 								}).Op("*").Id(getTimeObject(gf, "Second")))
 							}))
 						}
@@ -309,7 +309,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						if workflowOptions.WorkflowTaskTimeout != nil {
 							g.Add(jen.If(jen.Id("wOptions").Dot("WorkflowTaskTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
 								g.Add(jen.Id("wOptions").Dot("WorkflowTaskTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-									g.Add(jen.Lit(workflowOptions.WorkflowRunTimeout.Value))
+									g.Add(jen.Lit(*workflowOptions.WorkflowRunTimeout))
 								}).Op("*").Id(getTimeObject(gf, "Second")))
 							}))
 						}
@@ -319,24 +319,24 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 								g.Add(jen.Id("wOptions").Dot("RetryPolicy").Op("=").Op("&").Id(getTemporalObject(gf, "RetryPolicy")).BlockFunc(func(g *jen.Group) {
 									if workflowOptions.RetryPolicy.InitialInterval != nil {
 										g.Add(jen.Id("InitialInterval").Op(":").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-											g.Add(jen.Lit(workflowOptions.RetryPolicy.InitialInterval.Value))
+											g.Add(jen.Lit(*workflowOptions.RetryPolicy.InitialInterval))
 										}).Op("*").Id(getTimeObject(gf, "Second")).Op(","))
 									}
 									if workflowOptions.RetryPolicy.MaximumInterval != nil {
 										g.Add(jen.Id("MaximumInterval").Op(":").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-											g.Add(jen.Lit(workflowOptions.RetryPolicy.MaximumInterval.Value))
+											g.Add(jen.Lit(*workflowOptions.RetryPolicy.MaximumInterval))
 										}).Op("*").Id(getTimeObject(gf, "Second")).Op(","))
 									}
 									if workflowOptions.RetryPolicy.BackoffCoefficient != nil {
-										g.Add(jen.Id("BackoffCoefficient").Op(":").Float64().Call(jen.Lit(workflowOptions.RetryPolicy.BackoffCoefficient.Value)).Op(","))
+										g.Add(jen.Id("BackoffCoefficient").Op(":").Float64().Call(jen.Lit(*workflowOptions.RetryPolicy.BackoffCoefficient)).Op(","))
 									}
 									if workflowOptions.RetryPolicy.MaximumAttempts != nil {
-										g.Add(jen.Id("MaximumAttempts").Op(":").Lit(workflowOptions.RetryPolicy.MaximumAttempts.Value).Op(","))
+										g.Add(jen.Id("MaximumAttempts").Op(":").Lit(*workflowOptions.RetryPolicy.MaximumAttempts).Op(","))
 									}
 									if workflowOptions.RetryPolicy.NonRetryableErrorTypes != nil {
 										g.Add(jen.Id("NonRetryableErrorTypes").Op(":").Index(jen.Null()).String().Block(jen.ListFunc(func(g *jen.Group) {
 											for i := 0; i < len(workflowOptions.RetryPolicy.NonRetryableErrorTypes); i++ {
-												g.Add(jen.Lit(workflowOptions.RetryPolicy.NonRetryableErrorTypes[i].Value).Op(","))
+												g.Add(jen.Lit(workflowOptions.RetryPolicy.NonRetryableErrorTypes[i]).Op(","))
 											}
 										})).Op(","))
 									}
@@ -432,7 +432,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						if activityOptions.StartToCloseTimeout != nil {
 							g.Add(jen.If(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
 								g.Add(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-									g.Add(jen.Lit(activityOptions.StartToCloseTimeout.Value))
+									g.Add(jen.Lit(*activityOptions.StartToCloseTimeout))
 								}).Op("*").Id(getTimeObject(gf, "Second")))
 							}))
 						}
@@ -440,7 +440,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						if activityOptions.ScheduleToCloseTimeout != nil {
 							g.Add(jen.If(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
 								g.Add(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-									g.Add(jen.Lit(activityOptions.ScheduleToCloseTimeout.Value))
+									g.Add(jen.Lit(*activityOptions.ScheduleToCloseTimeout))
 								}).Op("*").Id(getTimeObject(gf, "Second")))
 							}))
 						}
@@ -448,7 +448,7 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						if activityOptions.ScheduleToStartTimeout != nil {
 							g.Add(jen.If(jen.Id("aOptions").Dot("ScheduleToStartTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
 								g.Add(jen.Id("aOptions").Dot("ScheduleToStartTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-									g.Add(jen.Lit(activityOptions.ScheduleToStartTimeout.Value))
+									g.Add(jen.Lit(*activityOptions.ScheduleToStartTimeout))
 								}).Op("*").Id(getTimeObject(gf, "Second")))
 							}))
 						}
@@ -458,24 +458,24 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 								g.Add(jen.Id("aOptions").Dot("RetryPolicy").Op("=").Op("&").Id(getTemporalObject(gf, "RetryPolicy")).BlockFunc(func(g *jen.Group) {
 									if activityOptions.RetryPolicy.InitialInterval != nil {
 										g.Add(jen.Id("InitialInterval").Op(":").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-											g.Add(jen.Lit(activityOptions.RetryPolicy.InitialInterval.Value))
+											g.Add(jen.Lit(*activityOptions.RetryPolicy.InitialInterval))
 										}).Op("*").Id(getTimeObject(gf, "Second")).Op(","))
 									}
 									if activityOptions.RetryPolicy.MaximumInterval != nil {
 										g.Add(jen.Id("MaximumInterval").Op(":").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-											g.Add(jen.Lit(activityOptions.RetryPolicy.MaximumInterval.Value))
+											g.Add(jen.Lit(*activityOptions.RetryPolicy.MaximumInterval))
 										}).Op("*").Id(getTimeObject(gf, "Second")).Op(","))
 									}
 									if activityOptions.RetryPolicy.BackoffCoefficient != nil {
-										g.Add(jen.Id("BackoffCoefficient").Op(":").Float64().Call(jen.Lit(activityOptions.RetryPolicy.BackoffCoefficient.Value)).Op(","))
+										g.Add(jen.Id("BackoffCoefficient").Op(":").Float64().Call(jen.Lit(*activityOptions.RetryPolicy.BackoffCoefficient)).Op(","))
 									}
 									if activityOptions.RetryPolicy.MaximumAttempts != nil {
-										g.Add(jen.Id("MaximumAttempts").Op(":").Lit(activityOptions.RetryPolicy.MaximumAttempts.Value).Op(","))
+										g.Add(jen.Id("MaximumAttempts").Op(":").Lit(*activityOptions.RetryPolicy.MaximumAttempts).Op(","))
 									}
 									if activityOptions.RetryPolicy.NonRetryableErrorTypes != nil {
 										g.Add(jen.Id("NonRetryableErrorTypes").Op(":").Index(jen.Null()).String().Block(jen.ListFunc(func(g *jen.Group) {
 											for i := 0; i < len(activityOptions.RetryPolicy.NonRetryableErrorTypes); i++ {
-												g.Add(jen.Lit(activityOptions.RetryPolicy.NonRetryableErrorTypes[i].Value).Op(","))
+												g.Add(jen.Lit(activityOptions.RetryPolicy.NonRetryableErrorTypes[i]).Op(","))
 											}
 										})).Op(","))
 									}

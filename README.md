@@ -62,15 +62,15 @@ If you don't want to do that, it's fine, yhou can define these setups at the ind
     // Some activity
     rpc SomeActivity(SomeRequest) returns (SomeResponse) {
         option (temporal.v1.activity) = {
-            schedule_to_start_timeout: { value: 30 }
-            schedule_to_close_timeout: { value: 120 }
-            start_to_close_timeout: { value: 120 }
+            schedule_to_start_timeout: 30
+            schedule_to_close_timeout: 120
+            start_to_close_timeout: 120
             retry_policy: {
-                initial_interval: { value: 1 }
-                backoff_coefficient: { value: 1.5 }
-                maximum_interval: { value: 10 }
-                maximum_attempts: { value: 10 }
-                non_retryable_error_types: [{value: "FATAL"}]
+                initial_interval: 1
+                backoff_coefficient: 1.5
+                maximum_interval: 10
+                maximum_attempts: 10
+                non_retryable_error_types: ["FATAL"]
             }
         };
     }
@@ -83,14 +83,12 @@ Similarly for the workflows
     rpc DoSomething(SomeRequest) returns (SomeResponse) {
         option (temporal.v1.workflow) = {
             // one day
-            workflow_execution_timeout: { value: 86400 }
+            workflow_execution_timeout: 86400
             // one hour
-            workflow_run_timeout: { value: 7200 }
+            workflow_run_timeout: 7200
         };
     }
 ```
-
-You might have noticed that the options are wrapped in `{ value: something }` statements. While it might look ugly it is the only way for us to know if something is set to `0` (whatever `0` means, let it be numerical `0` or an empty string) on purpose, or not set.
 
 ### The workflow objects
 

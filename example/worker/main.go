@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"math/rand"
 	"os"
@@ -17,7 +18,8 @@ import (
 )
 
 type DieRollService struct {
-	c *examplev1.DieRollClient
+	c      *examplev1.DieRollClient
+	client client.Client
 }
 
 func (s *DieRollService) Ping(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
@@ -41,8 +43,17 @@ func (s *DieRollService) ParentWorkflow(ctx workflow.Context, req *emptypb.Empty
 		return nil, err
 	}
 
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		more := true
+		var sig *examplev1.ContinueSignalRequest
+		for more {
+			sig, more = examplev1.ReceiveSignalContinue(ctx)
+			workflow.GetLogger(ctx).Info("Continue", fmt.Sprintf("%v", sig))
+		}
+	})
+
 	for i := 0; i < repetitions; i++ {
-		_, err = s.c.ExecuteChildChildWorkflow(ctx, &emptypb.Empty{})
+		_, err := s.c.ExecuteChildChildWorkflow(ctx, &emptypb.Empty{})
 		if err != nil {
 			return nil, nil
 		}
@@ -57,6 +68,15 @@ func (s *DieRollService) ParentWorkflow(ctx workflow.Context, req *emptypb.Empty
 }
 
 func (s *DieRollService) ChildWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+	info := workflow.GetInfo(ctx)
+
+	err := s.c.SendSignalContinue(context.Background(), info.ParentWorkflowExecution.ID, info.ParentWorkflowExecution.RunID, &examplev1.ContinueSignalRequest{
+		Continue: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }
 
@@ -135,7 +155,8 @@ func main() {
 	w, err := examplev1.NewDieRollWorker(
 		c,
 		&DieRollService{
-			c: dieRollClient,
+			c:      dieRollClient,
+			client: c,
 		},
 		"",
 		worker.Options{},
