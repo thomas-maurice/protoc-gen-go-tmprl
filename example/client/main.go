@@ -6,23 +6,27 @@ import (
 	"os"
 	"time"
 
-	"github.com/phsym/console-slog"
 	examplev1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/example/v1"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/log"
+
+	"github.com/charmbracelet/log"
+	tlog "go.temporal.io/sdk/log"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func main() {
 	logger := slog.New(
-		console.NewHandler(os.Stderr, &console.HandlerOptions{
-			AddSource: true,
-			Level:     slog.LevelDebug,
+		log.NewWithOptions(os.Stderr, log.Options{
+			Level:           log.DebugLevel,
+			ReportTimestamp: true,
+			ReportCaller:    true,
+			TimeFormat:      time.RFC3339,
+			Formatter:       log.TextFormatter,
 		}),
 	)
 
 	c, err := client.NewLazyClient(client.Options{
-		Logger: log.NewStructuredLogger(logger),
+		Logger: tlog.NewStructuredLogger(logger),
 	})
 	if err != nil {
 		logger.Error("could not create temporal client", "error", err)
