@@ -49,11 +49,7 @@ func ServiceConstants(gf *protogen.GeneratedFile, service *protogen.Service) err
 		Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName)).Op("=").Lit(getServiceTaskQueue(service)).Line()
 
 	generated := jen.Const().Parens(
-		defaultTaskQueueName.Add(workflowsNames.Add(activitiesNames).Add(signalsNames).Add(queriesNames)).Line().Line().
-			Comment("Default timeout for activities when none is specified").Line().
-			Id(fmt.Sprintf("Default%sActivityScheduleToCloseTimeout", service.GoName)).Op("=").Id(getTimeObject(gf, "Hour")).Line().
-			Comment("Default timeout for activities when none is specified").Line().
-			Id(fmt.Sprintf("Default%sActivityStartToCloseTimeout", service.GoName)).Op("=").Id(getTimeObject(gf, "Hour")),
+		defaultTaskQueueName.Add(workflowsNames.Add(activitiesNames).Add(signalsNames).Add(queriesNames)).Line().Line(),
 	)
 
 	buf := bytes.NewBufferString("")

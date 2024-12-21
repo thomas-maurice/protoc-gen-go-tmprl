@@ -446,17 +446,6 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						),
 					)
 
-					/*g.Add(
-						jen.If(jen.Id("aOptions").Dot("ActivityID").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("aOptions").Dot("ActivityID").Op("=").Id(getFmtObject(gf, "Sprintf")).CallFunc(func(g *jen.Group) {
-								g.Add(jen.Lit("%s/%s"))
-								g.Add(jen.Lit(methName))
-								g.Add(jen.Id(getUUIDObject(gf, "NewString")).Parens(jen.Null()))
-							}))
-						},
-						),
-					)*/
-
 					if activityOptions != nil {
 						if activityOptions.StartToCloseTimeout != nil {
 							g.Add(jen.If(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
@@ -511,30 +500,30 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 								}))
 							})
 						}
-					}
 
-					if activityOptions.ScheduleToCloseTimeout != nil {
-						g.Add(jen.If(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-								g.Add(jen.Lit(*activityOptions.ScheduleToCloseTimeout))
-							}).Op("*").Id(getTimeObject(gf, "Second")))
-						}))
-					}
+						if activityOptions.ScheduleToCloseTimeout != nil {
+							g.Add(jen.If(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
+								g.Add(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
+									g.Add(jen.Lit(*activityOptions.ScheduleToCloseTimeout))
+								}).Op("*").Id(getTimeObject(gf, "Second")))
+							}))
+						}
 
-					if activityOptions.StartToCloseTimeout != nil {
-						g.Add(jen.If(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-								g.Add(jen.Lit(*activityOptions.StartToCloseTimeout))
-							}).Op("*").Id(getTimeObject(gf, "Second")))
-						}))
-					}
+						if activityOptions.StartToCloseTimeout != nil {
+							g.Add(jen.If(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
+								g.Add(jen.Id("aOptions").Dot("StartToCloseTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
+									g.Add(jen.Lit(*activityOptions.StartToCloseTimeout))
+								}).Op("*").Id(getTimeObject(gf, "Second")))
+							}))
+						}
 
-					if activityOptions.ScheduleToStartTimeout != nil {
-						g.Add(jen.If(jen.Id("aOptions").Dot("ScheduleToStartTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("aOptions").Dot("ScheduleToStartTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-								g.Add(jen.Lit(*activityOptions.ScheduleToStartTimeout))
-							}).Op("*").Id(getTimeObject(gf, "Second")))
-						}))
+						if activityOptions.ScheduleToStartTimeout != nil {
+							g.Add(jen.If(jen.Id("aOptions").Dot("ScheduleToStartTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
+								g.Add(jen.Id("aOptions").Dot("ScheduleToStartTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
+									g.Add(jen.Lit(*activityOptions.ScheduleToStartTimeout))
+								}).Op("*").Id(getTimeObject(gf, "Second")))
+							}))
+						}
 					}
 
 					g.Add(jen.ReturnFunc(func(g *jen.Group) {

@@ -50,11 +50,6 @@ const ( // Default task queue name for the service
 
 	// Name of query example.v1.DieRoll.GetThrowsStatus
 	QueryDieRollGetThrowsStatusName = "example.v1.DieRoll.GetThrowsStatus"
-
-	// Default timeout for activities when none is specified
-	DefaultDieRollActivityScheduleToCloseTimeout = time.Hour
-	// Default timeout for activities when none is specified
-	DefaultDieRollActivityStartToCloseTimeout = time.Hour
 )
 
 // DieRollService is the interface your service must implement
