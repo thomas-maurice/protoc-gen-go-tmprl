@@ -10,7 +10,7 @@ runs:
   using: "composite"
   steps:
     - name: Run install.sh
-      run: ./.github/actions/install/install.sh
+      run: install.sh
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
