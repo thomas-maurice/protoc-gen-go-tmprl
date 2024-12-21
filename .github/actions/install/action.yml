@@ -16,7 +16,7 @@ runs:
           pwd;
           ls -ahl;
     - name: Run install.sh
-      run: ./install.sh
+      run: ${GITHUB_ACTION_PATH}/install.sh
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
