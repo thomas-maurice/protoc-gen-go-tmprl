@@ -1,0 +1,16 @@
+---
+name: 'Install protoc-gen-go-tmprl'
+description: 'Install protoc-gen-go-tmprl'
+inputs:
+  version:
+    description: 'Which version to install -- defaults to the latest available'
+    required: false
+    default: ''
+runs:
+  using: "composite"
+  steps:
+    - name: Run install.sh
+      run: ./.github/actions/install/install.sh
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}

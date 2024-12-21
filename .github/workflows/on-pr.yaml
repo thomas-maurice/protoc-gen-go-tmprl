@@ -15,5 +15,10 @@ jobs:
         with:
           go-version: 1.23
           cache: true
+      - uses: bufbuild/buf-action@v1
+        with:
+          setup_only: true
+      - name: "Setup protoc-gen-go-tmprl'"
+        uses: ./.github/actions/install
       - name: "Run go tests"
         run: go test -v ./...
