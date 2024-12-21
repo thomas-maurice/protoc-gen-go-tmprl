@@ -9,6 +9,12 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Test
+      run:
+        |
+          env;
+          pwd;
+          ls -ahl;
     - name: Run install.sh
       run: ./install.sh
       shell: bash
