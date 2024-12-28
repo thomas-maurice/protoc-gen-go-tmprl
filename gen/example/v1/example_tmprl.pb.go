@@ -3,6 +3,7 @@
 // version:
 //   protoc-gen-go-tmprl version: master
 //   protoc-gen-go-tmprl commit: master
+//
 // source file: example/v1/example.proto
 
 package examplev1
@@ -22,6 +23,8 @@ import (
 
 const ( // Default task queue name for the service
 	DefaultDieRollTaskQueueName = "service-task-queue"
+	// Default activity schedule to close timeout if none is specified (24h0m0s)
+	DefaultDieRollActivityScheduleToCloseTimeout = 86400
 
 	// Workflows names constants
 
@@ -226,6 +229,9 @@ func (c *DieRollClient) ExecuteActivityPing(ctx workflow.Context, req *emptypb.E
 	}
 	if aOptions.TaskQueue == "" {
 		aOptions.TaskQueue = DefaultDieRollTaskQueueName
+	}
+	if aOptions.ScheduleToCloseTimeout == 0 {
+		aOptions.ScheduleToCloseTimeout = time.Duration(DefaultDieRollActivityScheduleToCloseTimeout) * time.Second
 	}
 	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), "ping.Ping", req)
 }

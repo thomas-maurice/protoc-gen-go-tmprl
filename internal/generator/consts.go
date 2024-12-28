@@ -3,12 +3,13 @@ package generator
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"github.com/dave/jennifer/jen"
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func ServiceConstants(gf *protogen.GeneratedFile, service *protogen.Service) error {
+func ServiceConstants(gf *protogen.GeneratedFile, service *protogen.Service, cfg *Config) error {
 	workflowsNames := jen.Line().Comment("Workflows names constants").Line().Line()
 	activitiesNames := jen.Line().Comment("Activities names constants").Line().Line()
 	signalsNames := jen.Line().Comment("Signals names constants").Line().Line()
@@ -48,8 +49,11 @@ func ServiceConstants(gf *protogen.GeneratedFile, service *protogen.Service) err
 	defaultTaskQueueName := jen.Comment("Default task queue name for the service").Line().
 		Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName)).Op("=").Lit(getServiceTaskQueue(service)).Line()
 
+	defaultActivityStartToClose := jen.Comment(fmt.Sprintf("Default activity schedule to close timeout if none is specified (%s)", time.Duration(time.Second*time.Duration(cfg.DefaultActivityScheduleToClose)))).Line().
+		Id(fmt.Sprintf("Default%sActivityScheduleToCloseTimeout", service.GoName)).Op("=").Lit(cfg.DefaultActivityScheduleToClose).Line()
+
 	generated := jen.Const().Parens(
-		defaultTaskQueueName.Add(workflowsNames.Add(activitiesNames).Add(signalsNames).Add(queriesNames)).Line().Line(),
+		defaultTaskQueueName.Add(defaultActivityStartToClose.Add(workflowsNames).Add(activitiesNames).Add(signalsNames).Add(queriesNames)).Line().Line(),
 	)
 
 	buf := bytes.NewBufferString("")

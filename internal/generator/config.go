@@ -1,5 +1,6 @@
 package generator
 
 type Config struct {
-	GenWorkflowPrefix bool
+	GenWorkflowPrefix              bool
+	DefaultActivityScheduleToClose int
 }
