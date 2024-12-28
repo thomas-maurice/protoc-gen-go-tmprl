@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1"
 	"github.com/thomas-maurice/protoc-gen-go-tmprl/internal/generator"
@@ -13,24 +14,33 @@ import (
 
 var (
 	genWorkflowPrefix bool
+	// Default activity start to close timeout in seconds
+	defaultActivityScheduleToClose int
 )
 
 func main() {
 	var flags flag.FlagSet
 	// This is to generate automatically prefixes for the jobs.
 	flags.BoolVar(&genWorkflowPrefix, "gen-workflow-prefix", false, "Generates a prefix for the jobs like foo.v1.Foo.Method/<workflowID>")
+	flags.IntVar(&defaultActivityScheduleToClose, "default-activity-schedule-to-close", 3600*24, "Default start to close activity timeout if none is specified anywhere, in seconds")
 	opts := &protogen.Options{
 		ParamFunc: flags.Set,
 	}
 
 	opts.Run(func(gen *protogen.Plugin) error {
+
+		if defaultActivityScheduleToClose <= 0 {
+			return fmt.Errorf("the default schedule to close activity timeout cannot be 0 nor negative")
+		}
+
 		gen.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
 		for _, f := range gen.Files {
 			if !f.Generate {
 				continue
 			}
 			generateFile(gen, f, &generator.Config{
-				GenWorkflowPrefix: genWorkflowPrefix,
+				GenWorkflowPrefix:              genWorkflowPrefix,
+				DefaultActivityScheduleToClose: defaultActivityScheduleToClose,
 			})
 		}
 		return nil
@@ -57,6 +67,7 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File, config *generato
 	gen.P("// version:")
 	gen.P("//   protoc-gen-go-tmprl version: " + version.Version)
 	gen.P("//   protoc-gen-go-tmprl commit: " + version.Commit)
+	gen.P("//")
 	gen.P("// source file: " + file.Proto.GetName())
 	gen.P()
 	gen.P("package ", file.GoPackageName)
@@ -68,7 +79,7 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File, config *generato
 			continue
 		}
 
-		err := generator.ServiceConstants(gen, s)
+		err := generator.ServiceConstants(gen, s, config)
 		if err != nil {
 			plugin.Error(err)
 		}

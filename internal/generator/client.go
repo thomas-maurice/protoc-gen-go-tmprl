@@ -461,6 +461,12 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 									g.Add(jen.Lit(*activityOptions.ScheduleToCloseTimeout))
 								}).Op("*").Id(getTimeObject(gf, "Second")))
 							}))
+						} else {
+							g.Add(jen.If(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
+								g.Add(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
+									g.Add(jen.Id(fmt.Sprintf("Default%sActivityScheduleToCloseTimeout", service.GoName)))
+								}).Op("*").Id(getTimeObject(gf, "Second")))
+							}))
 						}
 
 						if activityOptions.ScheduleToStartTimeout != nil {
@@ -524,6 +530,13 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 								}).Op("*").Id(getTimeObject(gf, "Second")))
 							}))
 						}
+					} else {
+						// At least specify a default start to close activity timeout otherwise temporal won't run them
+						g.Add(jen.If(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
+							g.Add(jen.Id("aOptions").Dot("ScheduleToCloseTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
+								g.Add(jen.Id(fmt.Sprintf("Default%sActivityScheduleToCloseTimeout", service.GoName)))
+							}).Op("*").Id(getTimeObject(gf, "Second")))
+						}))
 					}
 
 					g.Add(jen.ReturnFunc(func(g *jen.Group) {
