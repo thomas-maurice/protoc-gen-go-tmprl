@@ -1,13 +1,15 @@
 module github.com/thomas-maurice/protoc-gen-go-tmprl
 
-go 1.22.8
+go 1.23.0
+
+toolchain go1.24.0
 
 require (
 	github.com/charmbracelet/log v0.4.0
 	github.com/dave/jennifer v1.7.1
 	github.com/google/uuid v1.6.0
 	go.temporal.io/sdk v1.30.0
-	google.golang.org/protobuf v1.36.4
+	google.golang.org/protobuf v1.36.6
 )
 
 require (
@@ -34,10 +36,10 @@ require (
 	github.com/stretchr/testify v1.9.0 // indirect
 	go.temporal.io/api v1.44.1 // indirect
 	golang.org/x/exp v0.0.0-20231127185646-65229373498e // indirect
-	golang.org/x/net v0.33.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/net v0.39.0 // indirect
+	golang.org/x/sync v0.13.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
+	golang.org/x/text v0.24.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240827150818-7e3bb234dfed // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240827150818-7e3bb234dfed // indirect
