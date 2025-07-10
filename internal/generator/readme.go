@@ -224,8 +224,61 @@ func ReadmeService(f *protogen.GeneratedFile, service *protogen.Service, cfg *Co
 	f.P(fmt.Sprintf("## %s", service.Desc.FullName()))
 	addComments(f, service.Comments)
 
+	workflows := make([]*protogen.Method, 0)
+	activities := make([]*protogen.Method, 0)
+	signals := make([]*protogen.Method, 0)
+	queries := make([]*protogen.Method, 0)
+
+	for _, meth := range service.Methods {
+		t, err := getMethodType(meth)
+		if err != nil {
+			return err
+		}
+
+		switch t {
+		case MethodTypeWorkflow:
+			workflows = append(workflows, meth)
+		case MethodTypeActivity:
+			activities = append(activities, meth)
+		case MethodTypeSignal:
+			signals = append(signals, meth)
+		case MethodTypeQuery:
+			queries = append(queries, meth)
+		}
+	}
+
+	f.P("### Table of contents\n")
+	f.P(fmt.Sprintf("   * [%s default settings](#%s)", service.Desc.FullName(), makeAnchor("svcoptions", string(service.Desc.FullName()))))
+	if len(workflows) != 0 {
+		f.P(" * Workflows")
+		for _, meth := range workflows {
+			f.P(fmt.Sprintf("   * [%s](#%s)", meth.Desc.FullName(), makeAnchor("method", string(meth.Desc.FullName()))))
+		}
+	}
+	if len(activities) != 0 {
+		f.P(" * Activities")
+		for _, meth := range activities {
+			f.P(fmt.Sprintf("   * [%s](#%s)", meth.Desc.FullName(), makeAnchor("method", string(meth.Desc.FullName()))))
+		}
+	}
+	if len(signals) != 0 {
+		f.P(" * Signals")
+		for _, meth := range signals {
+			f.P(fmt.Sprintf("   * [%s](#%s)", meth.Desc.FullName(), makeAnchor("method", string(meth.Desc.FullName()))))
+		}
+	}
+	if len(queries) != 0 {
+		f.P(" * Queries")
+		for _, meth := range queries {
+			f.P(fmt.Sprintf("   * [%s](#%s)", meth.Desc.FullName(), makeAnchor("method", string(meth.Desc.FullName()))))
+		}
+	}
+
+	f.P()
+
 	svcOpts, _ := proto.GetExtension(service.Desc.Options(), temporalv1.E_Service).(*temporalv1.ServiceOptions)
 
+	f.P(fmt.Sprintf(`<a id="%s"></a>`, makeAnchor("svcoptions", string(service.Desc.FullName()))))
 	f.P("### Service options")
 	f.P("| Option | Value |")
 	f.P("| --- | --- |")
@@ -254,55 +307,6 @@ func ReadmeService(f *protogen.GeneratedFile, service *protogen.Service, cfg *Co
 	}
 
 	f.P("")
-
-	workflows := make([]*protogen.Method, 0)
-	activities := make([]*protogen.Method, 0)
-	signals := make([]*protogen.Method, 0)
-	queries := make([]*protogen.Method, 0)
-
-	for _, meth := range service.Methods {
-		t, err := getMethodType(meth)
-		if err != nil {
-			return err
-		}
-
-		switch t {
-		case MethodTypeWorkflow:
-			workflows = append(workflows, meth)
-		case MethodTypeActivity:
-			activities = append(activities, meth)
-		case MethodTypeSignal:
-			signals = append(signals, meth)
-		case MethodTypeQuery:
-			queries = append(queries, meth)
-		}
-	}
-
-	f.P("### Table of contents\n")
-	if len(workflows) != 0 {
-		f.P(" * Workflows")
-		for _, meth := range workflows {
-			f.P(fmt.Sprintf("   * [%s](#%s)", meth.Desc.FullName(), makeAnchor("method", string(meth.Desc.FullName()))))
-		}
-	}
-	if len(activities) != 0 {
-		f.P(" * Activities")
-		for _, meth := range activities {
-			f.P(fmt.Sprintf("   * [%s](#%s)", meth.Desc.FullName(), makeAnchor("method", string(meth.Desc.FullName()))))
-		}
-	}
-	if len(signals) != 0 {
-		f.P(" * Signals")
-		for _, meth := range signals {
-			f.P(fmt.Sprintf("   * [%s](#%s)", meth.Desc.FullName(), makeAnchor("method", string(meth.Desc.FullName()))))
-		}
-	}
-	if len(queries) != 0 {
-		f.P(" * Queries")
-		for _, meth := range queries {
-			f.P(fmt.Sprintf("   * [%s](#%s)", meth.Desc.FullName(), makeAnchor("method", string(meth.Desc.FullName()))))
-		}
-	}
 
 	f.P("### Workflows")
 	for _, meth := range workflows {

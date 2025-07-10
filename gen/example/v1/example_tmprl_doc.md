@@ -17,19 +17,9 @@ It doesn't do much
      fmt.Println("You can also put markdown in there, how cool is that ?")
  }
  ```
-### Service options
-| Option | Value |
-| --- | --- |
-| Default task queue | `service-task-queue` |
-
-### Default workflow options
-| Option | Value |
-| --- | --- |
-| Workflow execution timeout | 24h0m0s |
-| Workflow run timeout | 2h0m0s |
-
 ### Table of contents
 
+   * [example.v1.DieRoll default settings](#svcoptions_example_v1_DieRoll)
  * Workflows
    * [example.v1.DieRoll.ParentWorkflow](#method_example_v1_DieRoll_ParentWorkflow)
    * [example.v1.DieRoll.ChildWorkflow](#method_example_v1_DieRoll_ChildWorkflow)
@@ -42,6 +32,19 @@ It doesn't do much
    * [example.v1.DieRoll.Continue](#method_example_v1_DieRoll_Continue)
  * Queries
    * [example.v1.DieRoll.GetThrowsStatus](#method_example_v1_DieRoll_GetThrowsStatus)
+
+<a id="svcoptions_example_v1_DieRoll"></a>
+### Service options
+| Option | Value |
+| --- | --- |
+| Default task queue | `service-task-queue` |
+
+### Default workflow options
+| Option | Value |
+| --- | --- |
+| Workflow execution timeout | 24h0m0s |
+| Workflow run timeout | 2h0m0s |
+
 ### Workflows
 <a id="method_example_v1_DieRoll_ParentWorkflow"></a>
 #### example.v1.DieRoll.ParentWorkflow
