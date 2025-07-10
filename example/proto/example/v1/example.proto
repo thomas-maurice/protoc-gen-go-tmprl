@@ -13,7 +13,22 @@ enum Status {
   FAILURE = 2;
 }
 
-// Service hello world is an example implementation of a service
+// Service DieRoll is an example implementation of a service
+
+// It doesn't do much
+//
+// But it is there, chilling.
+//
+// This documentation will be generated along the code
+// ```golang
+// package main
+//
+// import "fmt"
+//
+// func main() {
+//     fmt.Println("You can also put markdown in there, how cool is that ?")
+// }
+// ```
 service DieRoll {
   option (temporal.v1.service) = {
     task_queue: "service-task-queue"
@@ -92,31 +107,38 @@ service DieRoll {
   }
 }
 
+// Instructs the workflow to continue or stop
 message ContinueSignalRequest {
   bool continue = 1;
 }
 
+// Returns the progress
 message GetStatusResponse {
   int64 progress = 1;
 }
 
+// Returns the value that was rolled
 message ThrowDieResponse {
   int32 result = 1;
 }
 
+// Returns the values of a series of rolls
 message ThrowDiesResponse {
   repeated int32 results = 1;
 }
 
+// Triggers a series of die rolls
 message ThrowDiesRequest {
   int32 results = 1;
   bool loop = 2;
 }
 
+// Requests  to roll a die until a certain value is pulled
 message ThrowUntilValueRequest {
   int32 value = 1;
 }
 
+// Response to a die roll request
 message ThrowStatusResponse {
   int32 throws = 1;
 }

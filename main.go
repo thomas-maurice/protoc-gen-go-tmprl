@@ -42,6 +42,10 @@ func main() {
 				GenWorkflowPrefix:              genWorkflowPrefix,
 				DefaultActivityScheduleToClose: defaultActivityScheduleToClose,
 			})
+			generateReadme(gen, f, &generator.Config{
+				GenWorkflowPrefix:              genWorkflowPrefix,
+				DefaultActivityScheduleToClose: defaultActivityScheduleToClose,
+			})
 		}
 		return nil
 	})
@@ -114,6 +118,48 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File, config *generato
 			plugin.Error(err)
 		}
 	}
+
+	return gen
+}
+
+func generateReadme(plugin *protogen.Plugin, file *protogen.File, config *generator.Config) *protogen.GeneratedFile {
+	filename := file.GeneratedFilenamePrefix + "_tmprl_doc.md"
+
+	needsGenerate := false
+	for _, s := range file.Services {
+		if so, ok := proto.GetExtension(s.Desc.Options(), temporalv1.E_Service).(*temporalv1.ServiceOptions); ok && so != nil {
+			needsGenerate = true
+		}
+	}
+
+	if !needsGenerate {
+		return nil
+	}
+
+	gen := plugin.NewGeneratedFile(filename, file.GoImportPath)
+	gen.P(`<a id="top"></a>`)
+	gen.P("# Services")
+	for _, s := range file.Services {
+		if so, ok := proto.GetExtension(s.Desc.Options(), temporalv1.E_Service).(*temporalv1.ServiceOptions); !ok || so == nil {
+			// not a temporal service if the `temporal.v1.service` option is not set
+			continue
+		}
+
+		err := generator.ReadmeService(gen, s, config)
+		if err != nil {
+			plugin.Error(err)
+		}
+	}
+
+	gen.P("# Messages")
+	for _, m := range file.Messages {
+		err := generator.ReadmeMessage(gen, m, config)
+		if err != nil {
+			plugin.Error(err)
+		}
+	}
+
+	gen.P("[Back to top](#top)")
 
 	return gen
 }
