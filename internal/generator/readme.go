@@ -220,7 +220,7 @@ func addMethodDocs(f *protogen.GeneratedFile, svc *protogen.Service, meth *proto
 }
 
 func ReadmeService(f *protogen.GeneratedFile, service *protogen.Service, cfg *Config) error {
-	f.P(fmt.Sprintf(`<a id="service:%s"></a>`, service.Desc.FullName()))
+	f.P(fmt.Sprintf(`<a id="%s"></a>`, makeAnchor("service", string(service.Desc.FullName()))))
 	f.P(fmt.Sprintf("## %s", service.Desc.FullName()))
 	addComments(f, service.Comments)
 
