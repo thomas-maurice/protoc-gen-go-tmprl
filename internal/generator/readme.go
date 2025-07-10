@@ -388,5 +388,7 @@ func ReadmeMessage(f *protogen.GeneratedFile, message *protogen.Message, cfg *Co
 		))
 	}
 
+	f.P()
+
 	return nil
 }

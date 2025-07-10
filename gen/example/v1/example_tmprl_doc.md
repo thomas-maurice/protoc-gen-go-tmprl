@@ -189,24 +189,28 @@ Instructs the workflow to continue or stop
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Continue | bool | Optional | ✅ | <pre></pre> |
+
 <a id="message_example_v1_GetStatusResponse"></a>
 ## example.v1.GetStatusResponse
 Returns the progress
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Progress | int64 | Optional | ✅ | <pre></pre> |
+
 <a id="message_example_v1_ThrowDieResponse"></a>
 ## example.v1.ThrowDieResponse
 Returns the value that was rolled
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Result | int32 | Optional | ✅ | <pre></pre> |
+
 <a id="message_example_v1_ThrowDiesResponse"></a>
 ## example.v1.ThrowDiesResponse
 Returns the values of a series of rolls
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Results | int32 | Repeated | ✅ | <pre>Results of the throws</pre> |
+
 <a id="message_example_v1_ThrowDiesRequest"></a>
 ## example.v1.ThrowDiesRequest
 Triggers a series of die rolls
@@ -215,24 +219,28 @@ Triggers a series of die rolls
 | Results | int32 | Optional | ✅ | <pre>Result array</pre> |
 | Loop | bool | Optional | ✅ | <pre>Loop ?</pre> |
 | ResultStatus | string | Optional | ☠️ | <pre>A deprecated field</pre> |
+
 <a id="message_example_v1_ThrowUntilValueRequest"></a>
 ## example.v1.ThrowUntilValueRequest
 Requests  to roll a die until a certain value is pulled
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Value | int32 | Optional | ✅ | <pre>Target value</pre> |
+
 <a id="message_example_v1_ThrowStatusResponse"></a>
 ## example.v1.ThrowStatusResponse
 Response to a die roll request
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Throws | int32 | Optional | ✅ | <pre>Number of throws</pre> |
+
 <a id="message_example_v1_ParentWorkflowReply"></a>
 ## example.v1.ParentWorkflowReply
 
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Status | enum | Optional | ✅ | <pre>Status of the workflow</pre> |
+
 
 
 [Back to top](#top)
