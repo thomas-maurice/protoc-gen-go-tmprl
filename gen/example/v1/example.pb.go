@@ -209,8 +209,9 @@ func (x *ThrowDieResponse) GetResult() int32 {
 
 // Returns the values of a series of rolls
 type ThrowDiesResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Results       []int32                `protobuf:"varint,1,rep,packed,name=results,proto3" json:"results,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Results of the throws
+	Results       []int32 `protobuf:"varint,1,rep,packed,name=results,proto3" json:"results,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -254,9 +255,15 @@ func (x *ThrowDiesResponse) GetResults() []int32 {
 
 // Triggers a series of die rolls
 type ThrowDiesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Results       int32                  `protobuf:"varint,1,opt,name=results,proto3" json:"results,omitempty"`
-	Loop          bool                   `protobuf:"varint,2,opt,name=loop,proto3" json:"loop,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Result array
+	Results int32 `protobuf:"varint,1,opt,name=results,proto3" json:"results,omitempty"`
+	// Loop ?
+	Loop bool `protobuf:"varint,2,opt,name=loop,proto3" json:"loop,omitempty"`
+	// A deprecated field
+	//
+	// Deprecated: Marked as deprecated in example/v1/example.proto.
+	ResultStatus  string `protobuf:"bytes,3,opt,name=result_status,json=resultStatus,proto3" json:"result_status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -305,10 +312,19 @@ func (x *ThrowDiesRequest) GetLoop() bool {
 	return false
 }
 
+// Deprecated: Marked as deprecated in example/v1/example.proto.
+func (x *ThrowDiesRequest) GetResultStatus() string {
+	if x != nil {
+		return x.ResultStatus
+	}
+	return ""
+}
+
 // Requests  to roll a die until a certain value is pulled
 type ThrowUntilValueRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         int32                  `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Target value
+	Value         int32 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -352,8 +368,9 @@ func (x *ThrowUntilValueRequest) GetValue() int32 {
 
 // Response to a die roll request
 type ThrowStatusResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Throws        int32                  `protobuf:"varint,1,opt,name=throws,proto3" json:"throws,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Number of throws
+	Throws        int32 `protobuf:"varint,1,opt,name=throws,proto3" json:"throws,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -396,8 +413,9 @@ func (x *ThrowStatusResponse) GetThrows() int32 {
 }
 
 type ParentWorkflowReply struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        Status                 `protobuf:"varint,1,opt,name=status,proto3,enum=example.v1.Status" json:"status,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Status of the workflow
+	Status        Status `protobuf:"varint,1,opt,name=status,proto3,enum=example.v1.Status" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -452,10 +470,11 @@ const file_example_v1_example_proto_rawDesc = "" +
 	"\x10ThrowDieResponse\x12\x16\n" +
 	"\x06result\x18\x01 \x01(\x05R\x06result\"-\n" +
 	"\x11ThrowDiesResponse\x12\x18\n" +
-	"\aresults\x18\x01 \x03(\x05R\aresults\"@\n" +
+	"\aresults\x18\x01 \x03(\x05R\aresults\"i\n" +
 	"\x10ThrowDiesRequest\x12\x18\n" +
 	"\aresults\x18\x01 \x01(\x05R\aresults\x12\x12\n" +
-	"\x04loop\x18\x02 \x01(\bR\x04loop\".\n" +
+	"\x04loop\x18\x02 \x01(\bR\x04loop\x12'\n" +
+	"\rresult_status\x18\x03 \x01(\tB\x02\x18\x01R\fresultStatus\".\n" +
 	"\x16ThrowUntilValueRequest\x12\x14\n" +
 	"\x05value\x18\x01 \x01(\x05R\x05value\"-\n" +
 	"\x13ThrowStatusResponse\x12\x16\n" +

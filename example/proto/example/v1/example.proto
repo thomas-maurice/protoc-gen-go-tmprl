@@ -124,25 +124,33 @@ message ThrowDieResponse {
 
 // Returns the values of a series of rolls
 message ThrowDiesResponse {
+  // Results of the throws
   repeated int32 results = 1;
 }
 
 // Triggers a series of die rolls
 message ThrowDiesRequest {
+  // Result array
   int32 results = 1;
+  // Loop ?
   bool loop = 2;
+  // A deprecated field
+  string result_status = 3 [deprecated = true];
 }
 
 // Requests  to roll a die until a certain value is pulled
 message ThrowUntilValueRequest {
+  // Target value
   int32 value = 1;
 }
 
 // Response to a die roll request
 message ThrowStatusResponse {
+  // Number of throws
   int32 throws = 1;
 }
 
 message ParentWorkflowReply {
+  // Status of the workflow
   Status status = 1;
 }

@@ -8,6 +8,8 @@ import (
 	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 // github is stupid I suspect it doesn't allow you to put whatever you want in the anchor ids
@@ -337,10 +339,54 @@ func ReadmeService(f *protogen.GeneratedFile, service *protogen.Service, cfg *Co
 	return nil
 }
 
+func fieldComments(comments protogen.CommentSet) string {
+	out := ""
+	for _, comment := range comments.LeadingDetached {
+		out += trim(comment)
+	}
+
+	out += trim(comments.Leading)
+
+	return out
+}
+
+func cardinalityToString(in protoreflect.Cardinality) string {
+	switch in {
+	case protoreflect.Repeated:
+		return "Repeated"
+	case protoreflect.Optional:
+		return "Optional"
+	case protoreflect.Required:
+		return "Required"
+	}
+
+	return "Invalid cardinality"
+}
+
 func ReadmeMessage(f *protogen.GeneratedFile, message *protogen.Message, cfg *Config) error {
 	f.P(fmt.Sprintf(`<a id="%s"></a>`, makeAnchor("message", string(message.Desc.FullName()))))
 	f.P(fmt.Sprintf("## %s", message.Desc.FullName()))
 	addComments(f, message.Comments)
+
+	f.P("| Field name | Type | Cardinality | Deprecated ? | Description |")
+	f.P("| --- | --- | --- | --- | --- |")
+	for _, field := range message.Fields {
+		deprecated := "✅"
+		fieldOptions, _ := field.Desc.Options().(*descriptorpb.FieldOptions)
+		if fieldOptions != nil {
+			if *fieldOptions.Deprecated {
+				deprecated = "☠️"
+			}
+		}
+		f.P(fmt.Sprintf(
+			"| %s | %s | %s | %v | <pre>%s</pre> |",
+			field.GoName,
+			field.Desc.Kind().String(),
+			cardinalityToString(field.Desc.Cardinality()),
+			deprecated,
+			fieldComments(field.Comments),
+		))
+	}
 
 	return nil
 }

@@ -159,7 +159,7 @@ func generateReadme(plugin *protogen.Plugin, file *protogen.File, config *genera
 		}
 	}
 
-	gen.P("[Back to top](#top)")
+	gen.P("\n\n[Back to top](#top)")
 
 	return gen
 }
