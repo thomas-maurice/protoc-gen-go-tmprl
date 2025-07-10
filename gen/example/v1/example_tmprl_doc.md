@@ -1,6 +1,6 @@
 <a id="top"></a>
 # Services
-<a id="service:example.v1.DieRoll"></a>
+<a id="service_example_v1_DieRoll"></a>
 ## example.v1.DieRoll
 Service DieRoll is an example implementation of a service
 It doesn't do much
