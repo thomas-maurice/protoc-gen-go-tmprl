@@ -10,6 +10,17 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// github is stupid I suspect it doesn't allow you to put whatever you want in the anchor ids
+func makeAnchor(typeName string, name string) string {
+	in := fmt.Sprintf("%s:%s", typeName, name)
+	replaced := ":.-"
+	for _, r := range replaced {
+		in = strings.ReplaceAll(in, string(r), "_")
+	}
+
+	return in
+}
+
 func trim(in protogen.Comments) string {
 	return trimComments(string(in))
 }
@@ -109,17 +120,17 @@ func addMethodDocs(f *protogen.GeneratedFile, svc *protogen.Service, meth *proto
 		return err
 	}
 
-	f.P(fmt.Sprintf(`<a id="method:%s"></a>`, meth.Desc.FullName()))
+	f.P(fmt.Sprintf(`<a id="%s"></a>`, makeAnchor("method", string(meth.Desc.FullName()))))
 	f.P("#### " + meth.Desc.FullName())
 	addComments(f, meth.Comments)
 
 	f.P("")
 
 	if meth.Input != nil {
-		f.P(fmt.Sprintf("Input : [%s](#message:%s)\n", meth.Input.Desc.FullName(), meth.Input.Desc.FullName()))
+		f.P(fmt.Sprintf("Input : [%s](#%s)\n", meth.Input.Desc.FullName(), makeAnchor("message", string(meth.Input.Desc.FullName()))))
 	}
 	if meth.Output != nil {
-		f.P(fmt.Sprintf("Output : [%s](#message:%s)\n", meth.Output.Desc.FullName(), meth.Output.Desc.FullName()))
+		f.P(fmt.Sprintf("Output : [%s](#%s)\n", meth.Output.Desc.FullName(), makeAnchor("message", string(meth.Output.Desc.FullName()))))
 	}
 
 	f.P("\n| Setting | Value |")
@@ -137,14 +148,14 @@ func addMethodDocs(f *protogen.GeneratedFile, svc *protogen.Service, meth *proto
 		if len(opts.Signals) != 0 {
 			f.P("\nSignals:")
 			for _, sig := range opts.Signals {
-				f.P(fmt.Sprintf(" * [%s.%s](#method:%s.%s)", svc.Desc.FullName(), sig, svc.Desc.FullName(), sig))
+				f.P(fmt.Sprintf(" * [%s.%s](#%s)", svc.Desc.FullName(), sig, makeAnchor("method", string(svc.Desc.FullName())+"."+sig)))
 			}
 		}
 
 		if len(opts.Queries) != 0 {
 			f.P("\nQueries:")
 			for _, q := range opts.Signals {
-				f.P(fmt.Sprintf(" * [%s.%s](#method:%s.%s)", svc.Desc.FullName(), q, svc.Desc.FullName(), q))
+				f.P(fmt.Sprintf(" * [%s.%s](#%s)", svc.Desc.FullName(), q, makeAnchor("method", string(svc.Desc.FullName())+"."+q)))
 			}
 		}
 
@@ -192,25 +203,25 @@ func ReadmeService(f *protogen.GeneratedFile, service *protogen.Service, cfg *Co
 	if len(workflows) != 0 {
 		f.P(" * Workflows")
 		for _, meth := range workflows {
-			f.P(fmt.Sprintf("   * [%s](#method:%s)", meth.Desc.FullName(), meth.Desc.FullName()))
+			f.P(fmt.Sprintf("   * [%s](#%s)", meth.Desc.FullName(), makeAnchor("method", string(meth.Desc.FullName()))))
 		}
 	}
 	if len(activities) != 0 {
 		f.P(" * Activities")
 		for _, meth := range activities {
-			f.P(fmt.Sprintf("   * [%s](#method:%s)", meth.Desc.FullName(), meth.Desc.FullName()))
+			f.P(fmt.Sprintf("   * [%s](#%s)", meth.Desc.FullName(), makeAnchor("method", string(meth.Desc.FullName()))))
 		}
 	}
 	if len(signals) != 0 {
 		f.P(" * Signals")
 		for _, meth := range signals {
-			f.P(fmt.Sprintf("   * [%s](#method:%s)", meth.Desc.FullName(), meth.Desc.FullName()))
+			f.P(fmt.Sprintf("   * [%s](#%s)", meth.Desc.FullName(), makeAnchor("method", string(meth.Desc.FullName()))))
 		}
 	}
 	if len(queries) != 0 {
 		f.P(" * Queries")
 		for _, meth := range queries {
-			f.P(fmt.Sprintf("   * [%s](#method:%s)", meth.Desc.FullName(), meth.Desc.FullName()))
+			f.P(fmt.Sprintf("   * [%s](#%s)", meth.Desc.FullName(), makeAnchor("method", string(meth.Desc.FullName()))))
 		}
 	}
 
@@ -250,7 +261,7 @@ func ReadmeService(f *protogen.GeneratedFile, service *protogen.Service, cfg *Co
 }
 
 func ReadmeMessage(f *protogen.GeneratedFile, message *protogen.Message, cfg *Config) error {
-	f.P(fmt.Sprintf(`<a id="message:%s"></a>`, message.Desc.FullName()))
+	f.P(fmt.Sprintf(`<a id="%s"></a>`, makeAnchor("message", string(message.Desc.FullName()))))
 	f.P(fmt.Sprintf("## %s", message.Desc.FullName()))
 	addComments(f, message.Comments)
 

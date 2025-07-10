@@ -24,25 +24,25 @@ It doesn't do much
 ### Table of contents
 
  * Workflows
-   * [example.v1.DieRoll.ParentWorkflow](#method:example.v1.DieRoll.ParentWorkflow)
-   * [example.v1.DieRoll.ChildWorkflow](#method:example.v1.DieRoll.ChildWorkflow)
-   * [example.v1.DieRoll.ThrowDies](#method:example.v1.DieRoll.ThrowDies)
-   * [example.v1.DieRoll.ThrowUntilValue](#method:example.v1.DieRoll.ThrowUntilValue)
+   * [example.v1.DieRoll.ParentWorkflow](#method_example_v1_DieRoll_ParentWorkflow)
+   * [example.v1.DieRoll.ChildWorkflow](#method_example_v1_DieRoll_ChildWorkflow)
+   * [example.v1.DieRoll.ThrowDies](#method_example_v1_DieRoll_ThrowDies)
+   * [example.v1.DieRoll.ThrowUntilValue](#method_example_v1_DieRoll_ThrowUntilValue)
  * Activities
-   * [example.v1.DieRoll.ThrowDie](#method:example.v1.DieRoll.ThrowDie)
-   * [example.v1.DieRoll.Ping](#method:example.v1.DieRoll.Ping)
+   * [example.v1.DieRoll.ThrowDie](#method_example_v1_DieRoll_ThrowDie)
+   * [example.v1.DieRoll.Ping](#method_example_v1_DieRoll_Ping)
  * Signals
-   * [example.v1.DieRoll.Continue](#method:example.v1.DieRoll.Continue)
+   * [example.v1.DieRoll.Continue](#method_example_v1_DieRoll_Continue)
  * Queries
-   * [example.v1.DieRoll.GetThrowsStatus](#method:example.v1.DieRoll.GetThrowsStatus)
+   * [example.v1.DieRoll.GetThrowsStatus](#method_example_v1_DieRoll_GetThrowsStatus)
 ### Workflows
-<a id="method:example.v1.DieRoll.ParentWorkflow"></a>
+<a id="method_example_v1_DieRoll_ParentWorkflow"></a>
 #### example.v1.DieRoll.ParentWorkflow
 Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
 
-Input : [google.protobuf.Empty](#message:google.protobuf.Empty)
+Input : [google.protobuf.Empty](#message_google_protobuf_Empty)
 
-Output : [example.v1.ParentWorkflowReply](#message:example.v1.ParentWorkflowReply)
+Output : [example.v1.ParentWorkflowReply](#message_example_v1_ParentWorkflowReply)
 
 
 | Setting | Value |
@@ -51,15 +51,15 @@ Output : [example.v1.ParentWorkflowReply](#message:example.v1.ParentWorkflowRepl
 
 
 Signals:
- * [example.v1.DieRoll.Continue](#method:example.v1.DieRoll.Continue)
+ * [example.v1.DieRoll.Continue](#method_example_v1_DieRoll_Continue)
 
-<a id="method:example.v1.DieRoll.ChildWorkflow"></a>
+<a id="method_example_v1_DieRoll_ChildWorkflow"></a>
 #### example.v1.DieRoll.ChildWorkflow
 
 
-Input : [google.protobuf.Empty](#message:google.protobuf.Empty)
+Input : [google.protobuf.Empty](#message_google_protobuf_Empty)
 
-Output : [google.protobuf.Empty](#message:google.protobuf.Empty)
+Output : [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 
 | Setting | Value |
@@ -67,13 +67,13 @@ Output : [google.protobuf.Empty](#message:google.protobuf.Empty)
 | Temporal registered method name | `example.v1.DieRoll.ChildWorkflow` |
 
 
-<a id="method:example.v1.DieRoll.ThrowDies"></a>
+<a id="method_example_v1_DieRoll_ThrowDies"></a>
 #### example.v1.DieRoll.ThrowDies
 Throws dies a few times and return the result
 
-Input : [example.v1.ThrowDiesRequest](#message:example.v1.ThrowDiesRequest)
+Input : [example.v1.ThrowDiesRequest](#message_example_v1_ThrowDiesRequest)
 
-Output : [example.v1.ThrowDiesResponse](#message:example.v1.ThrowDiesResponse)
+Output : [example.v1.ThrowDiesResponse](#message_example_v1_ThrowDiesResponse)
 
 
 | Setting | Value |
@@ -82,15 +82,15 @@ Output : [example.v1.ThrowDiesResponse](#message:example.v1.ThrowDiesResponse)
 
 
 Signals:
- * [example.v1.DieRoll.Continue](#method:example.v1.DieRoll.Continue)
+ * [example.v1.DieRoll.Continue](#method_example_v1_DieRoll_Continue)
 
-<a id="method:example.v1.DieRoll.ThrowUntilValue"></a>
+<a id="method_example_v1_DieRoll_ThrowUntilValue"></a>
 #### example.v1.DieRoll.ThrowUntilValue
 
 
-Input : [example.v1.ThrowUntilValueRequest](#message:example.v1.ThrowUntilValueRequest)
+Input : [example.v1.ThrowUntilValueRequest](#message_example_v1_ThrowUntilValueRequest)
 
-Output : [google.protobuf.Empty](#message:google.protobuf.Empty)
+Output : [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 
 | Setting | Value |
@@ -101,13 +101,13 @@ Output : [google.protobuf.Empty](#message:google.protobuf.Empty)
 Queries:
 
 ### Activities
-<a id="method:example.v1.DieRoll.ThrowDie"></a>
+<a id="method_example_v1_DieRoll_ThrowDie"></a>
 #### example.v1.DieRoll.ThrowDie
 Throws a d6 and returns the result
 
-Input : [google.protobuf.Empty](#message:google.protobuf.Empty)
+Input : [google.protobuf.Empty](#message_google_protobuf_Empty)
 
-Output : [example.v1.ThrowDieResponse](#message:example.v1.ThrowDieResponse)
+Output : [example.v1.ThrowDieResponse](#message_example_v1_ThrowDieResponse)
 
 
 | Setting | Value |
@@ -128,15 +128,15 @@ Retry policy:
 | Non retryable error types | [FATAL] |
 
 
-<a id="method:example.v1.DieRoll.Ping"></a>
+<a id="method_example_v1_DieRoll_Ping"></a>
 #### example.v1.DieRoll.Ping
 Just a simple ping
  Takes no parameters
  returns nothing
 
-Input : [google.protobuf.Empty](#message:google.protobuf.Empty)
+Input : [google.protobuf.Empty](#message_google_protobuf_Empty)
 
-Output : [google.protobuf.Empty](#message:google.protobuf.Empty)
+Output : [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 
 | Setting | Value |
@@ -144,14 +144,14 @@ Output : [google.protobuf.Empty](#message:google.protobuf.Empty)
 | Temporal registered method name | `ping.Ping` |
 
 ### Queries
-<a id="method:example.v1.DieRoll.GetThrowsStatus"></a>
+<a id="method_example_v1_DieRoll_GetThrowsStatus"></a>
 #### example.v1.DieRoll.GetThrowsStatus
 Query the state of a workflow
 Query the state of the workflow
 
-Input : [google.protobuf.Empty](#message:google.protobuf.Empty)
+Input : [google.protobuf.Empty](#message_google_protobuf_Empty)
 
-Output : [example.v1.ThrowStatusResponse](#message:example.v1.ThrowStatusResponse)
+Output : [example.v1.ThrowStatusResponse](#message_example_v1_ThrowStatusResponse)
 
 
 | Setting | Value |
@@ -159,15 +159,15 @@ Output : [example.v1.ThrowStatusResponse](#message:example.v1.ThrowStatusRespons
 | Temporal registered method name | `example.v1.DieRoll.GetThrowsStatus` |
 
 ### Signals
-<a id="method:example.v1.DieRoll.Continue"></a>
+<a id="method_example_v1_DieRoll_Continue"></a>
 #### example.v1.DieRoll.Continue
 Signals can be defined with whatever return type you want as they
  do not expect an answer
 Instruct the workflow to proceed
 
-Input : [example.v1.ContinueSignalRequest](#message:example.v1.ContinueSignalRequest)
+Input : [example.v1.ContinueSignalRequest](#message_example_v1_ContinueSignalRequest)
 
-Output : [example.v1.ContinueSignalRequest](#message:example.v1.ContinueSignalRequest)
+Output : [example.v1.ContinueSignalRequest](#message_example_v1_ContinueSignalRequest)
 
 
 | Setting | Value |
@@ -175,28 +175,28 @@ Output : [example.v1.ContinueSignalRequest](#message:example.v1.ContinueSignalRe
 | Temporal registered method name | `example.v1.DieRoll.Continue` |
 
 # Messages
-<a id="message:example.v1.ContinueSignalRequest"></a>
+<a id="message_example_v1_ContinueSignalRequest"></a>
 ## example.v1.ContinueSignalRequest
 Instructs the workflow to continue or stop
-<a id="message:example.v1.GetStatusResponse"></a>
+<a id="message_example_v1_GetStatusResponse"></a>
 ## example.v1.GetStatusResponse
 Returns the progress
-<a id="message:example.v1.ThrowDieResponse"></a>
+<a id="message_example_v1_ThrowDieResponse"></a>
 ## example.v1.ThrowDieResponse
 Returns the value that was rolled
-<a id="message:example.v1.ThrowDiesResponse"></a>
+<a id="message_example_v1_ThrowDiesResponse"></a>
 ## example.v1.ThrowDiesResponse
 Returns the values of a series of rolls
-<a id="message:example.v1.ThrowDiesRequest"></a>
+<a id="message_example_v1_ThrowDiesRequest"></a>
 ## example.v1.ThrowDiesRequest
 Triggers a series of die rolls
-<a id="message:example.v1.ThrowUntilValueRequest"></a>
+<a id="message_example_v1_ThrowUntilValueRequest"></a>
 ## example.v1.ThrowUntilValueRequest
 Requests  to roll a die until a certain value is pulled
-<a id="message:example.v1.ThrowStatusResponse"></a>
+<a id="message_example_v1_ThrowStatusResponse"></a>
 ## example.v1.ThrowStatusResponse
 Response to a die roll request
-<a id="message:example.v1.ParentWorkflowReply"></a>
+<a id="message_example_v1_ParentWorkflowReply"></a>
 ## example.v1.ParentWorkflowReply
 
 [Back to top](#top)
