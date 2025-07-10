@@ -108,7 +108,7 @@ func addRetryPolicy(f *protogen.GeneratedFile, rp *temporalv1.RetryPolicy) {
 	f.P("| --- | --- |")
 	f.P(fmt.Sprintf("| Initial interval | %v |", time.Second*time.Duration(rp.GetInitialInterval())))
 	f.P(fmt.Sprintf("| Backoff coefficient | %f |", rp.GetBackoffCoefficient()))
-	f.P(fmt.Sprintf("| Maximum attemps | %d |", rp.GetMaximumAttempts()))
+	f.P(fmt.Sprintf("| Maximum attempts | %d |", rp.GetMaximumAttempts()))
 	f.P(fmt.Sprintf("| Maximum interval | %v |", time.Second*time.Duration(rp.GetMaximumInterval())))
 	f.P(fmt.Sprintf("| Non retryable error types | %v |", rp.GetNonRetryableErrorTypes()))
 	f.P("")
