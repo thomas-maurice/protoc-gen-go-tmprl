@@ -17,9 +17,16 @@ It doesn't do much
      fmt.Println("You can also put markdown in there, how cool is that ?")
  }
  ```
+### Service options
 | Option | Value |
 | --- | --- |
 | Default task queue | `service-task-queue` |
+
+### Default workflow options
+| Option | Value |
+| --- | --- |
+| Workflow execution timeout | 24h0m0s |
+| Workflow run timeout | 2h0m0s |
 
 ### Table of contents
 
@@ -40,9 +47,9 @@ It doesn't do much
 #### example.v1.DieRoll.ParentWorkflow
 Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
 
-Input : [google.protobuf.Empty](#message_google_protobuf_Empty)
+Input: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
-Output : [example.v1.ParentWorkflowReply](#message_example_v1_ParentWorkflowReply)
+Output: [example.v1.ParentWorkflowReply](#message_example_v1_ParentWorkflowReply)
 
 
 | Setting | Value |
@@ -57,9 +64,9 @@ Signals:
 #### example.v1.DieRoll.ChildWorkflow
 
 
-Input : [google.protobuf.Empty](#message_google_protobuf_Empty)
+Input: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
-Output : [google.protobuf.Empty](#message_google_protobuf_Empty)
+Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 
 | Setting | Value |
@@ -71,9 +78,9 @@ Output : [google.protobuf.Empty](#message_google_protobuf_Empty)
 #### example.v1.DieRoll.ThrowDies
 Throws dies a few times and return the result
 
-Input : [example.v1.ThrowDiesRequest](#message_example_v1_ThrowDiesRequest)
+Input: [example.v1.ThrowDiesRequest](#message_example_v1_ThrowDiesRequest)
 
-Output : [example.v1.ThrowDiesResponse](#message_example_v1_ThrowDiesResponse)
+Output: [example.v1.ThrowDiesResponse](#message_example_v1_ThrowDiesResponse)
 
 
 | Setting | Value |
@@ -88,9 +95,9 @@ Signals:
 #### example.v1.DieRoll.ThrowUntilValue
 
 
-Input : [example.v1.ThrowUntilValueRequest](#message_example_v1_ThrowUntilValueRequest)
+Input: [example.v1.ThrowUntilValueRequest](#message_example_v1_ThrowUntilValueRequest)
 
-Output : [google.protobuf.Empty](#message_google_protobuf_Empty)
+Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 
 | Setting | Value |
@@ -99,15 +106,16 @@ Output : [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 
 Queries:
+ * [example.v1.DieRoll.GetThrowsStatus](#method_example_v1_DieRoll_GetThrowsStatus)
 
 ### Activities
 <a id="method_example_v1_DieRoll_ThrowDie"></a>
 #### example.v1.DieRoll.ThrowDie
 Throws a d6 and returns the result
 
-Input : [google.protobuf.Empty](#message_google_protobuf_Empty)
+Input: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
-Output : [example.v1.ThrowDieResponse](#message_example_v1_ThrowDieResponse)
+Output: [example.v1.ThrowDieResponse](#message_example_v1_ThrowDieResponse)
 
 
 | Setting | Value |
@@ -123,7 +131,7 @@ Retry policy:
 | --- | --- |
 | Initial interval | 1s |
 | Backoff coefficient | 1.500000 |
-| Maximum attemps | 10 |
+| Maximum attempts | 10 |
 | Maximum interval | 10s |
 | Non retryable error types | [FATAL] |
 
@@ -134,9 +142,9 @@ Just a simple ping
  Takes no parameters
  returns nothing
 
-Input : [google.protobuf.Empty](#message_google_protobuf_Empty)
+Input: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
-Output : [google.protobuf.Empty](#message_google_protobuf_Empty)
+Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 
 | Setting | Value |
@@ -149,9 +157,9 @@ Output : [google.protobuf.Empty](#message_google_protobuf_Empty)
 Query the state of a workflow
 Query the state of the workflow
 
-Input : [google.protobuf.Empty](#message_google_protobuf_Empty)
+Input: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
-Output : [example.v1.ThrowStatusResponse](#message_example_v1_ThrowStatusResponse)
+Output: [example.v1.ThrowStatusResponse](#message_example_v1_ThrowStatusResponse)
 
 
 | Setting | Value |
@@ -165,9 +173,9 @@ Signals can be defined with whatever return type you want as they
  do not expect an answer
 Instruct the workflow to proceed
 
-Input : [example.v1.ContinueSignalRequest](#message_example_v1_ContinueSignalRequest)
+Input: [example.v1.ContinueSignalRequest](#message_example_v1_ContinueSignalRequest)
 
-Output : [example.v1.ContinueSignalRequest](#message_example_v1_ContinueSignalRequest)
+Output: [example.v1.ContinueSignalRequest](#message_example_v1_ContinueSignalRequest)
 
 
 | Setting | Value |

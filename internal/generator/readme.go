@@ -39,6 +39,62 @@ func addComments(f *protogen.GeneratedFile, comments protogen.CommentSet) {
 	f.P(trim(comments.Leading))
 }
 
+func addWorkflowOptions(f *protogen.GeneratedFile, svc *protogen.Service, opts *temporalv1.WorkflowOptions) error {
+	if opts.WorkflowExecutionTimeout != nil {
+		f.P(fmt.Sprintf("| Workflow execution timeout | %v |", time.Second*time.Duration(opts.GetWorkflowExecutionTimeout())))
+	}
+
+	if opts.WorkflowRunTimeout != nil {
+		f.P(fmt.Sprintf("| Workflow run timeout | %v |", time.Second*time.Duration(opts.GetWorkflowRunTimeout())))
+	}
+
+	if opts.WorkflowTaskTimeout != nil {
+		f.P(fmt.Sprintf("| Workflow task timeout | %v |", time.Second*time.Duration(opts.GetWorkflowTaskTimeout())))
+	}
+
+	if opts.RetryPolicy != nil {
+		addRetryPolicy(f, opts.RetryPolicy)
+	}
+
+	return nil
+}
+
+func addActivityOptions(f *protogen.GeneratedFile, svc *protogen.Service, opts *temporalv1.ActivityOptions) error {
+	if opts.ScheduleToCloseTimeout != nil {
+		f.P(fmt.Sprintf("| Schedule to close timeout | %v |", time.Second*time.Duration(opts.GetScheduleToCloseTimeout())))
+	}
+
+	if opts.ScheduleToStartTimeout != nil {
+		f.P(fmt.Sprintf("| Schedule to start timeout | %v |", time.Second*time.Duration(opts.GetScheduleToStartTimeout())))
+
+	}
+
+	if opts.StartToCloseTimeout != nil {
+		f.P(fmt.Sprintf("| Start to close timeout | %v |", time.Second*time.Duration(opts.GetStartToCloseTimeout())))
+
+	}
+
+	if opts.RetryPolicy != nil {
+		addRetryPolicy(f, opts.RetryPolicy)
+	}
+
+	return nil
+}
+
+func addSignalOptions(f *protogen.GeneratedFile, svc *protogen.Service, opts *temporalv1.SignalOptions) error {
+	if opts.Name != "" {
+		f.P(fmt.Sprintf("Signal name: `%s`", opts.Name))
+	}
+	return nil
+}
+
+func addQueryOptions(f *protogen.GeneratedFile, svc *protogen.Service, opts *temporalv1.QueryOptions) error {
+	if opts.Name != "" {
+		f.P(fmt.Sprintf("Signal name: `%s`", opts.Name))
+	}
+	return nil
+}
+
 func addMethOptions(f *protogen.GeneratedFile, svc *protogen.Service, meth *protogen.Method) error {
 	t, err := getMethodType(meth)
 	if err != nil {
@@ -52,20 +108,9 @@ func addMethOptions(f *protogen.GeneratedFile, svc *protogen.Service, meth *prot
 			return nil
 		}
 
-		if opts.WorkflowExecutionTimeout != nil {
-			f.P(fmt.Sprintf("| Workflow execution timeout | %v |", time.Second*time.Duration(opts.GetWorkflowExecutionTimeout())))
-		}
-
-		if opts.WorkflowRunTimeout != nil {
-			f.P(fmt.Sprintf("| Workflow run timeout | %v |", time.Second*time.Duration(opts.GetWorkflowRunTimeout())))
-		}
-
-		if opts.WorkflowTaskTimeout != nil {
-			f.P(fmt.Sprintf("| Workflow task timeout | %v |", time.Second*time.Duration(opts.GetWorkflowTaskTimeout())))
-		}
-
-		if opts.RetryPolicy != nil {
-			addRetryPolicy(f, opts.RetryPolicy)
+		err = addWorkflowOptions(f, svc, opts)
+		if err != nil {
+			return err
 		}
 
 	case MethodTypeActivity:
@@ -74,25 +119,32 @@ func addMethOptions(f *protogen.GeneratedFile, svc *protogen.Service, meth *prot
 			return nil
 		}
 
-		if opts.ScheduleToCloseTimeout != nil {
-			f.P(fmt.Sprintf("| Schedule to close timeout | %v |", time.Second*time.Duration(opts.GetScheduleToCloseTimeout())))
+		err = addActivityOptions(f, svc, opts)
+		if err != nil {
+			return err
 		}
 
-		if opts.ScheduleToStartTimeout != nil {
-			f.P(fmt.Sprintf("| Schedule to start timeout | %v |", time.Second*time.Duration(opts.GetScheduleToStartTimeout())))
-
-		}
-
-		if opts.StartToCloseTimeout != nil {
-			f.P(fmt.Sprintf("| Start to close timeout | %v |", time.Second*time.Duration(opts.GetStartToCloseTimeout())))
-
-		}
-
-		if opts.RetryPolicy != nil {
-			addRetryPolicy(f, opts.RetryPolicy)
-		}
 	case MethodTypeSignal:
+		opts, _ := proto.GetExtension(meth.Desc.Options(), temporalv1.E_Activity).(*temporalv1.SignalOptions)
+		if opts == nil {
+			return nil
+		}
+
+		err = addSignalOptions(f, svc, opts)
+		if err != nil {
+			return err
+		}
+
 	case MethodTypeQuery:
+		opts, _ := proto.GetExtension(meth.Desc.Options(), temporalv1.E_Activity).(*temporalv1.QueryOptions)
+		if opts == nil {
+			return nil
+		}
+
+		err = addQueryOptions(f, svc, opts)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -127,10 +179,10 @@ func addMethodDocs(f *protogen.GeneratedFile, svc *protogen.Service, meth *proto
 	f.P("")
 
 	if meth.Input != nil {
-		f.P(fmt.Sprintf("Input : [%s](#%s)\n", meth.Input.Desc.FullName(), makeAnchor("message", string(meth.Input.Desc.FullName()))))
+		f.P(fmt.Sprintf("Input: [%s](#%s)\n", meth.Input.Desc.FullName(), makeAnchor("message", string(meth.Input.Desc.FullName()))))
 	}
 	if meth.Output != nil {
-		f.P(fmt.Sprintf("Output : [%s](#%s)\n", meth.Output.Desc.FullName(), makeAnchor("message", string(meth.Output.Desc.FullName()))))
+		f.P(fmt.Sprintf("Output: [%s](#%s)\n", meth.Output.Desc.FullName(), makeAnchor("message", string(meth.Output.Desc.FullName()))))
 	}
 
 	f.P("\n| Setting | Value |")
@@ -154,7 +206,7 @@ func addMethodDocs(f *protogen.GeneratedFile, svc *protogen.Service, meth *proto
 
 		if len(opts.Queries) != 0 {
 			f.P("\nQueries:")
-			for _, q := range opts.Signals {
+			for _, q := range opts.Queries {
 				f.P(fmt.Sprintf(" * [%s.%s](#%s)", svc.Desc.FullName(), q, makeAnchor("method", string(svc.Desc.FullName())+"."+q)))
 			}
 		}
@@ -170,9 +222,34 @@ func ReadmeService(f *protogen.GeneratedFile, service *protogen.Service, cfg *Co
 	f.P(fmt.Sprintf("## %s", service.Desc.FullName()))
 	addComments(f, service.Comments)
 
+	svcOpts, _ := proto.GetExtension(service.Desc.Options(), temporalv1.E_Service).(*temporalv1.ServiceOptions)
+
+	f.P("### Service options")
 	f.P("| Option | Value |")
 	f.P("| --- | --- |")
 	f.P(fmt.Sprintf("| Default task queue | `%s` |", getServiceTaskQueue(service)))
+
+	if svcOpts != nil {
+		if svcOpts.DefaultWorkflowOptions != nil {
+			f.P("\n### Default workflow options")
+			f.P("| Option | Value |")
+			f.P("| --- | --- |")
+			err := addWorkflowOptions(f, service, svcOpts.DefaultWorkflowOptions)
+			if err != nil {
+				return err
+			}
+		}
+
+		if svcOpts.DefaultActivityOptions != nil {
+			f.P("\n### Default activity options")
+			f.P("| Option | Value |")
+			f.P("| --- | --- |")
+			err := addActivityOptions(f, service, svcOpts.DefaultActivityOptions)
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	f.P("")
 
