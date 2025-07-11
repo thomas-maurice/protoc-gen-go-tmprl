@@ -238,6 +238,7 @@ Generally a good starting point to get familiar with the generated code is to ha
 
 ## Options
 * `gen-workflow-prefix`, if set to true, instead of using an UUID for workflow IDs, the worker will generate a name that looks like `<module>.v<X>.<service>.<rpcMethodName>/<uuid>`, like `example.v1.DieRoll.ThrowDies/e2715d07-7bc0-495d-90c5-c396c0a17b46` for example.
+* `gen-docs`, if set to true a markdown documentation file will be output along your generated protobuf code.
 * `paths`, like on the protoc-gen-go, for example `paths=source_relative`
 * `default-activity-schedule-to-close`, sets the default activity schedule to close timeout, this is required otherwise temporal won't run your activity at all if it is left unspecified  (default `86400` which is 24h)
 
