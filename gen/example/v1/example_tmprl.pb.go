@@ -57,7 +57,20 @@ const ( // Default task queue name for the service
 
 // DieRollService is the interface your service must implement
 //
-// Service hello world is an example implementation of a service
+// It doesn't do much
+//
+// But it is there, chilling.
+//
+// This documentation will be generated along the code
+// ```golang
+// package main
+//
+// import "fmt"
+//
+// func main() {
+//     fmt.Println("You can also put markdown in there, how cool is that ?")
+// }
+// ```
 
 type DieRollService interface {
 	// Workflows definitions
