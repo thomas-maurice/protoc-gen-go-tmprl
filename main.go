@@ -14,6 +14,7 @@ import (
 
 var (
 	genWorkflowPrefix bool
+	genDocs           bool
 	// Default activity start to close timeout in seconds
 	defaultActivityScheduleToClose int
 )
@@ -23,6 +24,7 @@ func main() {
 	// This is to generate automatically prefixes for the jobs.
 	flags.BoolVar(&genWorkflowPrefix, "gen-workflow-prefix", false, "Generates a prefix for the jobs like foo.v1.Foo.Method/<workflowID>")
 	flags.IntVar(&defaultActivityScheduleToClose, "default-activity-schedule-to-close", 3600*24, "Default start to close activity timeout if none is specified anywhere, in seconds")
+	flags.BoolVar(&genDocs, "gen-docs", false, "Generates documentation for the temporal workflows")
 	opts := &protogen.Options{
 		ParamFunc: flags.Set,
 	}
@@ -42,10 +44,12 @@ func main() {
 				GenWorkflowPrefix:              genWorkflowPrefix,
 				DefaultActivityScheduleToClose: defaultActivityScheduleToClose,
 			})
-			generateReadme(gen, f, &generator.Config{
-				GenWorkflowPrefix:              genWorkflowPrefix,
-				DefaultActivityScheduleToClose: defaultActivityScheduleToClose,
-			})
+			if genDocs {
+				generateReadme(gen, f, &generator.Config{
+					GenWorkflowPrefix:              genWorkflowPrefix,
+					DefaultActivityScheduleToClose: defaultActivityScheduleToClose,
+				})
+			}
 		}
 		return nil
 	})

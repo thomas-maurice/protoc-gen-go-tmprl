@@ -221,7 +221,7 @@ Triggers a series of die rolls
 | --- | --- | --- | --- | --- |
 | Results | int32 | Optional | ✅ | <pre>Result array</pre> |
 | Loop | bool | Optional | ✅ | <pre>Loop ?</pre> |
-| ResultStatus | string | Optional | ☠️ | <pre>A deprecated field</pre> |
+| ResultStatus | string | Optional | 🗿 | <pre>A deprecated field</pre> |
 
 <a id="message_example_v1_ThrowUntilValueRequest"></a>
 ## example.v1.ThrowUntilValueRequest

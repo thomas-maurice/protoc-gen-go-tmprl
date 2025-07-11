@@ -379,7 +379,7 @@ func ReadmeMessage(f *protogen.GeneratedFile, message *protogen.Message, cfg *Co
 		fieldOptions, _ := field.Desc.Options().(*descriptorpb.FieldOptions)
 		if fieldOptions != nil {
 			if *fieldOptions.Deprecated {
-				deprecated = "☠️"
+				deprecated = "🗿"
 			}
 		}
 		f.P(fmt.Sprintf(
