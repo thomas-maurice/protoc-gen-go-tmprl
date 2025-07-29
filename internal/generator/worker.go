@@ -119,17 +119,37 @@ func Worker(gf *protogen.GeneratedFile, service *protogen.Service) error {
 		})
 	}).Line().
 		/*
-			// Run func like so
-			func (w *Worker) Run() error {
-				return w.Worker.Run(worker.InterruptCh())
+			// Start func like so
+			func (w *Worker) Start() error {
+				return w.Worker.Start()
 			}
 		*/
-		Comment("Run will run the worker").Line().
-		Func().Parens(jen.Id("w").Op("*").Id(workerName)).Id("Run").ParamsFunc(func(g *jen.Group) {}).Error().BlockFunc(func(g *jen.Group) {
+		Comment("Start will run the worker in a non-blocking fashion. Use Stop() to stop the worker.").Line().
+		Func().Parens(jen.Id("w").Op("*").Id(workerName)).Id("Start").ParamsFunc(func(g *jen.Group) {}).Error().BlockFunc(func(g *jen.Group) {
+		g.Add(
+			jen.Return(
+				jen.Id("w").Dot("worker").Dot("Start").Parens(
+					jen.Null(),
+				),
+			),
+		)
+	}).Line().
+		/*
+			// Run func like so
+			func (w *Worker) Run(interruptCh <-chan any) error {
+				return w.Worker.Run(interruptCh)
+			}
+		*/
+		Comment("Run will run the worker until interruptCh receives a signal. Use worker.InterruptCh() to interrupt when there's an interrupt signal from the OS.").Line().
+		Func().Parens(jen.Id("w").Op("*").Id(workerName)).Id("Run").
+		ParamsFunc(func(g *jen.Group) {
+			g.Add(jen.Id("interruptCh").Op("<-").Chan().Any())
+		}).
+		Error().BlockFunc(func(g *jen.Group) {
 		g.Add(
 			jen.Return(
 				jen.Id("w").Dot("worker").Dot("Run").Parens(
-					jen.Id(getTemporalWorkerObject(gf, "InterruptCh")).Parens(jen.Null()),
+					jen.Id("interruptCh"),
 				),
 			),
 		)

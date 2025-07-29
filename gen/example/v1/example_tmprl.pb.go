@@ -147,9 +147,14 @@ func (w *DieRollWorker) Register() {
 	})
 }
 
-// Run will run the worker
-func (w *DieRollWorker) Run() error {
-	return w.worker.Run(worker.InterruptCh())
+// Start will run the worker in a non-blocking fashion. Use Stop() to stop the worker.
+func (w *DieRollWorker) Start() error {
+	return w.worker.Start()
+}
+
+// Run will run the worker until interruptCh receives a signal
+func (w *DieRollWorker) Run(interruptCh <-chan any) error {
+	return w.worker.Run(interruptCh)
 }
 
 // Stop will stop the worker, may panic if called twice
