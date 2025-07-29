@@ -164,7 +164,6 @@ func main() {
 		"",
 		worker.Options{},
 	)
-
 	if err != nil {
 		logger.Error("could not create worker", "error", err)
 		os.Exit(1)
@@ -172,7 +171,7 @@ func main() {
 
 	w.Register()
 
-	err = w.Run()
+	err = w.Run(worker.InterruptCh())
 	if err != nil {
 		logger.Error("could not run worker", "error", err)
 		os.Exit(1)
