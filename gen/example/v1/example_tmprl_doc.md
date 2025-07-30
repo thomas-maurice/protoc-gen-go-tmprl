@@ -136,7 +136,7 @@ Retry policy:
 | Backoff coefficient | 1.500000 |
 | Maximum attempts | 10 |
 | Maximum interval | 10s |
-| Non retryable error types | [FATAL] |
+| Non retryable error types | [FATAL NOT_FOUND] |
 
 
 <a id="method_example_v1_DieRoll_Ping"></a>

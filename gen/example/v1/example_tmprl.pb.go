@@ -152,7 +152,7 @@ func (w *DieRollWorker) Start() error {
 	return w.worker.Start()
 }
 
-// Run will run the worker until interruptCh receives a signal
+// Run will run the worker until interruptCh receives a signal. Use worker.InterruptCh() to interrupt when there's an interrupt signal from the OS.
 func (w *DieRollWorker) Run(interruptCh <-chan any) error {
 	return w.worker.Run(interruptCh)
 }
@@ -201,13 +201,11 @@ func (c *DieRollClient) ExecuteActivityThrowDie(ctx workflow.Context, req *empty
 	}
 	if aOptions.RetryPolicy == nil {
 		aOptions.RetryPolicy = &temporal.RetryPolicy{
-			InitialInterval:    time.Duration(int32(1)) * time.Second,
-			MaximumInterval:    time.Duration(int32(10)) * time.Second,
-			BackoffCoefficient: float64(float32(1.5)),
-			MaximumAttempts:    int32(10),
-			NonRetryableErrorTypes: []string{
-				"FATAL",
-			},
+			InitialInterval:        time.Duration(int32(1)) * time.Second,
+			MaximumInterval:        time.Duration(int32(10)) * time.Second,
+			BackoffCoefficient:     float64(float32(1.5)),
+			MaximumAttempts:        int32(10),
+			NonRetryableErrorTypes: []string{"FATAL", "NOT_FOUND"},
 		}
 	}
 	if aOptions.ScheduleToCloseTimeout == 0 {

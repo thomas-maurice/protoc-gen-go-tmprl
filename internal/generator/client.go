@@ -184,8 +184,8 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 									}
 									if workflowOptions.RetryPolicy.NonRetryableErrorTypes != nil {
 										g.Add(jen.Id("NonRetryableErrorTypes").Op(":").Index(jen.Null()).String().Block(jen.ListFunc(func(g *jen.Group) {
-											for i := 0; i < len(workflowOptions.RetryPolicy.NonRetryableErrorTypes); i++ {
-												g.Add(jen.Lit(workflowOptions.RetryPolicy.NonRetryableErrorTypes[i]).Op(","))
+											for _, errType := range activityOptions.RetryPolicy.NonRetryableErrorTypes {
+												g.Lit(errType)
 											}
 										})).Op(","))
 									}
@@ -364,8 +364,8 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 									}
 									if workflowOptions.RetryPolicy.NonRetryableErrorTypes != nil {
 										g.Add(jen.Id("NonRetryableErrorTypes").Op(":").Index(jen.Null()).String().Block(jen.ListFunc(func(g *jen.Group) {
-											for i := 0; i < len(workflowOptions.RetryPolicy.NonRetryableErrorTypes); i++ {
-												g.Add(jen.Lit(workflowOptions.RetryPolicy.NonRetryableErrorTypes[i]).Op(","))
+											for _, errType := range activityOptions.RetryPolicy.NonRetryableErrorTypes {
+												g.Lit(errType)
 											}
 										})).Op(","))
 									}
@@ -497,9 +497,9 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 										g.Add(jen.Id("MaximumAttempts").Op(":").Lit(*activityOptions.RetryPolicy.MaximumAttempts).Op(","))
 									}
 									if activityOptions.RetryPolicy.NonRetryableErrorTypes != nil {
-										g.Add(jen.Id("NonRetryableErrorTypes").Op(":").Index(jen.Null()).String().Block(jen.ListFunc(func(g *jen.Group) {
-											for i := 0; i < len(activityOptions.RetryPolicy.NonRetryableErrorTypes); i++ {
-												g.Add(jen.Lit(activityOptions.RetryPolicy.NonRetryableErrorTypes[i]).Op(","))
+										g.Add(jen.Id("NonRetryableErrorTypes").Op(":").Index(jen.Null()).String().Values(jen.ListFunc(func(g *jen.Group) {
+											for _, errType := range activityOptions.RetryPolicy.NonRetryableErrorTypes {
+												g.Lit(errType)
 											}
 										})).Op(","))
 									}
