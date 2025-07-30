@@ -22,3 +22,15 @@ jobs:
         uses: ./.github/actions/install
       - name: "Run go tests"
         run: go test -v ./...
+
+  buf:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bufbuild/buf-action@v1
+        with:
+          # buf won't push on PR :)
+          token: ${{ secrets.BUF_TOKEN }}
