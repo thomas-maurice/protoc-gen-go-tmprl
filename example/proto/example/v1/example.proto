@@ -51,7 +51,10 @@ service DieRoll {
         backoff_coefficient: 1.5
         maximum_interval: 10
         maximum_attempts: 10
-        non_retryable_error_types: ["FATAL"]
+        non_retryable_error_types: [
+          "FATAL",
+          "NOT_FOUND"
+        ]
       }
     };
   }
