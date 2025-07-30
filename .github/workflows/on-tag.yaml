@@ -32,7 +32,7 @@ jobs:
 
   buf:
     runs-on: ubuntu-latest
-    depends-on:
+    needs:
       - build
     steps:
       - uses: actions/checkout@v4
