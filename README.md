@@ -51,6 +51,9 @@ service HelloWorld  {
 }
 ```
 
+> [!WARNING]  
+> Make sure your package name is not `temporal.*`, since it will clash with the imports from this package and generate broken code.
+
 ### Default workflow & activity setups
 
 You can setup a service level (here a service refers to a worker) default for activities and workflows respectively in the `default_activity_options` and `default_workflow_options` fields of the
