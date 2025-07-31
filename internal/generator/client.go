@@ -127,16 +127,18 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						g.Add(jen.Id("wOptions").Dot("TaskQueue").Op("=").Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName)))
 					}))
 
-					g.Add(
-						jen.If(jen.Id("wOptions").Dot("ID").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("wOptions").Dot("ID").Op("=").Id(getFmtObject(gf, "Sprintf")).CallFunc(func(g *jen.Group) {
-								g.Add(jen.Lit("%s/%s"))
-								g.Add(jen.Lit(methName))
-								g.Add(jen.Id(getUUIDObject(gf, "NewString")).Parens(jen.Null()))
-							}))
-						},
-						),
-					)
+					if config.GenWorkflowPrefix {
+						g.Add(
+							jen.If(jen.Id("wOptions").Dot("ID").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
+								g.Add(jen.Id("wOptions").Dot("ID").Op("=").Id(getFmtObject(gf, "Sprintf")).CallFunc(func(g *jen.Group) {
+									g.Add(jen.Lit("%s/%s"))
+									g.Add(jen.Lit(methName))
+									g.Add(jen.Id(getUUIDObject(gf, "NewString")).Parens(jen.Null()))
+								}))
+							},
+							),
+						)
+					}
 
 					if workflowOptions != nil {
 						if workflowOptions.WorkflowExecutionTimeout != nil {
