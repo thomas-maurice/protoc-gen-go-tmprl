@@ -69,7 +69,7 @@ func ServiceSignals(gf *protogen.GeneratedFile, service *protogen.Service) error
 				sigName = sigOpts.Name
 			}
 
-			g.Add(jen.Var().Id("result").Op("*").Id(gf.QualifiedGoIdent(method.Output.GoIdent)))
+			g.Add(jen.Var().Id("result").Op("*").Id(gf.QualifiedGoIdent(method.Input.GoIdent)))
 
 			g.Id("ok").Op(":=").Id(getTemporalWorkflowObject(gf, "GetSignalChannel")).CallFunc(func(g *jen.Group) {
 				g.Add(jen.Id("ctx"))
@@ -98,7 +98,7 @@ func ServiceSignals(gf *protogen.GeneratedFile, service *protogen.Service) error
 				sigName = sigOpts.Name
 			}
 
-			g.Add(jen.Var().Id("result").Op("*").Id(gf.QualifiedGoIdent(method.Output.GoIdent)))
+			g.Add(jen.Var().Id("result").Op("*").Id(gf.QualifiedGoIdent(method.Input.GoIdent)))
 
 			g.Id("ok").Op(":=").Id(getTemporalWorkflowObject(gf, "GetSignalChannel")).CallFunc(func(g *jen.Group) {
 				g.Add(jen.Id("ctx"))
