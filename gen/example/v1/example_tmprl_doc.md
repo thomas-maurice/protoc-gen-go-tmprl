@@ -178,7 +178,7 @@ Instruct the workflow to proceed
 
 Input: [example.v1.ContinueSignalRequest](#message_example_v1_ContinueSignalRequest)
 
-Output: [example.v1.ContinueSignalRequest](#message_example_v1_ContinueSignalRequest)
+Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 
 | Setting | Value |
