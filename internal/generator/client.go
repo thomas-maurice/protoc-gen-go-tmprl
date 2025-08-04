@@ -479,10 +479,10 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 							}))
 						}
 
-						if activityOptions.HearbeatTimeout != nil {
+						if activityOptions.HeartbeatTimeout != nil {
 							g.Add(jen.If(jen.Id("aOptions").Dot("HeartbeatTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
 								g.Add(jen.Id("aOptions").Dot("HeartbeatTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
-									g.Add(jen.Lit(*activityOptions.HearbeatTimeout))
+									g.Add(jen.Lit(*activityOptions.HeartbeatTimeout))
 								}).Op("*").Id(getTimeObject(gf, "Second")))
 							}))
 						}

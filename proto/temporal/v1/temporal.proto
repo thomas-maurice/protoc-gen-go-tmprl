@@ -28,7 +28,7 @@ message ActivityOptions {
   // Default retry policy
   optional RetryPolicy retry_policy = 5;
   // Heartbeat activity timeout
-  optional int32 hearbeat_timeout = 6;
+  optional int32 heartbeat_timeout = 6;
 }
 
 message WorkflowOptions {
