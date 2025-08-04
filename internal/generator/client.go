@@ -479,6 +479,14 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 							}))
 						}
 
+						if activityOptions.HearbeatTimeout != nil {
+							g.Add(jen.If(jen.Id("aOptions").Dot("HeartbeatTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
+								g.Add(jen.Id("aOptions").Dot("HeartbeatTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
+									g.Add(jen.Lit(*activityOptions.HearbeatTimeout))
+								}).Op("*").Id(getTimeObject(gf, "Second")))
+							}))
+						}
+
 						if activityOptions.RetryPolicy != nil {
 							g.Add(jen.If(jen.Id("aOptions").Dot("RetryPolicy").Op("==").Nil())).BlockFunc(func(g *jen.Group) {
 								g.Add(jen.Id("aOptions").Dot("RetryPolicy").Op("=").Op("&").Id(getTemporalObject(gf, "RetryPolicy")).BlockFunc(func(g *jen.Group) {
