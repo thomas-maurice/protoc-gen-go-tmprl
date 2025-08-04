@@ -74,8 +74,8 @@ func addActivityOptions(f *protogen.GeneratedFile, svc *protogen.Service, opts *
 		f.P(fmt.Sprintf("| Start to close timeout | %v |", time.Second*time.Duration(opts.GetStartToCloseTimeout())))
 	}
 
-	if opts.HearbeatTimeout != nil {
-		f.P(fmt.Sprintf("| Heartbeat timeout | %v |", time.Second*time.Duration(opts.GetHearbeatTimeout())))
+	if opts.HeartbeatTimeout != nil {
+		f.P(fmt.Sprintf("| Heartbeat timeout | %v |", time.Second*time.Duration(opts.GetHeartbeatTimeout())))
 	}
 
 	if opts.RetryPolicy != nil {

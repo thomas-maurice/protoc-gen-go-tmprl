@@ -68,7 +68,7 @@ service DieRoll {
       // the generator will name it automatically <package>.<service>.<rpc>
       name: "ping.Ping"
       // Specify a heartbeat timeout if need be
-      hearbeat_timeout: 60
+      heartbeat_timeout: 60
     };
   }
 
