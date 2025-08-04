@@ -32,9 +32,11 @@ type ActivityOptions struct {
 	// Timeout from schedule to  - in seconds
 	ScheduleToStartTimeout *int32 `protobuf:"varint,4,opt,name=schedule_to_start_timeout,json=scheduleToStartTimeout,proto3,oneof" json:"schedule_to_start_timeout,omitempty"`
 	// Default retry policy
-	RetryPolicy   *RetryPolicy `protobuf:"bytes,5,opt,name=retry_policy,json=retryPolicy,proto3,oneof" json:"retry_policy,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	RetryPolicy *RetryPolicy `protobuf:"bytes,5,opt,name=retry_policy,json=retryPolicy,proto3,oneof" json:"retry_policy,omitempty"`
+	// Heartbeat activity timeout
+	HearbeatTimeout *int32 `protobuf:"varint,6,opt,name=hearbeat_timeout,json=hearbeatTimeout,proto3,oneof" json:"hearbeat_timeout,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ActivityOptions) Reset() {
@@ -100,6 +102,13 @@ func (x *ActivityOptions) GetRetryPolicy() *RetryPolicy {
 		return x.RetryPolicy
 	}
 	return nil
+}
+
+func (x *ActivityOptions) GetHearbeatTimeout() int32 {
+	if x != nil && x.HearbeatTimeout != nil {
+		return *x.HearbeatTimeout
+	}
+	return 0
 }
 
 type WorkflowOptions struct {
@@ -507,17 +516,19 @@ var File_temporal_v1_temporal_proto protoreflect.FileDescriptor
 
 const file_temporal_v1_temporal_proto_rawDesc = "" +
 	"\n" +
-	"\x1atemporal/v1/temporal.proto\x12\vtemporal.v1\x1a google/protobuf/descriptor.proto\"\x89\x03\n" +
+	"\x1atemporal/v1/temporal.proto\x12\vtemporal.v1\x1a google/protobuf/descriptor.proto\"\xce\x03\n" +
 	"\x0fActivityOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12>\n" +
 	"\x19schedule_to_close_timeout\x18\x02 \x01(\x05H\x00R\x16scheduleToCloseTimeout\x88\x01\x01\x128\n" +
 	"\x16start_to_close_timeout\x18\x03 \x01(\x05H\x01R\x13startToCloseTimeout\x88\x01\x01\x12>\n" +
 	"\x19schedule_to_start_timeout\x18\x04 \x01(\x05H\x02R\x16scheduleToStartTimeout\x88\x01\x01\x12@\n" +
-	"\fretry_policy\x18\x05 \x01(\v2\x18.temporal.v1.RetryPolicyH\x03R\vretryPolicy\x88\x01\x01B\x1c\n" +
+	"\fretry_policy\x18\x05 \x01(\v2\x18.temporal.v1.RetryPolicyH\x03R\vretryPolicy\x88\x01\x01\x12.\n" +
+	"\x10hearbeat_timeout\x18\x06 \x01(\x05H\x04R\x0fhearbeatTimeout\x88\x01\x01B\x1c\n" +
 	"\x1a_schedule_to_close_timeoutB\x19\n" +
 	"\x17_start_to_close_timeoutB\x1c\n" +
 	"\x1a_schedule_to_start_timeoutB\x0f\n" +
-	"\r_retry_policy\"\xb1\x03\n" +
+	"\r_retry_policyB\x13\n" +
+	"\x11_hearbeat_timeout\"\xb1\x03\n" +
 	"\x0fWorkflowOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12A\n" +
 	"\x1aworkflow_execution_timeout\x18\x02 \x01(\x05H\x00R\x18workflowExecutionTimeout\x88\x01\x01\x125\n" +

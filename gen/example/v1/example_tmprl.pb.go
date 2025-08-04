@@ -249,6 +249,9 @@ func (c *DieRollClient) ExecuteActivityPing(ctx workflow.Context, req *emptypb.E
 	if aOptions.ScheduleToCloseTimeout == 0 {
 		aOptions.ScheduleToCloseTimeout = time.Duration(DefaultDieRollActivityScheduleToCloseTimeout) * time.Second
 	}
+	if aOptions.HeartbeatTimeout == 0 {
+		aOptions.HeartbeatTimeout = time.Duration(int32(60)) * time.Second
+	}
 	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), "ping.Ping", req)
 }
 

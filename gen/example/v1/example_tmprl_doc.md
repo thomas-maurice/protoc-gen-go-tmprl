@@ -153,6 +153,7 @@ Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 | Setting | Value |
 | ----------- | ----------------------- |
 | Temporal registered method name | `ping.Ping` |
+| Heartbeat timeout | 1m0s |
 
 ### Queries
 <a id="method_example_v1_DieRoll_GetThrowsStatus"></a>

@@ -484,13 +484,13 @@ const file_example_v1_example_proto_rawDesc = "" +
 	"\x06Status\x12\r\n" +
 	"\tUNDEFINED\x10\x00\x12\v\n" +
 	"\aSUCCESS\x10\x01\x12\v\n" +
-	"\aFAILURE\x10\x022\xe3\x05\n" +
+	"\aFAILURE\x10\x022\xe5\x05\n" +
 	"\aDieRoll\x12k\n" +
 	"\bThrowDie\x12\x16.google.protobuf.Empty\x1a\x1c.example.v1.ThrowDieResponse\")\x82\xb5\x18%\x10x\x18x \x1e*\x1d\b\x01\x15\x00\x00\xc0?\x18\n" +
 	" \n" +
-	"*\x05FATAL*\tNOT_FOUND\x12G\n" +
-	"\x04Ping\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\"\x0f\x82\xb5\x18\v\n" +
-	"\tping.Ping\x12Y\n" +
+	"*\x05FATAL*\tNOT_FOUND\x12I\n" +
+	"\x04Ping\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\"\x11\x82\xb5\x18\r\n" +
+	"\tping.Ping0<\x12Y\n" +
 	"\x0eParentWorkflow\x12\x16.google.protobuf.Empty\x1a\x1f.example.v1.ParentWorkflowReply\"\x0e\x8a\xb5\x18\n" +
 	"2\bContinue\x12E\n" +
 	"\rChildWorkflow\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\"\x04\x8a\xb5\x18\x00\x12X\n" +

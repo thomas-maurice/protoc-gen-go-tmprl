@@ -27,6 +27,8 @@ message ActivityOptions {
   optional int32 schedule_to_start_timeout = 4;
   // Default retry policy
   optional RetryPolicy retry_policy = 5;
+  // Heartbeat activity timeout
+  optional int32 hearbeat_timeout = 6;
 }
 
 message WorkflowOptions {
