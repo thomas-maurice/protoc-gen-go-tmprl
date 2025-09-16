@@ -188,6 +188,9 @@ func (c *DieRollClient) ExecuteActivityThrowDie(ctx workflow.Context, req *empty
 		aOptions = options[0]
 	}
 	if aOptions.TaskQueue == "" {
+		aOptions.TaskQueue = c.taskQueue
+	}
+	if aOptions.TaskQueue == "" {
 		aOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if aOptions.StartToCloseTimeout == 0 {
@@ -242,6 +245,9 @@ func (c *DieRollClient) ExecuteActivityPing(ctx workflow.Context, req *emptypb.E
 	var aOptions workflow.ActivityOptions
 	if len(options) > 0 {
 		aOptions = options[0]
+	}
+	if aOptions.TaskQueue == "" {
+		aOptions.TaskQueue = c.taskQueue
 	}
 	if aOptions.TaskQueue == "" {
 		aOptions.TaskQueue = DefaultDieRollTaskQueueName
@@ -316,11 +322,12 @@ func (c *DieRollClient) GetWorkflowParentWorkflowResult(ctx context.Context, wor
 
 // ExecuteChildParentWorkflow executes the workflow as a child workflow and returns a future to it
 func (c *DieRollClient) ExecuteChildParentWorkflow(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
-	wOptions := workflow.ChildWorkflowOptions{
-		TaskQueue: c.taskQueue,
-	}
+	wOptions := workflow.ChildWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
+	}
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
 	}
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
@@ -403,11 +410,12 @@ func (c *DieRollClient) GetWorkflowChildWorkflowResult(ctx context.Context, work
 
 // ExecuteChildChildWorkflow executes the workflow as a child workflow and returns a future to it
 func (c *DieRollClient) ExecuteChildChildWorkflow(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
-	wOptions := workflow.ChildWorkflowOptions{
-		TaskQueue: c.taskQueue,
-	}
+	wOptions := workflow.ChildWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
+	}
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
 	}
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
@@ -490,11 +498,12 @@ func (c *DieRollClient) GetWorkflowThrowDiesResult(ctx context.Context, workflow
 
 // ExecuteChildThrowDies executes the workflow as a child workflow and returns a future to it
 func (c *DieRollClient) ExecuteChildThrowDies(ctx workflow.Context, req *ThrowDiesRequest, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
-	wOptions := workflow.ChildWorkflowOptions{
-		TaskQueue: c.taskQueue,
-	}
+	wOptions := workflow.ChildWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
+	}
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
 	}
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
@@ -571,11 +580,12 @@ func (c *DieRollClient) GetWorkflowThrowUntilValueResult(ctx context.Context, wo
 
 // ExecuteChildThrowUntilValue executes the workflow as a child workflow and returns a future to it
 func (c *DieRollClient) ExecuteChildThrowUntilValue(ctx workflow.Context, req *ThrowUntilValueRequest, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
-	wOptions := workflow.ChildWorkflowOptions{
-		TaskQueue: c.taskQueue,
-	}
+	wOptions := workflow.ChildWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
+	}
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
 	}
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
