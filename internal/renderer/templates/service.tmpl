@@ -565,11 +565,12 @@ func (w *{{WorkflowObjectName .Service.GoName .GoName}}) GetWithOptions(ctx {{Co
 	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
 
+{{- $workflow := .}}
 {{- range .Options.Signals}}
 {{- $signal := index $.SignalsMap .}}
 {{- if $signal}}
 // Signal{{.}}: sends the {{.}} signal to the workflow
-func (w *{{WorkflowObjectName $.GoName $.GoName}}) Signal{{.}}(ctx {{Context}}, req *{{QualifiedGoIdent $signal.Input.GoIdent}}) error {
+func (w *{{WorkflowObjectName $workflow.Service.GoName $workflow.GoName}}) Signal{{.}}(ctx {{Context}}, req *{{QualifiedGoIdent $signal.Input.GoIdent}}) error {
 	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), Signal{{.}}Name, req)
 }
 {{- end}}
@@ -579,7 +580,7 @@ func (w *{{WorkflowObjectName $.GoName $.GoName}}) Signal{{.}}(ctx {{Context}}, 
 {{- $query := index $.QueriesMap .}}
 {{- if $query}}
 // Query{{.}}: queries the workflow with {{.}}
-func (w *{{WorkflowObjectName $.GoName $.GoName}}) Query{{.}}(ctx {{Context}}, req *{{QualifiedGoIdent $query.Input.GoIdent}}) (*{{QualifiedGoIdent $query.Output.GoIdent}}, error) {
+func (w *{{WorkflowObjectName $workflow.Service.GoName $workflow.GoName}}) Query{{.}}(ctx {{Context}}, req *{{QualifiedGoIdent $query.Input.GoIdent}}) (*{{QualifiedGoIdent $query.Output.GoIdent}}, error) {
 	future, err := w.client.QueryWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), Query{{.}}Name, req)
 	if err != nil {
 		return nil, err
@@ -646,7 +647,7 @@ func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) SignalChildWorkflo
 {{- $signal := index $.SignalsMap .}}
 {{- if $signal}}
 // Signal{{.}}: sends the {{.}} signal to the workflow
-func (w *{{ChildWorkflowObjectName $.GoName $.GoName}}) Signal{{.}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent $signal.Input.GoIdent}}) error {
+func (w *{{ChildWorkflowObjectName $workflow.Service.GoName $workflow.GoName}}) Signal{{.}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent $signal.Input.GoIdent}}) error {
 	return w.future.SignalChildWorkflow(ctx, Signal{{.}}Name, req).Get(ctx, nil)
 }
 {{- end}}
