@@ -11,24 +11,28 @@ const (
 
 	// {{.GetDefaultActivityTimeoutConstName}}: Default activity schedule to close timeout
 	{{.GetDefaultActivityTimeoutConstName}} = {{.Config.DefaultActivityScheduleToClose}}
-)
 
 {{- range .Workflows}}
-// Workflow{{.GoName}}Name: Registered name for workflow {{.GoName}}
-const Workflow{{.GoName}}Name = {{Quote .RegisteredName}}
+
+	// Workflow{{.GoName}}Name: Registered name for workflow {{.GoName}}
+	Workflow{{.GoName}}Name = {{Quote .RegisteredName}}
 {{- end}}
 
 {{- range .Activities}}
-// Activity{{.GoName}}Name: Registered name for activity {{.GoName}}
-const Activity{{.GoName}}Name = {{Quote .RegisteredName}}
+
+	// Activity{{.GoName}}Name: Registered name for activity {{.GoName}}
+	Activity{{.GoName}}Name = {{Quote .RegisteredName}}
 {{- end}}
 
 {{- range .Signals}}
-// Signal{{.GoName}}Name: Registered name for signal {{.GoName}}
-const Signal{{.GoName}}Name = {{Quote .RegisteredName}}
+
+	// Signal{{.GoName}}Name: Registered name for signal {{.GoName}}
+	Signal{{.GoName}}Name = {{Quote .RegisteredName}}
 {{- end}}
 
 {{- range .Queries}}
-// Query{{.GoName}}Name: Registered name for query {{.GoName}}
-const Query{{.GoName}}Name = {{Quote .RegisteredName}}
+
+	// Query{{.GoName}}Name: Registered name for query {{.GoName}}
+	Query{{.GoName}}Name = {{Quote .RegisteredName}}
 {{- end}}
+)
