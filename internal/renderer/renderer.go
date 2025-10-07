@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
-	"go/format"
 	"text/template"
 
 	"github.com/thomas-maurice/protoc-gen-go-tmprl/internal/model"
@@ -107,14 +106,5 @@ func (r *Renderer) RenderAll(service *model.Service) (string, error) {
 		result.WriteString("\n\n")
 	}
 
-	return r.formatCode(result.String())
-}
-
-// formatCode: Formats Go code using go/format
-func (r *Renderer) formatCode(code string) (string, error) {
-	formatted, err := format.Source([]byte(code))
-	if err != nil {
-		return "", fmt.Errorf("failed to format generated code: %w", err)
-	}
-	return string(formatted), nil
+	return result.String(), nil
 }
