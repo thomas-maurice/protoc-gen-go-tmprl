@@ -9,10 +9,11 @@ This is the main template that includes:
 - Signal and query helpers
 */ -}}
 
-{{- /* ============================================================================
+{{/* ============================================================================
     SECTION 1: CONSTANTS
     All constant definitions for workflows, activities, signals, and queries
-============================================================================ */ -}}
+============================================================================ */}}
+
 // Constants for {{.GoName}} service
 const (
 {{- if .TaskQueue}}
@@ -51,10 +52,11 @@ const (
 {{- end}}
 )
 
-{{- /* ============================================================================
-    SECTION 2: SERVICE INTERFACE
+{{/* ============================================================================
+    SERVICE INTERFACE
     Interface that users must implement for workflows and activities
-============================================================================ */ -}}
+============================================================================ */}}
+
 // {{.GetServiceInterfaceName}}: Interface that must be implemented to register workflows and activities
 type {{.GetServiceInterfaceName}} interface {
 	{{- range .Workflows}}
@@ -83,10 +85,11 @@ func (Unimplemented{{$.GetServiceInterfaceName}}) {{.GoName}}(ctx {{Context}}, r
 }
 {{- end}}
 
-{{- /* ============================================================================
+{{/* ============================================================================
     SECTION 3: CLIENT IMPLEMENTATION
     Client struct with methods to execute workflows and activities
-============================================================================ */ -}}
+============================================================================ */}}
+
 // {{.GetClientName}}: Client for the {{.GoName}} service
 type {{.GetClientName}} struct {
 	client    {{TemporalClient "Client"}}
@@ -409,10 +412,11 @@ func (c *{{.Service.GetClientName}}) ExecuteActivity{{.GoName}}Sync(ctx {{Tempor
 }
 {{- end}}
 
-{{- /* ============================================================================
+{{/* ============================================================================
     SECTION 4: WORKER IMPLEMENTATION
     Worker struct that registers and runs workflows/activities
-============================================================================ */ -}}
+============================================================================ */}}
+
 // {{.GetWorkerName}}: Worker for the {{.GoName}} service
 type {{.GetWorkerName}} struct {
 	client {{TemporalClient "Client"}}
@@ -471,10 +475,10 @@ func (w *{{.GetWorkerName}}) Stop() {
 	w.worker.Stop()
 }
 
-{{- /* ============================================================================
+{{/* ============================================================================
     SECTION 5: WORKFLOW WRAPPER OBJECTS
     Type-safe wrapper objects for managing workflow instances
-============================================================================ */ -}}
+============================================================================ */}}
 {{- range .Workflows}}
 
 // {{WorkflowObjectName .Service.GoName .GoName}}: is a struct that wraps a workflow
@@ -649,10 +653,10 @@ func (w *{{ChildWorkflowObjectName $.GoName $.GoName}}) Signal{{.}}(ctx {{Tempor
 {{- end}}
 {{- end}}
 
-{{- /* ============================================================================
+{{/* ============================================================================
     SECTION 6: SIGNAL HELPER FUNCTIONS
     Functions to send and receive signals
-============================================================================ */ -}}
+============================================================================ */}}
 {{- range .Signals}}
 
 // SendSignal{{.GoName}}: sends the {{.GoName}} signal to a workflow
@@ -675,10 +679,10 @@ func ReceiveSignal{{.GoName}}Async(ctx {{TemporalWorkflow "Context"}}) (*{{Quali
 }
 {{- end}}
 
-{{- /* ============================================================================
+{{/* ============================================================================
     SECTION 7: QUERY HELPER FUNCTIONS
     Functions to send queries and handle query requests
-============================================================================ */ -}}
+============================================================================ */}}
 {{- range .Queries}}
 
 // Query{{.GoName}}: sends the {{.GoName}} query to a workflow
