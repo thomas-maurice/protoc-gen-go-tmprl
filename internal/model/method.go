@@ -142,9 +142,11 @@ func NewWorkflow(protoMethod *protogen.Method, service *Service, config *Config)
 		base.RegisteredName = opts.Name
 	}
 
+	merged := MergeWorkflowOptions(opts, service.DefaultWorkflowOptions)
+
 	return &Workflow{
 		BaseMethod: base,
-		Options:    MergeWorkflowOptions(opts, service.DefaultWorkflowOptions),
+		Options:    merged,
 	}, nil
 }
 

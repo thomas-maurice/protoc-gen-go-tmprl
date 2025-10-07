@@ -309,6 +309,87 @@ func (c *{{.Service.GetClientName}}) ExecuteChild{{.GoName}}Sync(ctx {{TemporalW
 
 	return resp, nil
 }
+
+{{if .Options.CronSchedule}}
+
+// CreateSchedule{{.GoName}}: Creates a schedule for {{.GoName}} with the configured cron expression
+func (c *{{.Service.GetClientName}}) CreateSchedule{{.GoName}}(ctx {{Context}}, scheduleID string, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalClient "ScheduleOptions"}}) ({{TemporalClient "ScheduleHandle"}}, error) {
+	scheduleOptions := {{TemporalClient "ScheduleOptions"}}{
+		ID: scheduleID,
+		Spec: {{TemporalClient "ScheduleSpec"}}{
+			CronExpressions: []string{ {{Quote .Options.CronSchedule}} },
+		},
+		Action: &{{TemporalClient "ScheduleWorkflowAction"}}{
+			ID:        scheduleID,
+			Workflow:  Workflow{{.GoName}}Name,
+			Args:      []interface{}{req},
+			TaskQueue: c.taskQueue,
+			{{- if .Options.WorkflowExecutionTimeout}}
+			WorkflowExecutionTimeout: {{Time "Duration"}}({{toSeconds .Options.WorkflowExecutionTimeout}}) * {{Time "Second"}},
+			{{- end}}
+			{{- if .Options.WorkflowRunTimeout}}
+			WorkflowRunTimeout: {{Time "Duration"}}({{toSeconds .Options.WorkflowRunTimeout}}) * {{Time "Second"}},
+			{{- end}}
+			{{- if .Options.WorkflowTaskTimeout}}
+			WorkflowTaskTimeout: {{Time "Duration"}}({{toSeconds .Options.WorkflowTaskTimeout}}) * {{Time "Second"}},
+			{{- end}}
+			{{- if .Options.RetryPolicy}}
+			RetryPolicy: &{{Temporal "RetryPolicy"}}{
+				{{- if .Options.RetryPolicy.InitialInterval}}
+				InitialInterval: {{Time "Duration"}}({{toSeconds .Options.RetryPolicy.InitialInterval}}) * {{Time "Second"}},
+				{{- end}}
+				{{- if .Options.RetryPolicy.MaximumInterval}}
+				MaximumInterval: {{Time "Duration"}}({{toSeconds .Options.RetryPolicy.MaximumInterval}}) * {{Time "Second"}},
+				{{- end}}
+				{{- if .Options.RetryPolicy.BackoffCoefficient}}
+				BackoffCoefficient: {{.Options.RetryPolicy.BackoffCoefficient}},
+				{{- end}}
+				{{- if .Options.RetryPolicy.MaximumAttempts}}
+				MaximumAttempts: {{.Options.RetryPolicy.MaximumAttempts}},
+				{{- end}}
+				{{- if .Options.RetryPolicy.NonRetryableErrorTypes}}
+				NonRetryableErrorTypes: []string{
+					{{- range .Options.RetryPolicy.NonRetryableErrorTypes}}
+					{{Quote .}},
+					{{- end}}
+				},
+				{{- end}}
+			},
+			{{- end}}
+		},
+	}
+
+	if len(options) > 0 {
+		providedOptions := options[0]
+		if providedOptions.ID != "" {
+			scheduleOptions.ID = providedOptions.ID
+		}
+		if len(providedOptions.Spec.CronExpressions) > 0 {
+			scheduleOptions.Spec.CronExpressions = providedOptions.Spec.CronExpressions
+		}
+		if providedOptions.Action != nil {
+			scheduleOptions.Action = providedOptions.Action
+		}
+		if providedOptions.Paused {
+			scheduleOptions.Paused = providedOptions.Paused
+		}
+		if providedOptions.Note != "" {
+			scheduleOptions.Note = providedOptions.Note
+		}
+	}
+
+	if scheduleOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}).TaskQueue == "" {
+		scheduleOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}).TaskQueue = {{.Service.GetDefaultTaskQueueConstName}}
+	}
+
+	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
+}
+
+// GetSchedule{{.GoName}}: Gets a handle to an existing schedule for {{.GoName}}
+func (c *{{.Service.GetClientName}}) GetSchedule{{.GoName}}(ctx {{Context}}, scheduleID string) {{TemporalClient "ScheduleHandle"}} {
+	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+}
+{{end}}
 {{- end}}
 
 {{- /* ----------------------------------------------------------------------------

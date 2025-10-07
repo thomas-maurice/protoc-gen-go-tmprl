@@ -1,8 +1,8 @@
 all: test-unit gen-tprl build gen verify-examples
 
 .PHONY: gen-tprl
-gen-tprl:
-	buf generate --path proto/temporal/v1/temporal.proto
+gen-tprl: build
+	@PATH="$$PWD/bin:$$PATH" buf generate --path proto/temporal/v1/temporal.proto
 
 .PHONY: build
 build:
@@ -13,7 +13,7 @@ build:
 .PHONY: gen
 gen: build
 	@echo "Regenerating example code..."
-	@buf generate --path example/proto/example
+	@PATH="$$PWD/bin:$$PATH" buf generate --path example/proto/example
 
 .PHONY: verify-examples
 verify-examples:

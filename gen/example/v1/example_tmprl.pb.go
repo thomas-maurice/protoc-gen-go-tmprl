@@ -457,6 +457,54 @@ func (c *DieRollClient) ExecuteChildThrowDiesSync(ctx workflow.Context, req *Thr
 	return resp, nil
 }
 
+// CreateScheduleThrowDies: Creates a schedule for ThrowDies with the configured cron expression
+func (c *DieRollClient) CreateScheduleThrowDies(ctx context.Context, scheduleID string, req *ThrowDiesRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+	scheduleOptions := client.ScheduleOptions{
+		ID: scheduleID,
+		Spec: client.ScheduleSpec{
+			CronExpressions: []string{"* * * * *"},
+		},
+		Action: &client.ScheduleWorkflowAction{
+			ID:                       scheduleID,
+			Workflow:                 WorkflowThrowDiesName,
+			Args:                     []interface{}{req},
+			TaskQueue:                c.taskQueue,
+			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
+			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+		},
+	}
+
+	if len(options) > 0 {
+		providedOptions := options[0]
+		if providedOptions.ID != "" {
+			scheduleOptions.ID = providedOptions.ID
+		}
+		if len(providedOptions.Spec.CronExpressions) > 0 {
+			scheduleOptions.Spec.CronExpressions = providedOptions.Spec.CronExpressions
+		}
+		if providedOptions.Action != nil {
+			scheduleOptions.Action = providedOptions.Action
+		}
+		if providedOptions.Paused {
+			scheduleOptions.Paused = providedOptions.Paused
+		}
+		if providedOptions.Note != "" {
+			scheduleOptions.Note = providedOptions.Note
+		}
+	}
+
+	if scheduleOptions.Action.(*client.ScheduleWorkflowAction).TaskQueue == "" {
+		scheduleOptions.Action.(*client.ScheduleWorkflowAction).TaskQueue = DefaultDieRollTaskQueueName
+	}
+
+	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
+}
+
+// GetScheduleThrowDies: Gets a handle to an existing schedule for ThrowDies
+func (c *DieRollClient) GetScheduleThrowDies(ctx context.Context, scheduleID string) client.ScheduleHandle {
+	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+}
+
 // ExecuteWorkflowThrowUntilValue: executes the workflow and returns a future to it
 func (c *DieRollClient) ExecuteWorkflowThrowUntilValue(ctx context.Context, req *ThrowUntilValueRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
 	wOptions := client.StartWorkflowOptions{

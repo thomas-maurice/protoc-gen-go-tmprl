@@ -484,7 +484,7 @@ const file_example_v1_example_proto_rawDesc = "" +
 	"\x06Status\x12\r\n" +
 	"\tUNDEFINED\x10\x00\x12\v\n" +
 	"\aSUCCESS\x10\x01\x12\v\n" +
-	"\aFAILURE\x10\x022\xe5\x05\n" +
+	"\aFAILURE\x10\x022\xf0\x05\n" +
 	"\aDieRoll\x12k\n" +
 	"\bThrowDie\x12\x16.google.protobuf.Empty\x1a\x1c.example.v1.ThrowDieResponse\")\x82\xb5\x18%\x10x\x18x \x1e*\x1d\b\x01\x15\x00\x00\xc0?\x18\n" +
 	" \n" +
@@ -493,9 +493,8 @@ const file_example_v1_example_proto_rawDesc = "" +
 	"\tping.Ping0<\x12Y\n" +
 	"\x0eParentWorkflow\x12\x16.google.protobuf.Empty\x1a\x1f.example.v1.ParentWorkflowReply\"\x0e\x8a\xb5\x18\n" +
 	"2\bContinue\x12E\n" +
-	"\rChildWorkflow\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\"\x04\x8a\xb5\x18\x00\x12X\n" +
-	"\tThrowDies\x12\x1c.example.v1.ThrowDiesRequest\x1a\x1d.example.v1.ThrowDiesResponse\"\x0e\x8a\xb5\x18\n" +
-	"2\bContinue\x12d\n" +
+	"\rChildWorkflow\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\"\x04\x8a\xb5\x18\x00\x12c\n" +
+	"\tThrowDies\x12\x1c.example.v1.ThrowDiesRequest\x1a\x1d.example.v1.ThrowDiesResponse\"\x19\x8a\xb5\x18\x152\bContinueB\t* * * * *\x12d\n" +
 	"\x0fThrowUntilValue\x12\".example.v1.ThrowUntilValueRequest\x1a\x16.google.protobuf.Empty\"\x15\x8a\xb5\x18\x11:\x0fGetThrowsStatus\x12K\n" +
 	"\bContinue\x12!.example.v1.ContinueSignalRequest\x1a\x16.google.protobuf.Empty\"\x04\x92\xb5\x18\x00\x12P\n" +
 	"\x0fGetThrowsStatus\x12\x16.google.protobuf.Empty\x1a\x1f.example.v1.ThrowStatusResponse\"\x04\x9a\xb5\x18\x00\x1a!\x92\xb5\x18\x1d\n" +
