@@ -18,10 +18,14 @@ jobs:
       - uses: bufbuild/buf-action@v1
         with:
           setup_only: true
-      - name: "Setup protoc-gen-go-tmprl'"
-        uses: ./.github/actions/install
+      - name: "Setup protoc-gen-go"
+        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
       - name: "Run unit tests with race detection and coverage"
         run: make test-unit
+      - name: "Build plugin and add to PATH"
+        run: |
+          make build
+          echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
       - name: "Regenerate examples and verify they compile"
         run: make gen verify-examples
 

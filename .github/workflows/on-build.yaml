@@ -24,7 +24,9 @@ jobs:
         run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
       - name: "Run unit tests with race detection and coverage"
         run: make test-unit
-      - name: "Build plugin"
-        run: make build
+      - name: "Build plugin and add to PATH"
+        run: |
+          make build
+          echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
       - name: "Regenerate examples and verify they compile"
         run: make gen verify-examples
