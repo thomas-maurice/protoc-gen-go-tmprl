@@ -35,76 +35,21 @@ func NewRenderer(gf *protogen.GeneratedFile) (*Renderer, error) {
 	}, nil
 }
 
-// RenderConstants: Renders the constants for a service
-func (r *Renderer) RenderConstants(service *model.Service) (string, error) {
-	return r.render("constants.tmpl", service)
-}
-
-// RenderInterface: Renders the service interface
-func (r *Renderer) RenderInterface(service *model.Service) (string, error) {
-	return r.render("interface.tmpl", service)
-}
-
-// RenderWorker: Renders the worker code
-func (r *Renderer) RenderWorker(service *model.Service) (string, error) {
-	return r.render("worker.tmpl", service)
-}
-
-// RenderClient: Renders the client code
-func (r *Renderer) RenderClient(service *model.Service) (string, error) {
-	return r.render("client.tmpl", service)
-}
-
-// RenderWorkflowObjects: Renders workflow object wrappers
-func (r *Renderer) RenderWorkflowObjects(service *model.Service) (string, error) {
-	return r.render("workflow_objects.tmpl", service)
-}
-
-// RenderSignals: Renders signal helper functions
-func (r *Renderer) RenderSignals(service *model.Service) (string, error) {
-	return r.render("signals.tmpl", service)
-}
-
-// RenderQueries: Renders query helper functions
-func (r *Renderer) RenderQueries(service *model.Service) (string, error) {
-	return r.render("queries.tmpl", service)
-}
-
-// render: Common rendering logic
-func (r *Renderer) render(templateName string, data interface{}) (string, error) {
+// RenderAll: Renders all components for a service using the comprehensive service template
+//
+// The service.tmpl template contains all sections:
+// - Constants (task queue, timeouts, workflow/activity/signal/query names)
+// - Service Interface (methods that users must implement)
+// - Client Implementation (workflow and activity execution methods)
+// - Worker Implementation (registration and lifecycle management)
+// - Workflow Wrapper Objects (type-safe workflow management)
+// - Signal Helper Functions (send and receive signals)
+// - Query Helper Functions (query workflows)
+func (r *Renderer) RenderAll(service *model.Service) (string, error) {
 	var buf bytes.Buffer
-	err := r.templates.ExecuteTemplate(&buf, templateName, data)
+	err := r.templates.ExecuteTemplate(&buf, "service.tmpl", service)
 	if err != nil {
-		return "", fmt.Errorf("failed to execute template %s: %w", templateName, err)
+		return "", fmt.Errorf("failed to execute service template: %w", err)
 	}
 	return buf.String(), nil
-}
-
-// RenderAll: Renders all components for a service
-func (r *Renderer) RenderAll(service *model.Service) (string, error) {
-	var result bytes.Buffer
-
-	components := []struct {
-		name string
-		fn   func(*model.Service) (string, error)
-	}{
-		{"constants", r.RenderConstants},
-		{"interface", r.RenderInterface},
-		{"worker", r.RenderWorker},
-		{"client", r.RenderClient},
-		{"workflow_objects", r.RenderWorkflowObjects},
-		{"signals", r.RenderSignals},
-		{"queries", r.RenderQueries},
-	}
-
-	for _, component := range components {
-		output, err := component.fn(service)
-		if err != nil {
-			return "", fmt.Errorf("failed to render %s: %w", component.name, err)
-		}
-		result.WriteString(output)
-		result.WriteString("\n\n")
-	}
-
-	return result.String(), nil
 }
