@@ -21,261 +21,95 @@ import (
 	time "time"
 )
 
-const ( // Default task queue name for the service
+// Constants for DieRoll service
+const (
+	// DefaultDieRollTaskQueueName Default task queue name for DieRoll
 	DefaultDieRollTaskQueueName = "service-task-queue"
-	// Default activity schedule to close timeout if none is specified (24h0m0s)
+
+	// DefaultDieRollActivityScheduleToCloseTimeout Default activity schedule to close timeout
 	DefaultDieRollActivityScheduleToCloseTimeout = 86400
 
-	// Workflows names constants
+	// WorkflowParentWorkflowName: Registered name for workflow ParentWorkflow
+	WorkflowParentWorkflowName = "example.v1.DieRoll.ParentWorkflow"
 
-	// Name of workflow example.v1.DieRoll.ParentWorkflow
-	WorkflowDieRollParentWorkflowName = "example.v1.DieRoll.ParentWorkflow"
-	// Name of workflow example.v1.DieRoll.ChildWorkflow
-	WorkflowDieRollChildWorkflowName = "example.v1.DieRoll.ChildWorkflow"
-	// Name of workflow example.v1.DieRoll.ThrowDies
-	WorkflowDieRollThrowDiesName = "example.v1.DieRoll.ThrowDies"
-	// Name of workflow example.v1.DieRoll.ThrowUntilValue
-	WorkflowDieRollThrowUntilValueName = "example.v1.DieRoll.ThrowUntilValue"
+	// WorkflowChildWorkflowName: Registered name for workflow ChildWorkflow
+	WorkflowChildWorkflowName = "example.v1.DieRoll.ChildWorkflow"
 
-	// Activities names constants
+	// WorkflowThrowDiesName: Registered name for workflow ThrowDies
+	WorkflowThrowDiesName = "example.v1.DieRoll.ThrowDies"
 
-	// Name of activity example.v1.DieRoll.ThrowDie
-	ActivityDieRollThrowDieName = "example.v1.DieRoll.ThrowDie"
-	// Name of activity example.v1.DieRoll.Ping
-	ActivityDieRollPingName = "ping.Ping"
+	// WorkflowThrowUntilValueName: Registered name for workflow ThrowUntilValue
+	WorkflowThrowUntilValueName = "example.v1.DieRoll.ThrowUntilValue"
 
-	// Signals names constants
+	// ActivityThrowDieName: Registered name for activity ThrowDie
+	ActivityThrowDieName = "example.v1.DieRoll.ThrowDie"
 
-	// Name of signal example.v1.DieRoll.Continue
-	SignalDieRollContinueName = "example.v1.DieRoll.Continue"
+	// ActivityPingName: Registered name for activity Ping
+	ActivityPingName = "ping.Ping"
 
-	// Queries names constants
+	// SignalContinueName: Registered name for signal Continue
+	SignalContinueName = "example.v1.DieRoll.Continue"
 
-	// Name of query example.v1.DieRoll.GetThrowsStatus
-	QueryDieRollGetThrowsStatusName = "example.v1.DieRoll.GetThrowsStatus"
+	// QueryGetThrowsStatusName: Registered name for query GetThrowsStatus
+	QueryGetThrowsStatusName = "example.v1.DieRoll.GetThrowsStatus"
 )
 
-// DieRollService is the interface your service must implement
-//
-// It doesn't do much
-//
-// But it is there, chilling.
-//
-// This documentation will be generated along the code
-// ```golang
-// package main
-//
-// import "fmt"
-//
-// func main() {
-//     fmt.Println("You can also put markdown in there, how cool is that ?")
-// }
-// ```
-
+// DieRollService Interface that must be implemented to register workflows and activities
 type DieRollService interface {
-	// Workflows definitions
-
-	// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
+	// ParentWorkflow Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
 	ParentWorkflow(ctx workflow.Context, req *emptypb.Empty) (*ParentWorkflowReply, error)
-	//
+	// ChildWorkflow
 	ChildWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error)
-	// Throws dies a few times and return the result
+	// ThrowDies Throws dies a few times and return the result
 	ThrowDies(ctx workflow.Context, req *ThrowDiesRequest) (*ThrowDiesResponse, error)
-	//
+	// ThrowUntilValue
 	ThrowUntilValue(ctx workflow.Context, req *ThrowUntilValueRequest) (*emptypb.Empty, error)
-
-	// Activities definitions
-
-	// Throws a d6 and returns the result
+	// ThrowDie Throws a d6 and returns the result
 	ThrowDie(ctx context.Context, req *emptypb.Empty) (*ThrowDieResponse, error)
-	// Just a simple ping
-	// Takes no parameters
-	// returns nothing
+	// Ping Just a simple ping Takes no parameters returns nothing
 	Ping(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error)
 }
 
-// DieRollWorker: Worker for the DieRoll service
-type DieRollWorker struct {
-	client client.Client
-	worker worker.Worker
-	svc    DieRollService
+// UnimplementedDieRollService Stub implementation that panics
+type UnimplementedDieRollService struct{}
+
+func (UnimplementedDieRollService) ParentWorkflow(ctx workflow.Context, req *emptypb.Empty) (*ParentWorkflowReply, error) {
+	panic("ParentWorkflow not implemented")
+}
+func (UnimplementedDieRollService) ChildWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+	panic("ChildWorkflow not implemented")
+}
+func (UnimplementedDieRollService) ThrowDies(ctx workflow.Context, req *ThrowDiesRequest) (*ThrowDiesResponse, error) {
+	panic("ThrowDies not implemented")
+}
+func (UnimplementedDieRollService) ThrowUntilValue(ctx workflow.Context, req *ThrowUntilValueRequest) (*emptypb.Empty, error) {
+	panic("ThrowUntilValue not implemented")
+}
+func (UnimplementedDieRollService) ThrowDie(ctx context.Context, req *emptypb.Empty) (*ThrowDieResponse, error) {
+	panic("ThrowDie not implemented")
+}
+func (UnimplementedDieRollService) Ping(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+	panic("Ping not implemented")
 }
 
-// NewDieRollWorker: Returns a new instance of the worker.
-// If `taskQueue` stays empty the default one will be used
-func NewDieRollWorker(client client.Client, svc DieRollService, taskQueue string, workerOptions ...worker.Options) (*DieRollWorker, error) {
-	wOpts := worker.Options{}
-	if taskQueue == "" {
-		taskQueue = DefaultDieRollTaskQueueName
-	}
-	if len(workerOptions) > 0 {
-		wOpts = workerOptions[0]
-	}
-	w := worker.New(client, taskQueue, wOpts)
-	return &DieRollWorker{
-		client: client,
-		svc:    svc,
-		worker: w,
-	}, nil
-}
-
-// Register registers the worker and its activities/workflows in temporal
-func (w *DieRollWorker) Register() {
-	// Registers activity ThrowDie
-	w.worker.RegisterActivityWithOptions(w.svc.ThrowDie, activity.RegisterOptions{
-		Name: "example.v1.DieRoll.ThrowDie",
-	})
-	// Registers activity Ping
-	w.worker.RegisterActivityWithOptions(w.svc.Ping, activity.RegisterOptions{
-		Name: "ping.Ping",
-	})
-	// Registers workflow ParentWorkflow
-	w.worker.RegisterWorkflowWithOptions(w.svc.ParentWorkflow, workflow.RegisterOptions{
-		Name: "example.v1.DieRoll.ParentWorkflow",
-	})
-	// Registers workflow ChildWorkflow
-	w.worker.RegisterWorkflowWithOptions(w.svc.ChildWorkflow, workflow.RegisterOptions{
-		Name: "example.v1.DieRoll.ChildWorkflow",
-	})
-	// Registers workflow ThrowDies
-	w.worker.RegisterWorkflowWithOptions(w.svc.ThrowDies, workflow.RegisterOptions{
-		Name: "example.v1.DieRoll.ThrowDies",
-	})
-	// Registers workflow ThrowUntilValue
-	w.worker.RegisterWorkflowWithOptions(w.svc.ThrowUntilValue, workflow.RegisterOptions{
-		Name: "example.v1.DieRoll.ThrowUntilValue",
-	})
-}
-
-// Start will run the worker in a non-blocking fashion. Use Stop() to stop the worker.
-func (w *DieRollWorker) Start() error {
-	return w.worker.Start()
-}
-
-// Run will run the worker until interruptCh receives a signal. Use worker.InterruptCh() to interrupt when there's an interrupt signal from the OS.
-func (w *DieRollWorker) Run(interruptCh <-chan any) error {
-	return w.worker.Run(interruptCh)
-}
-
-// Stop will stop the worker, may panic if called twice
-func (w *DieRollWorker) Stop() {
-	w.worker.Stop()
-}
-
-// DieRollClient: Client for the DieRoll service
+// DieRollClient Client for the DieRoll service
 type DieRollClient struct {
 	client    client.Client
 	taskQueue string
 }
 
-// NewDieRollClient: Returns a new instance of the client.
+// NewDieRollClient Returns a new instance of the client.
 // If `taskQueue` stays empty the default one will be used
 func NewDieRollClient(client client.Client, taskQueue ...string) (*DieRollClient, error) {
 	clientTaskQueue := DefaultDieRollTaskQueueName
 	if len(taskQueue) > 0 {
 		clientTaskQueue = taskQueue[0]
 	}
+
 	return &DieRollClient{
 		client:    client,
 		taskQueue: clientTaskQueue,
 	}, nil
-}
-
-// ExecuteActivityThrowDie executes the activity asynchronously and returns a future to it
-func (c *DieRollClient) ExecuteActivityThrowDie(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) workflow.Future {
-	var aOptions workflow.ActivityOptions
-	if len(options) > 0 {
-		aOptions = options[0]
-	}
-	if aOptions.TaskQueue == "" {
-		aOptions.TaskQueue = c.taskQueue
-	}
-	if aOptions.TaskQueue == "" {
-		aOptions.TaskQueue = DefaultDieRollTaskQueueName
-	}
-	if aOptions.StartToCloseTimeout == 0 {
-		aOptions.StartToCloseTimeout = time.Duration(int32(120)) * time.Second
-	}
-	if aOptions.ScheduleToCloseTimeout == 0 {
-		aOptions.ScheduleToCloseTimeout = time.Duration(int32(120)) * time.Second
-	}
-	if aOptions.ScheduleToStartTimeout == 0 {
-		aOptions.ScheduleToStartTimeout = time.Duration(int32(30)) * time.Second
-	}
-	if aOptions.RetryPolicy == nil {
-		aOptions.RetryPolicy = &temporal.RetryPolicy{
-			InitialInterval:        time.Duration(int32(1)) * time.Second,
-			MaximumInterval:        time.Duration(int32(10)) * time.Second,
-			BackoffCoefficient:     float64(float32(1.5)),
-			MaximumAttempts:        int32(10),
-			NonRetryableErrorTypes: []string{"FATAL", "NOT_FOUND"},
-		}
-	}
-	if aOptions.ScheduleToCloseTimeout == 0 {
-		aOptions.ScheduleToCloseTimeout = time.Duration(int32(120)) * time.Second
-	}
-	if aOptions.StartToCloseTimeout == 0 {
-		aOptions.StartToCloseTimeout = time.Duration(int32(120)) * time.Second
-	}
-	if aOptions.ScheduleToStartTimeout == 0 {
-		aOptions.ScheduleToStartTimeout = time.Duration(int32(30)) * time.Second
-	}
-	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), "example.v1.DieRoll.ThrowDie", req)
-}
-
-// ExecuteActivityThrowDieSync executes the activity synchronously and returns the result when finished
-func (c *DieRollClient) ExecuteActivityThrowDieSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) (*ThrowDieResponse, error) {
-	aOptions := workflow.ActivityOptions{
-		TaskQueue: c.taskQueue,
-	}
-	if len(options) > 0 {
-		aOptions = options[0]
-	}
-	future := c.ExecuteActivityThrowDie(ctx, req, aOptions)
-	var resp *ThrowDieResponse
-	err := future.Get(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-// ExecuteActivityPing executes the activity asynchronously and returns a future to it
-func (c *DieRollClient) ExecuteActivityPing(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) workflow.Future {
-	var aOptions workflow.ActivityOptions
-	if len(options) > 0 {
-		aOptions = options[0]
-	}
-	if aOptions.TaskQueue == "" {
-		aOptions.TaskQueue = c.taskQueue
-	}
-	if aOptions.TaskQueue == "" {
-		aOptions.TaskQueue = DefaultDieRollTaskQueueName
-	}
-	if aOptions.ScheduleToCloseTimeout == 0 {
-		aOptions.ScheduleToCloseTimeout = time.Duration(DefaultDieRollActivityScheduleToCloseTimeout) * time.Second
-	}
-	if aOptions.HeartbeatTimeout == 0 {
-		aOptions.HeartbeatTimeout = time.Duration(int32(60)) * time.Second
-	}
-	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), "ping.Ping", req)
-}
-
-// ExecuteActivityPingSync executes the activity synchronously and returns the result when finished
-func (c *DieRollClient) ExecuteActivityPingSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) (*emptypb.Empty, error) {
-	aOptions := workflow.ActivityOptions{
-		TaskQueue: c.taskQueue,
-	}
-	if len(options) > 0 {
-		aOptions = options[0]
-	}
-	future := c.ExecuteActivityPing(ctx, req, aOptions)
-	var resp *emptypb.Empty
-	err := future.Get(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
 }
 
 // ExecuteWorkflowParentWorkflow executes the workflow and returns a future to it
@@ -291,33 +125,46 @@ func (c *DieRollClient) ExecuteWorkflowParentWorkflow(ctx context.Context, req *
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.ID == "" {
-		wOptions.ID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ParentWorkflow", uuid.NewString())
+		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowParentWorkflowName, uuid.NewString())
 	}
-	return c.client.ExecuteWorkflow(ctx, wOptions, "example.v1.DieRoll.ParentWorkflow", req)
+
+	// Apply timeout options
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
+	}
+	if wOptions.WorkflowRunTimeout == 0 {
+		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+	}
+
+	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowParentWorkflowName, req)
 }
 
-// ExecuteWorkflowParentWorkflowSync executes the workflow and returns the result when finished
+// ExecuteWorkflowParentWorkflowSync: executes the workflow and returns the result when finished
 func (c *DieRollClient) ExecuteWorkflowParentWorkflowSync(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (*ParentWorkflowReply, error) {
 	future, err := c.ExecuteWorkflowParentWorkflow(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
+
 	var resp *ParentWorkflowReply
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
-// GetWorkflowParentWorkflowResult gets the result of a given workflow
+// GetWorkflowParentWorkflowResult: gets the result of a given workflow
 func (c *DieRollClient) GetWorkflowParentWorkflowResult(ctx context.Context, workflowId string, runId string) (*ParentWorkflowReply, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
 	var resp *ParentWorkflowReply
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
@@ -327,37 +174,52 @@ func (c *DieRollClient) ExecuteChildParentWorkflow(ctx workflow.Context, req *em
 	if len(options) > 0 {
 		wOptions = options[0]
 	}
+
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = c.taskQueue
 	}
+
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.WorkflowID == "" {
 		var id string
 		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
-			return fmt.Sprintf("%s/%s", "example.v1.DieRoll.ParentWorkflow", uuid.NewString())
+			return fmt.Sprintf("%s/%s", WorkflowParentWorkflowName, uuid.NewString())
 		})
+
 		err := genId.Get(&id)
 		if err != nil {
 			return nil, err
 		}
+
 		wOptions.WorkflowID = id
 	}
-	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ParentWorkflow", req), nil
+
+	// Apply timeout options
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
+	}
+	if wOptions.WorkflowRunTimeout == 0 {
+		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+	}
+
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowParentWorkflowName, req), nil
 }
 
-// ExecuteChildParentWorkflowSync executes the workflow as a child workflow and returns the result when finished
+// ExecuteChildParentWorkflowSync: executes the workflow as a child workflow and returns the result when finished
 func (c *DieRollClient) ExecuteChildParentWorkflowSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (*ParentWorkflowReply, error) {
 	future, err := c.ExecuteChildParentWorkflow(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
+
 	var resp *ParentWorkflowReply
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
@@ -374,39 +236,46 @@ func (c *DieRollClient) ExecuteWorkflowChildWorkflow(ctx context.Context, req *e
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.ID == "" {
-		wOptions.ID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ChildWorkflow", uuid.NewString())
+		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowChildWorkflowName, uuid.NewString())
 	}
+
+	// Apply timeout options
 	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(int32(86400)) * time.Second
+		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
 	}
 	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(int32(7200)) * time.Second
+		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
 	}
-	return c.client.ExecuteWorkflow(ctx, wOptions, "example.v1.DieRoll.ChildWorkflow", req)
+
+	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowChildWorkflowName, req)
 }
 
-// ExecuteWorkflowChildWorkflowSync executes the workflow and returns the result when finished
+// ExecuteWorkflowChildWorkflowSync: executes the workflow and returns the result when finished
 func (c *DieRollClient) ExecuteWorkflowChildWorkflowSync(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (*emptypb.Empty, error) {
 	future, err := c.ExecuteWorkflowChildWorkflow(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
+
 	var resp *emptypb.Empty
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
-// GetWorkflowChildWorkflowResult gets the result of a given workflow
+// GetWorkflowChildWorkflowResult: gets the result of a given workflow
 func (c *DieRollClient) GetWorkflowChildWorkflowResult(ctx context.Context, workflowId string, runId string) (*emptypb.Empty, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
 	var resp *emptypb.Empty
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
@@ -416,43 +285,52 @@ func (c *DieRollClient) ExecuteChildChildWorkflow(ctx workflow.Context, req *emp
 	if len(options) > 0 {
 		wOptions = options[0]
 	}
+
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = c.taskQueue
 	}
+
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.WorkflowID == "" {
 		var id string
 		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
-			return fmt.Sprintf("%s/%s", "example.v1.DieRoll.ChildWorkflow", uuid.NewString())
+			return fmt.Sprintf("%s/%s", WorkflowChildWorkflowName, uuid.NewString())
 		})
+
 		err := genId.Get(&id)
 		if err != nil {
 			return nil, err
 		}
+
 		wOptions.WorkflowID = id
 	}
+
+	// Apply timeout options
 	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(int32(86400)) * time.Second
+		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
 	}
 	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(int32(7200)) * time.Second
+		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
 	}
-	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ChildWorkflow", req), nil
+
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowChildWorkflowName, req), nil
 }
 
-// ExecuteChildChildWorkflowSync executes the workflow as a child workflow and returns the result when finished
+// ExecuteChildChildWorkflowSync: executes the workflow as a child workflow and returns the result when finished
 func (c *DieRollClient) ExecuteChildChildWorkflowSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (*emptypb.Empty, error) {
 	future, err := c.ExecuteChildChildWorkflow(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
+
 	var resp *emptypb.Empty
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
@@ -469,33 +347,46 @@ func (c *DieRollClient) ExecuteWorkflowThrowDies(ctx context.Context, req *Throw
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.ID == "" {
-		wOptions.ID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowDies", uuid.NewString())
+		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowThrowDiesName, uuid.NewString())
 	}
-	return c.client.ExecuteWorkflow(ctx, wOptions, "example.v1.DieRoll.ThrowDies", req)
+
+	// Apply timeout options
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
+	}
+	if wOptions.WorkflowRunTimeout == 0 {
+		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+	}
+
+	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowThrowDiesName, req)
 }
 
-// ExecuteWorkflowThrowDiesSync executes the workflow and returns the result when finished
+// ExecuteWorkflowThrowDiesSync: executes the workflow and returns the result when finished
 func (c *DieRollClient) ExecuteWorkflowThrowDiesSync(ctx context.Context, req *ThrowDiesRequest, options ...client.StartWorkflowOptions) (*ThrowDiesResponse, error) {
 	future, err := c.ExecuteWorkflowThrowDies(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
+
 	var resp *ThrowDiesResponse
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
-// GetWorkflowThrowDiesResult gets the result of a given workflow
+// GetWorkflowThrowDiesResult: gets the result of a given workflow
 func (c *DieRollClient) GetWorkflowThrowDiesResult(ctx context.Context, workflowId string, runId string) (*ThrowDiesResponse, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
 	var resp *ThrowDiesResponse
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
@@ -505,38 +396,278 @@ func (c *DieRollClient) ExecuteChildThrowDies(ctx workflow.Context, req *ThrowDi
 	if len(options) > 0 {
 		wOptions = options[0]
 	}
+
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = c.taskQueue
 	}
+
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.WorkflowID == "" {
 		var id string
 		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
-			return fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowDies", uuid.NewString())
+			return fmt.Sprintf("%s/%s", WorkflowThrowDiesName, uuid.NewString())
 		})
+
 		err := genId.Get(&id)
 		if err != nil {
 			return nil, err
 		}
+
 		wOptions.WorkflowID = id
 	}
-	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ThrowDies", req), nil
+
+	// Apply timeout options
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
+	}
+	if wOptions.WorkflowRunTimeout == 0 {
+		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+	}
+
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowThrowDiesName, req), nil
 }
 
-// ExecuteChildThrowDiesSync executes the workflow as a child workflow and returns the result when finished
+// ExecuteChildThrowDiesSync: executes the workflow as a child workflow and returns the result when finished
 func (c *DieRollClient) ExecuteChildThrowDiesSync(ctx workflow.Context, req *ThrowDiesRequest, options ...workflow.ChildWorkflowOptions) (*ThrowDiesResponse, error) {
 	future, err := c.ExecuteChildThrowDies(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
+
 	var resp *ThrowDiesResponse
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
+}
+
+// CreateScheduleThrowDies Creates a schedule for ThrowDies
+func (c *DieRollClient) CreateScheduleThrowDies(ctx context.Context, scheduleID string, req *ThrowDiesRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+	scheduleOptions := client.ScheduleOptions{
+		ID: scheduleID,
+		Action: &client.ScheduleWorkflowAction{
+			ID:                       scheduleID,
+			Workflow:                 WorkflowThrowDiesName,
+			Args:                     []interface{}{req},
+			TaskQueue:                c.taskQueue,
+			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
+			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+		},
+	}
+
+	// Apply user-provided options
+	if len(options) > 0 {
+		providedOptions := options[0]
+		if providedOptions.ID != "" {
+			scheduleOptions.ID = providedOptions.ID
+		}
+		if providedOptions.Spec.CronExpressions != nil {
+			scheduleOptions.Spec.CronExpressions = providedOptions.Spec.CronExpressions
+		}
+		if providedOptions.Spec.Calendars != nil {
+			scheduleOptions.Spec.Calendars = providedOptions.Spec.Calendars
+		}
+		if providedOptions.Spec.Intervals != nil {
+			scheduleOptions.Spec.Intervals = providedOptions.Spec.Intervals
+		}
+		if providedOptions.Spec.Skip != nil {
+			scheduleOptions.Spec.Skip = providedOptions.Spec.Skip
+		}
+		if !providedOptions.Spec.StartAt.IsZero() {
+			scheduleOptions.Spec.StartAt = providedOptions.Spec.StartAt
+		}
+		if !providedOptions.Spec.EndAt.IsZero() {
+			scheduleOptions.Spec.EndAt = providedOptions.Spec.EndAt
+		}
+		if providedOptions.Spec.Jitter != 0 {
+			scheduleOptions.Spec.Jitter = providedOptions.Spec.Jitter
+		}
+		if providedOptions.Spec.TimeZoneName != "" {
+			scheduleOptions.Spec.TimeZoneName = providedOptions.Spec.TimeZoneName
+		}
+		if providedOptions.Action != nil {
+			scheduleOptions.Action = providedOptions.Action
+		}
+		if providedOptions.Paused {
+			scheduleOptions.Paused = providedOptions.Paused
+		}
+		if providedOptions.Note != "" {
+			scheduleOptions.Note = providedOptions.Note
+		}
+		if providedOptions.Overlap != 0 {
+			scheduleOptions.Overlap = providedOptions.Overlap
+		}
+		if providedOptions.CatchupWindow != 0 {
+			scheduleOptions.CatchupWindow = providedOptions.CatchupWindow
+		}
+		if providedOptions.PauseOnFailure {
+			scheduleOptions.PauseOnFailure = providedOptions.PauseOnFailure
+		}
+	}
+
+	// Use default cron schedule if no Spec was provided
+	if scheduleOptions.Spec.CronExpressions == nil && scheduleOptions.Spec.Calendars == nil && scheduleOptions.Spec.Intervals == nil {
+		scheduleOptions.Spec.CronExpressions = []string{"* * * * *"}
+	}
+
+	if scheduleOptions.Action.(*client.ScheduleWorkflowAction).TaskQueue == "" {
+		scheduleOptions.Action.(*client.ScheduleWorkflowAction).TaskQueue = DefaultDieRollTaskQueueName
+	}
+
+	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
+}
+
+// GetScheduleThrowDies Gets a handle to an existing schedule for ThrowDies
+func (c *DieRollClient) GetScheduleThrowDies(ctx context.Context, scheduleID string) client.ScheduleHandle {
+	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+}
+
+// DeleteScheduleThrowDies Deletes a schedule for ThrowDies
+func (c *DieRollClient) DeleteScheduleThrowDies(ctx context.Context, scheduleID string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	return handle.Delete(ctx)
+}
+
+// ListScheduleThrowDies Lists all schedules for ThrowDies workflow
+func (c *DieRollClient) ListScheduleThrowDies(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
+	var schedules []client.ScheduleListEntry
+
+	iter, err := c.client.ScheduleClient().List(ctx, client.ScheduleListOptions{
+		PageSize: pageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for iter.HasNext() {
+		entry, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		// Filter by workflow type
+		if entry.WorkflowType.Name == WorkflowThrowDiesName {
+			schedules = append(schedules, *entry)
+		}
+	}
+
+	return schedules, nil
+}
+
+// UpsertScheduleThrowDies Creates or updates a schedule for ThrowDies
+func (c *DieRollClient) UpsertScheduleThrowDies(ctx context.Context, scheduleID string, req *ThrowDiesRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+
+	// Try to describe the schedule to see if it exists
+	_, err := handle.Describe(ctx)
+	if err != nil {
+		// Schedule doesn't exist, create it
+		return c.CreateScheduleThrowDies(ctx, scheduleID, req, options...)
+	}
+
+	// Schedule exists, update it
+	scheduleOptions := client.ScheduleOptions{
+		ID: scheduleID,
+		Action: &client.ScheduleWorkflowAction{
+			ID:                       scheduleID,
+			Workflow:                 WorkflowThrowDiesName,
+			Args:                     []interface{}{req},
+			TaskQueue:                c.taskQueue,
+			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
+			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+		},
+	}
+
+	// Apply user-provided options
+	if len(options) > 0 {
+		providedOptions := options[0]
+		if providedOptions.Spec.CronExpressions != nil {
+			scheduleOptions.Spec.CronExpressions = providedOptions.Spec.CronExpressions
+		}
+		if providedOptions.Spec.Calendars != nil {
+			scheduleOptions.Spec.Calendars = providedOptions.Spec.Calendars
+		}
+		if providedOptions.Spec.Intervals != nil {
+			scheduleOptions.Spec.Intervals = providedOptions.Spec.Intervals
+		}
+		if providedOptions.Spec.Skip != nil {
+			scheduleOptions.Spec.Skip = providedOptions.Spec.Skip
+		}
+		if !providedOptions.Spec.StartAt.IsZero() {
+			scheduleOptions.Spec.StartAt = providedOptions.Spec.StartAt
+		}
+		if !providedOptions.Spec.EndAt.IsZero() {
+			scheduleOptions.Spec.EndAt = providedOptions.Spec.EndAt
+		}
+		if providedOptions.Spec.Jitter != 0 {
+			scheduleOptions.Spec.Jitter = providedOptions.Spec.Jitter
+		}
+		if providedOptions.Spec.TimeZoneName != "" {
+			scheduleOptions.Spec.TimeZoneName = providedOptions.Spec.TimeZoneName
+		}
+		if providedOptions.Action != nil {
+			scheduleOptions.Action = providedOptions.Action
+		}
+		if providedOptions.Note != "" {
+			scheduleOptions.Note = providedOptions.Note
+		}
+		if providedOptions.Overlap != 0 {
+			scheduleOptions.Overlap = providedOptions.Overlap
+		}
+		if providedOptions.CatchupWindow != 0 {
+			scheduleOptions.CatchupWindow = providedOptions.CatchupWindow
+		}
+		if providedOptions.PauseOnFailure {
+			scheduleOptions.PauseOnFailure = providedOptions.PauseOnFailure
+		}
+	}
+
+	// Use default cron schedule if no Spec was provided
+	if scheduleOptions.Spec.CronExpressions == nil && scheduleOptions.Spec.Calendars == nil && scheduleOptions.Spec.Intervals == nil {
+		scheduleOptions.Spec.CronExpressions = []string{"* * * * *"}
+	}
+
+	if scheduleOptions.Action.(*client.ScheduleWorkflowAction).TaskQueue == "" {
+		scheduleOptions.Action.(*client.ScheduleWorkflowAction).TaskQueue = DefaultDieRollTaskQueueName
+	}
+
+	// Update the schedule
+	err = handle.Update(ctx, client.ScheduleUpdateOptions{
+		DoUpdate: func(input client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
+			schedule := input.Description.Schedule
+			schedule.Spec = &scheduleOptions.Spec
+			schedule.Action = scheduleOptions.Action
+			if scheduleOptions.Overlap != 0 {
+				schedule.Policy = &client.SchedulePolicies{
+					Overlap: scheduleOptions.Overlap,
+				}
+			}
+			if scheduleOptions.CatchupWindow != 0 {
+				if schedule.Policy == nil {
+					schedule.Policy = &client.SchedulePolicies{}
+				}
+				schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
+			}
+			if scheduleOptions.PauseOnFailure {
+				if schedule.Policy == nil {
+					schedule.Policy = &client.SchedulePolicies{}
+				}
+				schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+			}
+			return &client.ScheduleUpdate{
+				Schedule: &schedule,
+			}, nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return handle, nil
 }
 
 // ExecuteWorkflowThrowUntilValue executes the workflow and returns a future to it
@@ -552,33 +683,46 @@ func (c *DieRollClient) ExecuteWorkflowThrowUntilValue(ctx context.Context, req 
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.ID == "" {
-		wOptions.ID = fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowUntilValue", uuid.NewString())
+		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowThrowUntilValueName, uuid.NewString())
 	}
-	return c.client.ExecuteWorkflow(ctx, wOptions, "example.v1.DieRoll.ThrowUntilValue", req)
+
+	// Apply timeout options
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
+	}
+	if wOptions.WorkflowRunTimeout == 0 {
+		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+	}
+
+	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowThrowUntilValueName, req)
 }
 
-// ExecuteWorkflowThrowUntilValueSync executes the workflow and returns the result when finished
+// ExecuteWorkflowThrowUntilValueSync: executes the workflow and returns the result when finished
 func (c *DieRollClient) ExecuteWorkflowThrowUntilValueSync(ctx context.Context, req *ThrowUntilValueRequest, options ...client.StartWorkflowOptions) (*emptypb.Empty, error) {
 	future, err := c.ExecuteWorkflowThrowUntilValue(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
+
 	var resp *emptypb.Empty
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
-// GetWorkflowThrowUntilValueResult gets the result of a given workflow
+// GetWorkflowThrowUntilValueResult: gets the result of a given workflow
 func (c *DieRollClient) GetWorkflowThrowUntilValueResult(ctx context.Context, workflowId string, runId string) (*emptypb.Empty, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
 	var resp *emptypb.Empty
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
@@ -588,38 +732,233 @@ func (c *DieRollClient) ExecuteChildThrowUntilValue(ctx workflow.Context, req *T
 	if len(options) > 0 {
 		wOptions = options[0]
 	}
+
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = c.taskQueue
 	}
+
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
 	if wOptions.WorkflowID == "" {
 		var id string
 		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
-			return fmt.Sprintf("%s/%s", "example.v1.DieRoll.ThrowUntilValue", uuid.NewString())
+			return fmt.Sprintf("%s/%s", WorkflowThrowUntilValueName, uuid.NewString())
 		})
+
 		err := genId.Get(&id)
 		if err != nil {
 			return nil, err
 		}
+
 		wOptions.WorkflowID = id
 	}
-	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), "example.v1.DieRoll.ThrowUntilValue", req), nil
+
+	// Apply timeout options
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
+	}
+	if wOptions.WorkflowRunTimeout == 0 {
+		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+	}
+
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowThrowUntilValueName, req), nil
 }
 
-// ExecuteChildThrowUntilValueSync executes the workflow as a child workflow and returns the result when finished
+// ExecuteChildThrowUntilValueSync: executes the workflow as a child workflow and returns the result when finished
 func (c *DieRollClient) ExecuteChildThrowUntilValueSync(ctx workflow.Context, req *ThrowUntilValueRequest, options ...workflow.ChildWorkflowOptions) (*emptypb.Empty, error) {
 	future, err := c.ExecuteChildThrowUntilValue(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
+
 	var resp *emptypb.Empty
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
+}
+
+// ExecuteActivityThrowDie executes the activity asynchronously and returns a future to it
+func (c *DieRollClient) ExecuteActivityThrowDie(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) workflow.Future {
+	var aOptions workflow.ActivityOptions
+
+	if len(options) > 0 {
+		aOptions = options[0]
+	}
+
+	if aOptions.TaskQueue == "" {
+		aOptions.TaskQueue = c.taskQueue
+	}
+
+	if aOptions.TaskQueue == "" {
+		aOptions.TaskQueue = DefaultDieRollTaskQueueName
+	}
+
+	// Apply timeout options
+	if aOptions.StartToCloseTimeout == 0 {
+		aOptions.StartToCloseTimeout = time.Duration(120) * time.Second
+	}
+	if aOptions.ScheduleToCloseTimeout == 0 {
+		aOptions.ScheduleToCloseTimeout = time.Duration(120) * time.Second
+	}
+	if aOptions.ScheduleToStartTimeout == 0 {
+		aOptions.ScheduleToStartTimeout = time.Duration(30) * time.Second
+	}
+
+	// Apply retry policy
+	if aOptions.RetryPolicy == nil {
+		aOptions.RetryPolicy = &temporal.RetryPolicy{
+			InitialInterval:    time.Duration(1) * time.Second,
+			MaximumInterval:    time.Duration(10) * time.Second,
+			BackoffCoefficient: 1.5,
+			MaximumAttempts:    10,
+			NonRetryableErrorTypes: []string{
+				"FATAL",
+				"NOT_FOUND",
+			},
+		}
+	}
+
+	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), ActivityThrowDieName, req)
+}
+
+// ExecuteActivityThrowDieSync executes the activity synchronously and returns the result when finished
+func (c *DieRollClient) ExecuteActivityThrowDieSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) (*ThrowDieResponse, error) {
+	aOptions := workflow.ActivityOptions{
+		TaskQueue: c.taskQueue,
+	}
+	if len(options) > 0 {
+		aOptions = options[0]
+	}
+
+	future := c.ExecuteActivityThrowDie(ctx, req, aOptions)
+
+	var resp *ThrowDieResponse
+	err := future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ExecuteActivityPing executes the activity asynchronously and returns a future to it
+func (c *DieRollClient) ExecuteActivityPing(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) workflow.Future {
+	var aOptions workflow.ActivityOptions
+
+	if len(options) > 0 {
+		aOptions = options[0]
+	}
+
+	if aOptions.TaskQueue == "" {
+		aOptions.TaskQueue = c.taskQueue
+	}
+
+	if aOptions.TaskQueue == "" {
+		aOptions.TaskQueue = DefaultDieRollTaskQueueName
+	}
+
+	// Apply timeout options
+	if aOptions.ScheduleToCloseTimeout == 0 {
+		aOptions.ScheduleToCloseTimeout = time.Duration(DefaultDieRollActivityScheduleToCloseTimeout) * time.Second
+	}
+	if aOptions.HeartbeatTimeout == 0 {
+		aOptions.HeartbeatTimeout = time.Duration(60) * time.Second
+	}
+
+	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), ActivityPingName, req)
+}
+
+// ExecuteActivityPingSync executes the activity synchronously and returns the result when finished
+func (c *DieRollClient) ExecuteActivityPingSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) (*emptypb.Empty, error) {
+	aOptions := workflow.ActivityOptions{
+		TaskQueue: c.taskQueue,
+	}
+	if len(options) > 0 {
+		aOptions = options[0]
+	}
+
+	future := c.ExecuteActivityPing(ctx, req, aOptions)
+
+	var resp *emptypb.Empty
+	err := future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// DieRollWorker Worker for the DieRoll service
+type DieRollWorker struct {
+	client client.Client
+	worker worker.Worker
+	svc    DieRollService
+}
+
+// NewDieRollWorker Returns a new instance of the worker.
+// If `taskQueue` stays empty the default one will be used
+func NewDieRollWorker(client client.Client, svc DieRollService, taskQueue string, workerOptions ...worker.Options) (*DieRollWorker, error) {
+	wOpts := worker.Options{}
+	if taskQueue == "" {
+		taskQueue = DefaultDieRollTaskQueueName
+	}
+	if len(workerOptions) > 0 {
+		wOpts = workerOptions[0]
+	}
+	w := worker.New(client, taskQueue, wOpts)
+
+	return &DieRollWorker{
+		client: client,
+		svc:    svc,
+		worker: w,
+	}, nil
+}
+
+// Register: registers the worker and its activities/workflows in temporal
+func (w *DieRollWorker) Register() {
+	// Registers activity ThrowDie
+	w.worker.RegisterActivityWithOptions(w.svc.ThrowDie, activity.RegisterOptions{
+		Name: ActivityThrowDieName,
+	})
+	// Registers activity Ping
+	w.worker.RegisterActivityWithOptions(w.svc.Ping, activity.RegisterOptions{
+		Name: ActivityPingName,
+	})
+	// Registers workflow ParentWorkflow
+	w.worker.RegisterWorkflowWithOptions(w.svc.ParentWorkflow, workflow.RegisterOptions{
+		Name: WorkflowParentWorkflowName,
+	})
+	// Registers workflow ChildWorkflow
+	w.worker.RegisterWorkflowWithOptions(w.svc.ChildWorkflow, workflow.RegisterOptions{
+		Name: WorkflowChildWorkflowName,
+	})
+	// Registers workflow ThrowDies
+	w.worker.RegisterWorkflowWithOptions(w.svc.ThrowDies, workflow.RegisterOptions{
+		Name: WorkflowThrowDiesName,
+	})
+	// Registers workflow ThrowUntilValue
+	w.worker.RegisterWorkflowWithOptions(w.svc.ThrowUntilValue, workflow.RegisterOptions{
+		Name: WorkflowThrowUntilValueName,
+	})
+}
+
+// Start: will run the worker in a non-blocking fashion. Use Stop() to stop the worker.
+func (w *DieRollWorker) Start() error {
+	return w.worker.Start()
+}
+
+// Run: will run the worker until interruptCh receives a signal. Use worker.InterruptCh() to interrupt when there's an interrupt signal from the OS.
+func (w *DieRollWorker) Run(interruptCh <-chan any) error {
+	return w.worker.Run(interruptCh)
+}
+
+// Stop: will stop the worker, may panic if called twice
+func (w *DieRollWorker) Stop() {
+	w.worker.Stop()
 }
 
 // DieRollParentWorkflow is a struct that wraps a workflow
@@ -633,6 +972,7 @@ type DieRollParentWorkflow struct {
 // GetParentWorkflow gets an instance of a given workflow
 func (c *DieRollClient) GetParentWorkflow(ctx context.Context, workflowId string, runId string) *DieRollParentWorkflow {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
 	return &DieRollParentWorkflow{
 		client:     c.client,
 		future:     future,
@@ -651,59 +991,63 @@ func (c *DieRollClient) GetParentWorkflowFromRun(future client.WorkflowRun) *Die
 	}
 }
 
-// Cancel cancels a given workflow
+// Cancel: cancels a given workflow
 func (w *DieRollParentWorkflow) Cancel(ctx context.Context) error {
 	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
 }
 
-// Returns the workflow ID
+// GetID: Returns the workflow ID
 func (w *DieRollParentWorkflow) GetID() string {
 	return w.future.GetID()
 }
 
-// Returns the run ID
+// GetRunID: Returns the run ID
 func (w *DieRollParentWorkflow) GetRunID() string {
 	return w.future.GetRunID()
 }
 
-// Terminates terminates a given workflow
+// Terminate: terminates a given workflow
 func (w *DieRollParentWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
 }
 
-// Get gets the result of a given workflow with its native type
+// Result: gets the result of a given workflow with its native type
 func (w *DieRollParentWorkflow) Result(ctx context.Context) (*ParentWorkflowReply, error) {
 	var resp *ParentWorkflowReply
+
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
 // ResultWithOptions gets the result of a given workflow with its native type
 func (w *DieRollParentWorkflow) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*ParentWorkflowReply, error) {
 	var resp *ParentWorkflowReply
+
 	err := w.future.GetWithOptions(ctx, &resp, options)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// Get: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollParentWorkflow) Get(ctx context.Context, valuePtr interface{}) error {
 	return w.future.Get(ctx, valuePtr)
 }
 
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// GetWithOptions: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollParentWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
 	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
 
 // SignalContinue sends the Continue signal to the workflow
 func (w *DieRollParentWorkflow) SignalContinue(ctx context.Context, req *ContinueSignalRequest) error {
-	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), "example.v1.DieRoll.Continue", req)
+	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), SignalContinueName, req)
 }
 
 // ChildDieRollParentWorkflowExecution is a struct that wraps a workflow execution (called from another workflow)
@@ -720,13 +1064,15 @@ func (c *DieRollClient) GetChildDieRollParentWorkflowExecution(future workflow.C
 	}
 }
 
-// Get gets the result of a given workflow with its native type
+// Result gets the result of a given workflow with its native type
 func (w *ChildDieRollParentWorkflowExecution) Result(ctx workflow.Context) (*ParentWorkflowReply, error) {
 	var resp *ParentWorkflowReply
+
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
@@ -735,24 +1081,24 @@ func (w *ChildDieRollParentWorkflowExecution) Get(ctx workflow.Context, valuePtr
 	return w.future.Get(ctx, valuePtr)
 }
 
-// Wraps the GetChildWorkflowExecution and returns an workflow.Future
-func (w *ChildDieRollParentWorkflowExecution) GetChildWorkflowExecution() (ctx workflow.Future) {
+// GetChildWorkflowExecution: Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildDieRollParentWorkflowExecution) GetChildWorkflowExecution() workflow.Future {
 	return w.future
 }
 
-// Wraps the IsReady method from the future
+// IsReady Wraps the IsReady method from the future
 func (w *ChildDieRollParentWorkflowExecution) IsReady() bool {
 	return w.future.IsReady()
 }
 
-// Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+// SignalChildWorkflow Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
 func (w *ChildDieRollParentWorkflowExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
 	return w.future.SignalChildWorkflow(ctx, sigName, data)
 }
 
 // SignalContinue sends the Continue signal to the workflow
 func (w *ChildDieRollParentWorkflowExecution) SignalContinue(ctx workflow.Context, req *ContinueSignalRequest) error {
-	return w.future.SignalChildWorkflow(ctx, "example.v1.DieRoll.Continue", req).Get(ctx, nil)
+	return w.future.SignalChildWorkflow(ctx, SignalContinueName, req).Get(ctx, nil)
 }
 
 // DieRollChildWorkflow is a struct that wraps a workflow
@@ -766,6 +1112,7 @@ type DieRollChildWorkflow struct {
 // GetChildWorkflow gets an instance of a given workflow
 func (c *DieRollClient) GetChildWorkflow(ctx context.Context, workflowId string, runId string) *DieRollChildWorkflow {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
 	return &DieRollChildWorkflow{
 		client:     c.client,
 		future:     future,
@@ -784,52 +1131,56 @@ func (c *DieRollClient) GetChildWorkflowFromRun(future client.WorkflowRun) *DieR
 	}
 }
 
-// Cancel cancels a given workflow
+// Cancel: cancels a given workflow
 func (w *DieRollChildWorkflow) Cancel(ctx context.Context) error {
 	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
 }
 
-// Returns the workflow ID
+// GetID: Returns the workflow ID
 func (w *DieRollChildWorkflow) GetID() string {
 	return w.future.GetID()
 }
 
-// Returns the run ID
+// GetRunID: Returns the run ID
 func (w *DieRollChildWorkflow) GetRunID() string {
 	return w.future.GetRunID()
 }
 
-// Terminates terminates a given workflow
+// Terminate: terminates a given workflow
 func (w *DieRollChildWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
 }
 
-// Get gets the result of a given workflow with its native type
+// Result: gets the result of a given workflow with its native type
 func (w *DieRollChildWorkflow) Result(ctx context.Context) (*emptypb.Empty, error) {
 	var resp *emptypb.Empty
+
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
 // ResultWithOptions gets the result of a given workflow with its native type
 func (w *DieRollChildWorkflow) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*emptypb.Empty, error) {
 	var resp *emptypb.Empty
+
 	err := w.future.GetWithOptions(ctx, &resp, options)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// Get: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollChildWorkflow) Get(ctx context.Context, valuePtr interface{}) error {
 	return w.future.Get(ctx, valuePtr)
 }
 
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// GetWithOptions: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollChildWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
 	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
@@ -848,13 +1199,15 @@ func (c *DieRollClient) GetChildDieRollChildWorkflowExecution(future workflow.Ch
 	}
 }
 
-// Get gets the result of a given workflow with its native type
+// Result gets the result of a given workflow with its native type
 func (w *ChildDieRollChildWorkflowExecution) Result(ctx workflow.Context) (*emptypb.Empty, error) {
 	var resp *emptypb.Empty
+
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
@@ -863,17 +1216,17 @@ func (w *ChildDieRollChildWorkflowExecution) Get(ctx workflow.Context, valuePtr 
 	return w.future.Get(ctx, valuePtr)
 }
 
-// Wraps the GetChildWorkflowExecution and returns an workflow.Future
-func (w *ChildDieRollChildWorkflowExecution) GetChildWorkflowExecution() (ctx workflow.Future) {
+// GetChildWorkflowExecution: Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildDieRollChildWorkflowExecution) GetChildWorkflowExecution() workflow.Future {
 	return w.future
 }
 
-// Wraps the IsReady method from the future
+// IsReady Wraps the IsReady method from the future
 func (w *ChildDieRollChildWorkflowExecution) IsReady() bool {
 	return w.future.IsReady()
 }
 
-// Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+// SignalChildWorkflow Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
 func (w *ChildDieRollChildWorkflowExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
 	return w.future.SignalChildWorkflow(ctx, sigName, data)
 }
@@ -889,6 +1242,7 @@ type DieRollThrowDies struct {
 // GetThrowDies gets an instance of a given workflow
 func (c *DieRollClient) GetThrowDies(ctx context.Context, workflowId string, runId string) *DieRollThrowDies {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
 	return &DieRollThrowDies{
 		client:     c.client,
 		future:     future,
@@ -907,59 +1261,63 @@ func (c *DieRollClient) GetThrowDiesFromRun(future client.WorkflowRun) *DieRollT
 	}
 }
 
-// Cancel cancels a given workflow
+// Cancel: cancels a given workflow
 func (w *DieRollThrowDies) Cancel(ctx context.Context) error {
 	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
 }
 
-// Returns the workflow ID
+// GetID: Returns the workflow ID
 func (w *DieRollThrowDies) GetID() string {
 	return w.future.GetID()
 }
 
-// Returns the run ID
+// GetRunID: Returns the run ID
 func (w *DieRollThrowDies) GetRunID() string {
 	return w.future.GetRunID()
 }
 
-// Terminates terminates a given workflow
+// Terminate: terminates a given workflow
 func (w *DieRollThrowDies) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
 }
 
-// Get gets the result of a given workflow with its native type
+// Result: gets the result of a given workflow with its native type
 func (w *DieRollThrowDies) Result(ctx context.Context) (*ThrowDiesResponse, error) {
 	var resp *ThrowDiesResponse
+
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
 // ResultWithOptions gets the result of a given workflow with its native type
 func (w *DieRollThrowDies) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*ThrowDiesResponse, error) {
 	var resp *ThrowDiesResponse
+
 	err := w.future.GetWithOptions(ctx, &resp, options)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// Get: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollThrowDies) Get(ctx context.Context, valuePtr interface{}) error {
 	return w.future.Get(ctx, valuePtr)
 }
 
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// GetWithOptions: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollThrowDies) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
 	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
 
 // SignalContinue sends the Continue signal to the workflow
 func (w *DieRollThrowDies) SignalContinue(ctx context.Context, req *ContinueSignalRequest) error {
-	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), "example.v1.DieRoll.Continue", req)
+	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), SignalContinueName, req)
 }
 
 // ChildDieRollThrowDiesExecution is a struct that wraps a workflow execution (called from another workflow)
@@ -976,13 +1334,15 @@ func (c *DieRollClient) GetChildDieRollThrowDiesExecution(future workflow.ChildW
 	}
 }
 
-// Get gets the result of a given workflow with its native type
+// Result gets the result of a given workflow with its native type
 func (w *ChildDieRollThrowDiesExecution) Result(ctx workflow.Context) (*ThrowDiesResponse, error) {
 	var resp *ThrowDiesResponse
+
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
@@ -991,24 +1351,24 @@ func (w *ChildDieRollThrowDiesExecution) Get(ctx workflow.Context, valuePtr inte
 	return w.future.Get(ctx, valuePtr)
 }
 
-// Wraps the GetChildWorkflowExecution and returns an workflow.Future
-func (w *ChildDieRollThrowDiesExecution) GetChildWorkflowExecution() (ctx workflow.Future) {
+// GetChildWorkflowExecution: Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildDieRollThrowDiesExecution) GetChildWorkflowExecution() workflow.Future {
 	return w.future
 }
 
-// Wraps the IsReady method from the future
+// IsReady Wraps the IsReady method from the future
 func (w *ChildDieRollThrowDiesExecution) IsReady() bool {
 	return w.future.IsReady()
 }
 
-// Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+// SignalChildWorkflow Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
 func (w *ChildDieRollThrowDiesExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
 	return w.future.SignalChildWorkflow(ctx, sigName, data)
 }
 
 // SignalContinue sends the Continue signal to the workflow
 func (w *ChildDieRollThrowDiesExecution) SignalContinue(ctx workflow.Context, req *ContinueSignalRequest) error {
-	return w.future.SignalChildWorkflow(ctx, "example.v1.DieRoll.Continue", req).Get(ctx, nil)
+	return w.future.SignalChildWorkflow(ctx, SignalContinueName, req).Get(ctx, nil)
 }
 
 // DieRollThrowUntilValue is a struct that wraps a workflow
@@ -1022,6 +1382,7 @@ type DieRollThrowUntilValue struct {
 // GetThrowUntilValue gets an instance of a given workflow
 func (c *DieRollClient) GetThrowUntilValue(ctx context.Context, workflowId string, runId string) *DieRollThrowUntilValue {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
 	return &DieRollThrowUntilValue{
 		client:     c.client,
 		future:     future,
@@ -1040,67 +1401,73 @@ func (c *DieRollClient) GetThrowUntilValueFromRun(future client.WorkflowRun) *Di
 	}
 }
 
-// Cancel cancels a given workflow
+// Cancel: cancels a given workflow
 func (w *DieRollThrowUntilValue) Cancel(ctx context.Context) error {
 	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
 }
 
-// Returns the workflow ID
+// GetID: Returns the workflow ID
 func (w *DieRollThrowUntilValue) GetID() string {
 	return w.future.GetID()
 }
 
-// Returns the run ID
+// GetRunID: Returns the run ID
 func (w *DieRollThrowUntilValue) GetRunID() string {
 	return w.future.GetRunID()
 }
 
-// Terminates terminates a given workflow
+// Terminate: terminates a given workflow
 func (w *DieRollThrowUntilValue) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
 }
 
-// Get gets the result of a given workflow with its native type
+// Result: gets the result of a given workflow with its native type
 func (w *DieRollThrowUntilValue) Result(ctx context.Context) (*emptypb.Empty, error) {
 	var resp *emptypb.Empty
+
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
 // ResultWithOptions gets the result of a given workflow with its native type
 func (w *DieRollThrowUntilValue) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*emptypb.Empty, error) {
 	var resp *emptypb.Empty
+
 	err := w.future.GetWithOptions(ctx, &resp, options)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// Get: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollThrowUntilValue) Get(ctx context.Context, valuePtr interface{}) error {
 	return w.future.Get(ctx, valuePtr)
 }
 
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// GetWithOptions: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollThrowUntilValue) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
 	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
 
 // QueryGetThrowsStatus queries the workflow with GetThrowsStatus
 func (w *DieRollThrowUntilValue) QueryGetThrowsStatus(ctx context.Context, req *emptypb.Empty) (*ThrowStatusResponse, error) {
-	future, err := w.client.QueryWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), "example.v1.DieRoll.GetThrowsStatus", req)
+	future, err := w.client.QueryWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), QueryGetThrowsStatusName, req)
 	if err != nil {
 		return nil, err
 	}
+
 	var resp *ThrowStatusResponse
 	err = future.Get(&resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
@@ -1118,13 +1485,15 @@ func (c *DieRollClient) GetChildDieRollThrowUntilValueExecution(future workflow.
 	}
 }
 
-// Get gets the result of a given workflow with its native type
+// Result gets the result of a given workflow with its native type
 func (w *ChildDieRollThrowUntilValueExecution) Result(ctx workflow.Context) (*emptypb.Empty, error) {
 	var resp *emptypb.Empty
+
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
@@ -1133,55 +1502,57 @@ func (w *ChildDieRollThrowUntilValueExecution) Get(ctx workflow.Context, valuePt
 	return w.future.Get(ctx, valuePtr)
 }
 
-// Wraps the GetChildWorkflowExecution and returns an workflow.Future
-func (w *ChildDieRollThrowUntilValueExecution) GetChildWorkflowExecution() (ctx workflow.Future) {
+// GetChildWorkflowExecution: Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildDieRollThrowUntilValueExecution) GetChildWorkflowExecution() workflow.Future {
 	return w.future
 }
 
-// Wraps the IsReady method from the future
+// IsReady Wraps the IsReady method from the future
 func (w *ChildDieRollThrowUntilValueExecution) IsReady() bool {
 	return w.future.IsReady()
 }
 
-// Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+// SignalChildWorkflow Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
 func (w *ChildDieRollThrowUntilValueExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
 	return w.future.SignalChildWorkflow(ctx, sigName, data)
 }
 
 // SendSignalContinue sends the Continue signal to a workflow
 func (c *DieRollClient) SendSignalContinue(ctx context.Context, workflowID string, runID string, req *ContinueSignalRequest) error {
-	return c.client.SignalWorkflow(ctx, workflowID, runID, "example.v1.DieRoll.Continue", req)
+	return c.client.SignalWorkflow(ctx, workflowID, runID, SignalContinueName, req)
 }
 
 // ReceiveSignalContinue waits for the the Continue signal
 func ReceiveSignalContinue(ctx workflow.Context) (*ContinueSignalRequest, bool) {
 	var result *ContinueSignalRequest
-	ok := workflow.GetSignalChannel(ctx, "example.v1.DieRoll.Continue").Receive(ctx, &result)
+	ok := workflow.GetSignalChannel(ctx, SignalContinueName).Receive(ctx, &result)
 	return result, ok
 }
 
 // ReceiveSignalContinueAsync recieves the the Continue signal asynchronously. It doesn't wait if there is no signal in the queue
 func ReceiveSignalContinueAsync(ctx workflow.Context) (*ContinueSignalRequest, bool) {
 	var result *ContinueSignalRequest
-	ok := workflow.GetSignalChannel(ctx, "example.v1.DieRoll.Continue").ReceiveAsync(&result)
+	ok := workflow.GetSignalChannel(ctx, SignalContinueName).ReceiveAsync(&result)
 	return result, ok
 }
 
 // QueryGetThrowsStatus sends the GetThrowsStatus query to a workflow
 func (c *DieRollClient) QueryGetThrowsStatus(ctx context.Context, workflowID string, runID string, req *emptypb.Empty) (*ThrowStatusResponse, error) {
-	future, err := c.client.QueryWorkflow(ctx, workflowID, runID, "example.v1.DieRoll.GetThrowsStatus", req)
+	future, err := c.client.QueryWorkflow(ctx, workflowID, runID, QueryGetThrowsStatusName, req)
 	if err != nil {
 		return nil, err
 	}
+
 	var resp *ThrowStatusResponse
 	err = future.Get(&resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return resp, nil
 }
 
 // HandleQueryGetThrowsStatus sets up the GetThrowsStatus query and responds accordingly, returns an error if it failed
 func HandleQueryGetThrowsStatus(ctx workflow.Context, queryFunc func(req *emptypb.Empty) (*ThrowStatusResponse, error)) error {
-	return workflow.SetQueryHandler(ctx, "example.v1.DieRoll.GetThrowsStatus", queryFunc)
+	return workflow.SetQueryHandler(ctx, QueryGetThrowsStatusName, queryFunc)
 }

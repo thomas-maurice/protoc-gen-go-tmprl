@@ -51,7 +51,7 @@ service HelloWorld  {
 }
 ```
 
-> [!WARNING]  
+> [!WARNING]
 > Make sure your package name is not `temporal.*`, since it will clash with the imports from this package and generate broken code.
 
 ### Default workflow & activity setups
@@ -92,6 +92,66 @@ Similarly for the workflows
         };
     }
 ```
+
+### Workflow Schedules
+
+You can define cron schedules for workflows directly in your protobuf definitions. When a workflow has a `cron_schedule` set, the generator creates helper methods to manage Temporal schedules.
+
+```protobuf
+    // Throws dies a few times and return the result
+    rpc ThrowDies(ThrowDiesRequest) returns (ThrowDiesResponse) {
+        option (temporal.v1.workflow) = {
+            signals: ["Continue"]
+            cron_schedule: "* * * * *"  // Run every minute
+        };
+    }
+```
+
+The generator creates two schedule methods for workflows with `cron_schedule`:
+
+```golang
+// CreateScheduleThrowDies creates a schedule for ThrowDies with the configured cron expression
+func (c *DieRollClient) CreateScheduleThrowDies(
+    ctx context.Context,
+    scheduleID string,
+    req *ThrowDiesRequest,
+    options ...client.ScheduleOptions,
+) (client.ScheduleHandle, error)
+
+// GetScheduleThrowDies gets a handle to an existing schedule for ThrowDies
+func (c *DieRollClient) GetScheduleThrowDies(
+    ctx context.Context,
+    scheduleID string,
+) client.ScheduleHandle
+```
+
+Example usage:
+
+```golang
+// Create a schedule
+scheduleHandle, err := dieRollClient.CreateScheduleThrowDies(ctx, "throw-dies-schedule", &ThrowDiesRequest{
+    Results: 3,
+    Loop:    false,
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+// Get existing schedule handle
+scheduleHandle = dieRollClient.GetScheduleThrowDies(ctx, "throw-dies-schedule")
+
+// Use the schedule handle to pause, unpause, describe, etc.
+err = scheduleHandle.Pause(ctx, client.SchedulePauseOptions{
+    Note: "Pausing for maintenance",
+})
+```
+
+**Features:**
+- **Declarative configuration:** Define cron schedules directly in protobuf
+- **Type-safe:** Generated methods use workflow-specific request types
+- **Option merging:** Runtime `client.ScheduleOptions` can override proto defaults
+- **Workflow configuration:** Automatically applies workflow timeouts and retry policies to scheduled executions
+- **Conditional generation:** Schedule methods only generated for workflows with `cron_schedule` set
 
 ### The workflow objects
 
@@ -231,6 +291,8 @@ The generated code exposes a lot of primitives such as (non exhaustive list):
 * `client.ExecuteChildXSync`: Executes a workflow from a workflow and blocks until the result is returned
 * `client.ExecuteActivityX`: Executes an activity and returns a future
 * `client.ExecuteActivityXSync`: Executes an activity and blocks until the result is returned
+* `client.CreateScheduleX`: Creates a Temporal schedule for a workflow (only if `cron_schedule` is set)
+* `client.GetScheduleX`: Gets a handle to an existing schedule (only if `cron_schedule` is set)
 * `client.GetX`: Gets an instance of a workflow
 * `workflow.Cancel`: Cancels a workflow
 * `workflow.Teminate`: Terminates a workflow
@@ -258,17 +320,103 @@ plugins:
 
 
 ## Hacking on it
-### Install `buf`
 
-You need to install [buf](https://buf.build) to get started, it's a more pleasant experience when
-generating protobufs.
+### Requirements
+
+- [buf](https://buf.build) - Protocol buffer generation and management
+- [direnv](https://direnv.net/) - Optional, loads env variables to add `bin` directory to `PATH`
+- Go 1.21 or higher
 
 ### Build
 
-You need [direnv](https://direnv.net/) to load some env variables into your shell. This is required to add the `bin` directory to the `PATH`
+All build artifacts are placed in the `bin/` directory to keep the repository clean.
 
+```bash
+# Build the plugin only
+make build
+# Output: bin/protoc-gen-go-tmprl
 
+# Run all tests, build, regenerate examples, and verify (recommended)
+make
+# Output: bin/protoc-gen-go-tmprl, bin/example-worker, bin/example-client
+
+# Run only unit tests with race detection and coverage
+make test-unit
+
+# Run all tests
+make test
+
+# Generate example code after changes
+make gen
+
+# Verify generated examples compile and build executables
+make verify-examples
+# Output: bin/example-worker, bin/example-client
+
+# Clean all build artifacts
+make clean
+# Removes: bin/
 ```
-$ make build
-$ make
+
+**Build Artifacts:**
+- `bin/protoc-gen-go-tmprl` - The protoc plugin binary
+- `bin/example-worker` - Example worker application
+- `bin/example-client` - Example client application
+
+**Note:** The default `make` command automatically:
+1. Runs unit tests with race detection
+2. Generates temporal protobuf definitions
+3. Builds the plugin binary into `bin/`
+4. Regenerates example code
+5. Builds and verifies all examples compile successfully into `bin/`
+
+This ensures that any code changes don't break the generated output, and all artifacts are contained in the `bin/` directory.
+
+### Architecture
+
+The codebase follows a clean architecture pattern with clear separation of concerns:
+
+- **internal/model/** - Domain models representing Temporal services, workflows, activities, signals, and queries
+  - Built from protobuf definitions with recursive parent/child relationships
+  - Handles options merging (method-level overrides service-level defaults)
+
+- **internal/tmpl/** - Template helper functions for code generation
+  - Type conversions, timeouts, retry policies
+  - Naming conventions for workflows and objects
+
+- **internal/renderer/** - Template execution engine
+  - Uses Go's `text/template` package
+  - Embeds template files for easy distribution
+  - Renders constants, interfaces, clients, workers, and workflow objects
+
+- **main.go** - Protoc plugin entry point
+  - Parses protobuf service definitions
+  - Delegates to domain models and renderer
+
+### Code Generation Flow
+
+1. Protoc invokes the plugin with protobuf descriptors
+2. Plugin creates domain model objects from service definitions
+3. Domain models merge service-level and method-level options
+4. Renderer executes templates with domain model data
+5. Generated Go code is written to output files
+
+### Testing
+
+```bash
+# Run all tests with coverage
+go test -race -cover ./internal/...
+
+# Run specific package tests
+go test ./internal/model/
+go test ./internal/tmpl/
+go test ./internal/renderer/
 ```
+
+### Contributing
+
+When contributing, ensure:
+- All tests pass (`make` runs full build and test suite)
+- Code follows existing patterns and conventions
+- Unit tests are added for new functionality
+- Generated example code still compiles and works

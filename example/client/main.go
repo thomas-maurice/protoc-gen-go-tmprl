@@ -41,6 +41,22 @@ func main() {
 
 	ctx := context.Background()
 
+	// Create a schedule for ThrowDies workflow to run every minute
+	scheduleHandle, err := dieRollClient.CreateScheduleThrowDies(ctx, "throw-dies-schedule", &examplev1.ThrowDiesRequest{
+		Results: 3,
+		Loop:    false,
+	})
+	if err != nil {
+		logger.Warn("could not create schedule (may already exist)", "error", err)
+	} else {
+		logger.Info("created schedule", "scheduleID", "throw-dies-schedule")
+
+		// Get schedule handle to demonstrate retrieval
+		scheduleHandle = dieRollClient.GetScheduleThrowDies(ctx, "throw-dies-schedule")
+		logger.Info("retrieved schedule handle", "scheduleID", "throw-dies-schedule")
+	}
+	_ = scheduleHandle
+
 	future, err := dieRollClient.ExecuteWorkflowThrowDies(ctx, &examplev1.ThrowDiesRequest{
 		Results: 5,
 	})
