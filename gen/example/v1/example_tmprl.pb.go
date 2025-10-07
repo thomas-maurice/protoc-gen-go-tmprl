@@ -28,31 +28,31 @@ const (
 
 	// DefaultDieRollActivityScheduleToCloseTimeout: Default activity schedule to close timeout
 	DefaultDieRollActivityScheduleToCloseTimeout = 86400
+
+	// WorkflowParentWorkflowName: Registered name for workflow ParentWorkflow
+	WorkflowParentWorkflowName = "example.v1.DieRoll.ParentWorkflow"
+
+	// WorkflowChildWorkflowName: Registered name for workflow ChildWorkflow
+	WorkflowChildWorkflowName = "example.v1.DieRoll.ChildWorkflow"
+
+	// WorkflowThrowDiesName: Registered name for workflow ThrowDies
+	WorkflowThrowDiesName = "example.v1.DieRoll.ThrowDies"
+
+	// WorkflowThrowUntilValueName: Registered name for workflow ThrowUntilValue
+	WorkflowThrowUntilValueName = "example.v1.DieRoll.ThrowUntilValue"
+
+	// ActivityThrowDieName: Registered name for activity ThrowDie
+	ActivityThrowDieName = "example.v1.DieRoll.ThrowDie"
+
+	// ActivityPingName: Registered name for activity Ping
+	ActivityPingName = "ping.Ping"
+
+	// SignalContinueName: Registered name for signal Continue
+	SignalContinueName = "example.v1.DieRoll.Continue"
+
+	// QueryGetThrowsStatusName: Registered name for query GetThrowsStatus
+	QueryGetThrowsStatusName = "example.v1.DieRoll.GetThrowsStatus"
 )
-
-// WorkflowParentWorkflowName: Registered name for workflow ParentWorkflow
-const WorkflowParentWorkflowName = "example.v1.DieRoll.ParentWorkflow"
-
-// WorkflowChildWorkflowName: Registered name for workflow ChildWorkflow
-const WorkflowChildWorkflowName = "example.v1.DieRoll.ChildWorkflow"
-
-// WorkflowThrowDiesName: Registered name for workflow ThrowDies
-const WorkflowThrowDiesName = "example.v1.DieRoll.ThrowDies"
-
-// WorkflowThrowUntilValueName: Registered name for workflow ThrowUntilValue
-const WorkflowThrowUntilValueName = "example.v1.DieRoll.ThrowUntilValue"
-
-// ActivityThrowDieName: Registered name for activity ThrowDie
-const ActivityThrowDieName = "example.v1.DieRoll.ThrowDie"
-
-// ActivityPingName: Registered name for activity Ping
-const ActivityPingName = "ping.Ping"
-
-// SignalContinueName: Registered name for signal Continue
-const SignalContinueName = "example.v1.DieRoll.Continue"
-
-// QueryGetThrowsStatusName: Registered name for query GetThrowsStatus
-const QueryGetThrowsStatusName = "example.v1.DieRoll.GetThrowsStatus"
 
 // DieRollService: Interface that must be implemented to register workflows and activities
 type DieRollService interface {
