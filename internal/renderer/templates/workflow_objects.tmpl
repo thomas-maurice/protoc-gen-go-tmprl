@@ -1,0 +1,180 @@
+{{- /* Workflow objects template */ -}}
+{{- range .Workflows}}
+{{template "workflow_object" .}}
+{{template "child_workflow_object" .}}
+{{- end}}
+
+{{- define "workflow_object" -}}
+// {{WorkflowObjectName .Service.GoName .GoName}}: is a struct that wraps a workflow
+type {{WorkflowObjectName .Service.GoName .GoName}} struct {
+	client     {{TemporalClient "Client"}}
+	future     {{TemporalClient "WorkflowRun"}}
+	workflowId string
+	runId      string
+}
+
+// Get{{.GoName}}: gets an instance of a given workflow
+func (c *{{.Service.GetClientName}}) Get{{.GoName}}(ctx {{Context}}, workflowId string, runId string) *{{WorkflowObjectName .Service.GoName .GoName}} {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
+	return &{{WorkflowObjectName .Service.GoName .GoName}}{
+		client:     c.client,
+		future:     future,
+		workflowId: workflowId,
+		runId:      runId,
+	}
+}
+
+// Get{{.GoName}}FromRun: gets an instance of a given workflow from a future
+func (c *{{.Service.GetClientName}}) Get{{.GoName}}FromRun(future {{TemporalClient "WorkflowRun"}}) *{{WorkflowObjectName .Service.GoName .GoName}} {
+	return &{{WorkflowObjectName .Service.GoName .GoName}}{
+		workflowId: future.GetID(),
+		runId:      future.GetRunID(),
+		client:     c.client,
+		future:     future,
+	}
+}
+
+// Cancel: cancels a given workflow
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) Cancel(ctx {{Context}}) error {
+	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
+}
+
+// GetID: Returns the workflow ID
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) GetID() string {
+	return w.future.GetID()
+}
+
+// GetRunID: Returns the run ID
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) GetRunID() string {
+	return w.future.GetRunID()
+}
+
+// Terminate: terminates a given workflow
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) Terminate(ctx {{Context}}, reason string, details ...interface{}) error {
+	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
+}
+
+// Result: gets the result of a given workflow with its native type
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) Result(ctx {{Context}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ResultWithOptions: gets the result of a given workflow with its native type
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) ResultWithOptions(ctx {{Context}}, options {{TemporalClient "WorkflowRunGetOptions"}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+
+	err := w.future.GetWithOptions(ctx, &resp, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Get: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) Get(ctx {{Context}}, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// GetWithOptions: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) GetWithOptions(ctx {{Context}}, valuePtr interface{}, options {{TemporalClient "WorkflowRunGetOptions"}}) error {
+	return w.future.GetWithOptions(ctx, valuePtr, options)
+}
+
+{{- range .Options.Signals}}
+{{- $signal := index $.Service.SignalsMap .}}
+{{- if $signal}}
+// Signal{{.}}: sends the {{.}} signal to the workflow
+func (w *{{WorkflowObjectName $.Service.GoName $.GoName}}) Signal{{.}}(ctx {{Context}}, req *{{QualifiedGoIdent $signal.Input.GoIdent}}) error {
+	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), Signal{{.}}Name, req)
+}
+{{- end}}
+{{- end}}
+
+{{- range .Options.Queries}}
+{{- $query := index $.Service.QueriesMap .}}
+{{- if $query}}
+// Query{{.}}: queries the workflow with {{.}}
+func (w *{{WorkflowObjectName $.Service.GoName $.GoName}}) Query{{.}}(ctx {{Context}}, req *{{QualifiedGoIdent $query.Input.GoIdent}}) (*{{QualifiedGoIdent $query.Output.GoIdent}}, error) {
+	future, err := w.client.QueryWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), Query{{.}}Name, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *{{QualifiedGoIdent $query.Output.GoIdent}}
+	err = future.Get(&resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+{{- end}}
+{{- end}}
+{{- end -}}
+
+{{- define "child_workflow_object" -}}
+// {{ChildWorkflowObjectName .Service.GoName .GoName}}: is a struct that wraps a workflow execution (called from another workflow)
+type {{ChildWorkflowObjectName .Service.GoName .GoName}} struct {
+	client {{TemporalClient "Client"}}
+	future {{TemporalWorkflow "ChildWorkflowFuture"}}
+}
+
+// Get{{ChildWorkflowObjectName .Service.GoName .GoName}}: gets an instance of a given workflow from a future
+func (c *{{.Service.GetClientName}}) Get{{ChildWorkflowObjectName .Service.GoName .GoName}}(future {{TemporalWorkflow "ChildWorkflowFuture"}}) *{{ChildWorkflowObjectName .Service.GoName .GoName}} {
+	return &{{ChildWorkflowObjectName .Service.GoName .GoName}}{
+		client: c.client,
+		future: future,
+	}
+}
+
+// Result: gets the result of a given workflow with its native type
+func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) Result(ctx {{TemporalWorkflow "Context"}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Get: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
+func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) Get(ctx {{TemporalWorkflow "Context"}}, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// GetChildWorkflowExecution: Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) GetChildWorkflowExecution() {{TemporalWorkflow "Future"}} {
+	return w.future
+}
+
+// IsReady: Wraps the IsReady method from the future
+func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) IsReady() bool {
+	return w.future.IsReady()
+}
+
+// SignalChildWorkflow: Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) SignalChildWorkflow(ctx {{TemporalWorkflow "Context"}}, sigName string, data interface{}) {{TemporalWorkflow "Future"}} {
+	return w.future.SignalChildWorkflow(ctx, sigName, data)
+}
+
+{{- range .Options.Signals}}
+{{- $signal := index $.Service.SignalsMap .}}
+{{- if $signal}}
+// Signal{{.}}: sends the {{.}} signal to the workflow
+func (w *{{ChildWorkflowObjectName $.Service.GoName $.GoName}}) Signal{{.}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent $signal.Input.GoIdent}}) error {
+	return w.future.SignalChildWorkflow(ctx, Signal{{.}}Name, req).Get(ctx, nil)
+}
+{{- end}}
+{{- end}}
+{{- end -}}

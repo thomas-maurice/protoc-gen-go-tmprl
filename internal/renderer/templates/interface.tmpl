@@ -1,0 +1,28 @@
+{{- /* Service interface template */ -}}
+// {{.GetServiceInterfaceName}}: Interface that must be implemented to register workflows and activities
+type {{.GetServiceInterfaceName}} interface {
+	{{- range .Workflows}}
+	// {{.GoName}}: {{commentOneLine .Comment}}
+	{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error)
+	{{- end}}
+
+	{{- range .Activities}}
+	// {{.GoName}}: {{commentOneLine .Comment}}
+	{{.GoName}}(ctx {{Context}}, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error)
+	{{- end}}
+}
+
+// Unimplemented{{.GetServiceInterfaceName}}: Stub implementation that panics
+type Unimplemented{{.GetServiceInterfaceName}} struct{}
+
+{{- range .Workflows}}
+func (Unimplemented{{$.GetServiceInterfaceName}}) {{.GoName}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	panic("{{.GoName}} not implemented")
+}
+{{- end}}
+
+{{- range .Activities}}
+func (Unimplemented{{$.GetServiceInterfaceName}}) {{.GoName}}(ctx {{Context}}, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	panic("{{.GoName}} not implemented")
+}
+{{- end}}

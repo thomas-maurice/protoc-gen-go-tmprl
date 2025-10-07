@@ -1,0 +1,68 @@
+{{- /* Activity method templates */ -}}
+
+{{- define "activity_execute" -}}
+// ExecuteActivity{{.GoName}}: executes the activity asynchronously and returns a future to it
+func (c *{{.Service.GetClientName}}) ExecuteActivity{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalWorkflow "ActivityOptions"}}) {{TemporalWorkflow "Future"}} {
+	var aOptions {{TemporalWorkflow "ActivityOptions"}}
+
+	if len(options) > 0 {
+		aOptions = options[0]
+	}
+
+	if aOptions.TaskQueue == "" {
+		aOptions.TaskQueue = c.taskQueue
+	}
+
+	if aOptions.TaskQueue == "" {
+		aOptions.TaskQueue = {{.Service.GetDefaultTaskQueueConstName}}
+	}
+
+	{{- if .Options.StartToCloseTimeout}}
+	{{template "timeout_option" dict "OptionsVar" "aOptions" "Field" "StartToCloseTimeout" "Value" (toSeconds .Options.StartToCloseTimeout)}}
+	{{- end}}
+
+	{{- if .Options.ScheduleToCloseTimeout}}
+	{{template "timeout_option" dict "OptionsVar" "aOptions" "Field" "ScheduleToCloseTimeout" "Value" (toSeconds .Options.ScheduleToCloseTimeout)}}
+	{{- else}}
+	if aOptions.ScheduleToCloseTimeout == 0 {
+		aOptions.ScheduleToCloseTimeout = {{Time "Duration"}}({{.Service.GetDefaultActivityTimeoutConstName}}) * {{Time "Second"}}
+	}
+	{{- end}}
+
+	{{- if .Options.ScheduleToStartTimeout}}
+	{{template "timeout_option" dict "OptionsVar" "aOptions" "Field" "ScheduleToStartTimeout" "Value" (toSeconds .Options.ScheduleToStartTimeout)}}
+	{{- end}}
+
+	{{- if .Options.HeartbeatTimeout}}
+	{{template "timeout_option" dict "OptionsVar" "aOptions" "Field" "HeartbeatTimeout" "Value" (toSeconds .Options.HeartbeatTimeout)}}
+	{{- end}}
+
+	{{- if .Options.RetryPolicy}}
+	{{template "retry_policy" dict "OptionsVar" "aOptions" "Policy" .Options.RetryPolicy}}
+	{{- end}}
+
+	return {{TemporalWorkflow "ExecuteActivity"}}({{TemporalWorkflow "WithActivityOptions"}}(ctx, aOptions), Activity{{.GoName}}Name, req)
+}
+{{- end -}}
+
+{{- define "activity_execute_sync" -}}
+// ExecuteActivity{{.GoName}}Sync: executes the activity synchronously and returns the result when finished
+func (c *{{.Service.GetClientName}}) ExecuteActivity{{.GoName}}Sync(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalWorkflow "ActivityOptions"}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	aOptions := {{TemporalWorkflow "ActivityOptions"}}{
+		TaskQueue: c.taskQueue,
+	}
+	if len(options) > 0 {
+		aOptions = options[0]
+	}
+
+	future := c.ExecuteActivity{{.GoName}}(ctx, req, aOptions)
+
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+	err := future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+{{- end -}}

@@ -1,0 +1,21 @@
+{{- /* Signals template */ -}}
+{{- range .Signals}}
+// SendSignal{{.GoName}}: sends the {{.GoName}} signal to a workflow
+func (c *{{.Service.GetClientName}}) SendSignal{{.GoName}}(ctx {{Context}}, workflowID string, runID string, req *{{QualifiedGoIdent .Input.GoIdent}}) error {
+	return c.client.SignalWorkflow(ctx, workflowID, runID, Signal{{.GoName}}Name, req)
+}
+
+// ReceiveSignal{{.GoName}}: waits for the the {{.GoName}} signal
+func ReceiveSignal{{.GoName}}(ctx {{TemporalWorkflow "Context"}}) (*{{QualifiedGoIdent .Input.GoIdent}}, bool) {
+	var result *{{QualifiedGoIdent .Input.GoIdent}}
+	ok := {{TemporalWorkflow "GetSignalChannel"}}(ctx, Signal{{.GoName}}Name).Receive(ctx, &result)
+	return result, ok
+}
+
+// ReceiveSignal{{.GoName}}Async: recieves the the {{.GoName}} signal asynchronously. It doesn't wait if there is no signal in the queue
+func ReceiveSignal{{.GoName}}Async(ctx {{TemporalWorkflow "Context"}}) (*{{QualifiedGoIdent .Input.GoIdent}}, bool) {
+	var result *{{QualifiedGoIdent .Input.GoIdent}}
+	ok := {{TemporalWorkflow "GetSignalChannel"}}(ctx, Signal{{.GoName}}Name).ReceiveAsync(&result)
+	return result, ok
+}
+{{- end}}

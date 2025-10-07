@@ -1,0 +1,34 @@
+{{- /* Constants template - generates constant definitions for a service */ -}}
+// Constants for {{.GoName}} service
+const (
+{{- if .TaskQueue}}
+	// {{.GetDefaultTaskQueueConstName}}: Default task queue name for {{.GoName}}
+	{{.GetDefaultTaskQueueConstName}} = {{Quote .TaskQueue}}
+{{- else}}
+	// {{.GetDefaultTaskQueueConstName}}: Default task queue name for {{.GoName}}
+	{{.GetDefaultTaskQueueConstName}} = ""
+{{- end}}
+
+	// {{.GetDefaultActivityTimeoutConstName}}: Default activity schedule to close timeout
+	{{.GetDefaultActivityTimeoutConstName}} = {{.Config.DefaultActivityScheduleToClose}}
+)
+
+{{- range .Workflows}}
+// Workflow{{.GoName}}Name: Registered name for workflow {{.GoName}}
+const Workflow{{.GoName}}Name = {{Quote .RegisteredName}}
+{{- end}}
+
+{{- range .Activities}}
+// Activity{{.GoName}}Name: Registered name for activity {{.GoName}}
+const Activity{{.GoName}}Name = {{Quote .RegisteredName}}
+{{- end}}
+
+{{- range .Signals}}
+// Signal{{.GoName}}Name: Registered name for signal {{.GoName}}
+const Signal{{.GoName}}Name = {{Quote .RegisteredName}}
+{{- end}}
+
+{{- range .Queries}}
+// Query{{.GoName}}Name: Registered name for query {{.GoName}}
+const Query{{.GoName}}Name = {{Quote .RegisteredName}}
+{{- end}}

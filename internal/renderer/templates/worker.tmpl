@@ -1,0 +1,58 @@
+{{- /* Worker template */ -}}
+// {{.GetWorkerName}}: Worker for the {{.GoName}} service
+type {{.GetWorkerName}} struct {
+	client {{TemporalClient "Client"}}
+	worker {{TemporalWorker "Worker"}}
+	svc    {{.GetServiceInterfaceName}}
+}
+
+// New{{.GetWorkerName}}: Returns a new instance of the worker.
+// If `taskQueue` stays empty the default one will be used
+func New{{.GetWorkerName}}(client {{TemporalClient "Client"}}, svc {{.GetServiceInterfaceName}}, taskQueue string, workerOptions ...{{TemporalWorker "Options"}}) (*{{.GetWorkerName}}, error) {
+	wOpts := {{TemporalWorker "Options"}}{}
+	if taskQueue == "" {
+		taskQueue = {{.GetDefaultTaskQueueConstName}}
+	}
+	if len(workerOptions) > 0 {
+		wOpts = workerOptions[0]
+	}
+	w := {{TemporalWorker "New"}}(client, taskQueue, wOpts)
+
+	return &{{.GetWorkerName}}{
+		client: client,
+		svc:    svc,
+		worker: w,
+	}, nil
+}
+
+// Register: registers the worker and its activities/workflows in temporal
+func (w *{{.GetWorkerName}}) Register() {
+	{{- range .Activities}}
+	// Registers activity {{.GoName}}
+	w.worker.RegisterActivityWithOptions(w.svc.{{.GoName}}, {{TemporalActivity "RegisterOptions"}}{
+		Name: Activity{{.GoName}}Name,
+	})
+	{{- end}}
+
+	{{- range .Workflows}}
+	// Registers workflow {{.GoName}}
+	w.worker.RegisterWorkflowWithOptions(w.svc.{{.GoName}}, {{TemporalWorkflow "RegisterOptions"}}{
+		Name: Workflow{{.GoName}}Name,
+	})
+	{{- end}}
+}
+
+// Start: will run the worker in a non-blocking fashion. Use Stop() to stop the worker.
+func (w *{{.GetWorkerName}}) Start() error {
+	return w.worker.Start()
+}
+
+// Run: will run the worker until interruptCh receives a signal. Use worker.InterruptCh() to interrupt when there's an interrupt signal from the OS.
+func (w *{{.GetWorkerName}}) Run(interruptCh <-chan any) error {
+	return w.worker.Run(interruptCh)
+}
+
+// Stop: will stop the worker, may panic if called twice
+func (w *{{.GetWorkerName}}) Stop() {
+	w.worker.Stop()
+}

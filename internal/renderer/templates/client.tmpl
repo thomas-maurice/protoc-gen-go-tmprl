@@ -1,0 +1,33 @@
+{{- /* Client template */ -}}
+// {{.GetClientName}}: Client for the {{.GoName}} service
+type {{.GetClientName}} struct {
+	client    {{TemporalClient "Client"}}
+	taskQueue string
+}
+
+// New{{.GetClientName}}: Returns a new instance of the client.
+// If `taskQueue` stays empty the default one will be used
+func New{{.GetClientName}}(client {{TemporalClient "Client"}}, taskQueue ...string) (*{{.GetClientName}}, error) {
+	clientTaskQueue := {{.GetDefaultTaskQueueConstName}}
+	if len(taskQueue) > 0 {
+		clientTaskQueue = taskQueue[0]
+	}
+
+	return &{{.GetClientName}}{
+		client:    client,
+		taskQueue: clientTaskQueue,
+	}, nil
+}
+
+{{- range .Workflows}}
+{{template "workflow_execute" .}}
+{{template "workflow_execute_sync" .}}
+{{template "workflow_get_result" .}}
+{{template "workflow_child_execute" .}}
+{{template "workflow_child_execute_sync" .}}
+{{- end}}
+
+{{- range .Activities}}
+{{template "activity_execute" .}}
+{{template "activity_execute_sync" .}}
+{{- end}}
