@@ -123,13 +123,13 @@ func New{{.GetClientName}}(client {{TemporalClient "Client"}}, taskQueue ...stri
 
 // ExecuteWorkflow{{.GoName}}: executes the workflow and returns a future to it
 func (c *{{.Service.GetClientName}}) ExecuteWorkflow{{.GoName}}(ctx {{Context}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalClient "StartWorkflowOptions"}}) ({{TemporalClient "WorkflowRun"}}, error) {
-	wOptions := {{TemporalClient "StartWorkflowOptions"}}{
-		TaskQueue: c.taskQueue,
-	}
+	wOptions := {{TemporalClient "StartWorkflowOptions"}}{}
 	if len(options) > 0 {
 		wOptions = options[0]
 	}
-
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
+	}
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = {{.Service.GetDefaultTaskQueueConstName}}
 	}

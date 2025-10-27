@@ -114,13 +114,13 @@ func NewDieRollClient(client client.Client, taskQueue ...string) (*DieRollClient
 
 // ExecuteWorkflowParentWorkflow: executes the workflow and returns a future to it
 func (c *DieRollClient) ExecuteWorkflowParentWorkflow(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
-	wOptions := client.StartWorkflowOptions{
-		TaskQueue: c.taskQueue,
-	}
+	wOptions := client.StartWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
 	}
-
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
+	}
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
@@ -229,13 +229,13 @@ func (c *DieRollClient) ExecuteChildParentWorkflowSync(ctx workflow.Context, req
 
 // ExecuteWorkflowChildWorkflow: executes the workflow and returns a future to it
 func (c *DieRollClient) ExecuteWorkflowChildWorkflow(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
-	wOptions := client.StartWorkflowOptions{
-		TaskQueue: c.taskQueue,
-	}
+	wOptions := client.StartWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
 	}
-
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
+	}
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
@@ -344,13 +344,13 @@ func (c *DieRollClient) ExecuteChildChildWorkflowSync(ctx workflow.Context, req 
 
 // ExecuteWorkflowThrowDies: executes the workflow and returns a future to it
 func (c *DieRollClient) ExecuteWorkflowThrowDies(ctx context.Context, req *ThrowDiesRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
-	wOptions := client.StartWorkflowOptions{
-		TaskQueue: c.taskQueue,
-	}
+	wOptions := client.StartWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
 	}
-
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
+	}
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
@@ -507,13 +507,13 @@ func (c *DieRollClient) GetScheduleThrowDies(ctx context.Context, scheduleID str
 
 // ExecuteWorkflowThrowUntilValue: executes the workflow and returns a future to it
 func (c *DieRollClient) ExecuteWorkflowThrowUntilValue(ctx context.Context, req *ThrowUntilValueRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
-	wOptions := client.StartWorkflowOptions{
-		TaskQueue: c.taskQueue,
-	}
+	wOptions := client.StartWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
 	}
-
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
+	}
 	if wOptions.TaskQueue == "" {
 		wOptions.TaskQueue = DefaultDieRollTaskQueueName
 	}
