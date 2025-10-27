@@ -52,6 +52,9 @@ message WorkflowOptions {
   // the same service. The values of the list is
   // simply the name of the corresponding RPC method
   repeated string queries = 7;
+  // Cron expression for scheduling this workflow (e.g., "0 12 * * MON-FRI")
+  // If set, generates schedule helper methods for this workflow
+  optional string cron_schedule = 8;
 }
 
 message ServiceOptions {

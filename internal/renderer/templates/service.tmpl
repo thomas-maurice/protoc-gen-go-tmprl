@@ -1,0 +1,792 @@
+{{- /*
+Service template - generates complete service code
+This is the main template that includes:
+- Constants for the service
+- Service interface definition
+- Client implementation with workflow/activity methods
+- Worker implementation
+- Workflow/activity wrapper objects
+- Signal and query helpers
+*/ -}}
+
+{{/* ============================================================================
+    SECTION 1: CONSTANTS
+    All constant definitions for workflows, activities, signals, and queries
+============================================================================ */}}
+
+// Constants for {{.GoName}} service
+const (
+{{- if .TaskQueue}}
+	// {{.GetDefaultTaskQueueConstName}}: Default task queue name for {{.GoName}}
+	{{.GetDefaultTaskQueueConstName}} = {{Quote .TaskQueue}}
+{{- else}}
+	// {{.GetDefaultTaskQueueConstName}}: Default task queue name for {{.GoName}}
+	{{.GetDefaultTaskQueueConstName}} = ""
+{{- end}}
+
+	// {{.GetDefaultActivityTimeoutConstName}}: Default activity schedule to close timeout
+	{{.GetDefaultActivityTimeoutConstName}} = {{.Config.DefaultActivityScheduleToClose}}
+
+{{- range .Workflows}}
+
+	// Workflow{{.GoName}}Name: Registered name for workflow {{.GoName}}
+	Workflow{{.GoName}}Name = {{Quote .RegisteredName}}
+{{- end}}
+
+{{- range .Activities}}
+
+	// Activity{{.GoName}}Name: Registered name for activity {{.GoName}}
+	Activity{{.GoName}}Name = {{Quote .RegisteredName}}
+{{- end}}
+
+{{- range .Signals}}
+
+	// Signal{{.GoName}}Name: Registered name for signal {{.GoName}}
+	Signal{{.GoName}}Name = {{Quote .RegisteredName}}
+{{- end}}
+
+{{- range .Queries}}
+
+	// Query{{.GoName}}Name: Registered name for query {{.GoName}}
+	Query{{.GoName}}Name = {{Quote .RegisteredName}}
+{{- end}}
+)
+
+{{/* ============================================================================
+    SERVICE INTERFACE
+    Interface that users must implement for workflows and activities
+============================================================================ */}}
+
+// {{.GetServiceInterfaceName}}: Interface that must be implemented to register workflows and activities
+type {{.GetServiceInterfaceName}} interface {
+	{{- range .Workflows}}
+	// {{.GoName}}: {{commentOneLine .Comment}}
+	{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error)
+	{{- end}}
+
+	{{- range .Activities}}
+	// {{.GoName}}: {{commentOneLine .Comment}}
+	{{.GoName}}(ctx {{Context}}, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error)
+	{{- end}}
+}
+
+// Unimplemented{{.GetServiceInterfaceName}}: Stub implementation that panics
+type Unimplemented{{.GetServiceInterfaceName}} struct{}
+
+{{- range .Workflows}}
+func (Unimplemented{{$.GetServiceInterfaceName}}) {{.GoName}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	panic("{{.GoName}} not implemented")
+}
+{{- end}}
+
+{{- range .Activities}}
+func (Unimplemented{{$.GetServiceInterfaceName}}) {{.GoName}}(ctx {{Context}}, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	panic("{{.GoName}} not implemented")
+}
+{{- end}}
+
+{{/* ============================================================================
+    SECTION 3: CLIENT IMPLEMENTATION
+    Client struct with methods to execute workflows and activities
+============================================================================ */}}
+
+// {{.GetClientName}}: Client for the {{.GoName}} service
+type {{.GetClientName}} struct {
+	client    {{TemporalClient "Client"}}
+	taskQueue string
+}
+
+// New{{.GetClientName}}: Returns a new instance of the client.
+// If `taskQueue` stays empty the default one will be used
+func New{{.GetClientName}}(client {{TemporalClient "Client"}}, taskQueue ...string) (*{{.GetClientName}}, error) {
+	clientTaskQueue := {{.GetDefaultTaskQueueConstName}}
+	if len(taskQueue) > 0 {
+		clientTaskQueue = taskQueue[0]
+	}
+
+	return &{{.GetClientName}}{
+		client:    client,
+		taskQueue: clientTaskQueue,
+	}, nil
+}
+
+{{- /* ----------------------------------------------------------------------------
+    SECTION 3.1: WORKFLOW EXECUTION METHODS
+    For each workflow, generate 5 methods:
+    - ExecuteWorkflow: Async execution returning WorkflowRun
+    - ExecuteWorkflowSync: Sync execution returning result
+    - GetWorkflowResult: Get result from existing workflow
+    - ExecuteChild: Execute as child workflow (async)
+    - ExecuteChildSync: Execute as child workflow (sync)
+---------------------------------------------------------------------------- */ -}}
+{{- range .Workflows}}
+
+// ExecuteWorkflow{{.GoName}}: executes the workflow and returns a future to it
+func (c *{{.Service.GetClientName}}) ExecuteWorkflow{{.GoName}}(ctx {{Context}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalClient "StartWorkflowOptions"}}) ({{TemporalClient "WorkflowRun"}}, error) {
+	wOptions := {{TemporalClient "StartWorkflowOptions"}}{}
+	if len(options) > 0 {
+		wOptions = options[0]
+	}
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
+	}
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = {{.Service.GetDefaultTaskQueueConstName}}
+	}
+
+	{{- if .Service.Config.GenWorkflowPrefix}}
+	if wOptions.ID == "" {
+		wOptions.ID = {{Fmt "Sprintf"}}("%s/%s", Workflow{{.GoName}}Name, {{UUID "NewString"}}())
+	}
+	{{- end}}
+
+	// Apply timeout options
+	{{- if .Options.WorkflowExecutionTimeout}}
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = {{Time "Duration"}}({{toSeconds .Options.WorkflowExecutionTimeout}}) * {{Time "Second"}}
+	}
+	{{- end}}
+	{{- if .Options.WorkflowRunTimeout}}
+	if wOptions.WorkflowRunTimeout == 0 {
+		wOptions.WorkflowRunTimeout = {{Time "Duration"}}({{toSeconds .Options.WorkflowRunTimeout}}) * {{Time "Second"}}
+	}
+	{{- end}}
+	{{- if .Options.WorkflowTaskTimeout}}
+	if wOptions.WorkflowTaskTimeout == 0 {
+		wOptions.WorkflowTaskTimeout = {{Time "Duration"}}({{toSeconds .Options.WorkflowTaskTimeout}}) * {{Time "Second"}}
+	}
+	{{- end}}
+
+	// Apply retry policy
+	{{- if .Options.RetryPolicy}}
+	if wOptions.RetryPolicy == nil {
+		wOptions.RetryPolicy = &{{Temporal "RetryPolicy"}}{
+			{{- if .Options.RetryPolicy.InitialInterval}}
+			InitialInterval: {{Time "Duration"}}({{toSeconds .Options.RetryPolicy.InitialInterval}}) * {{Time "Second"}},
+			{{- end}}
+			{{- if .Options.RetryPolicy.MaximumInterval}}
+			MaximumInterval: {{Time "Duration"}}({{toSeconds .Options.RetryPolicy.MaximumInterval}}) * {{Time "Second"}},
+			{{- end}}
+			{{- if .Options.RetryPolicy.BackoffCoefficient}}
+			BackoffCoefficient: {{.Options.RetryPolicy.BackoffCoefficient}},
+			{{- end}}
+			{{- if .Options.RetryPolicy.MaximumAttempts}}
+			MaximumAttempts: {{.Options.RetryPolicy.MaximumAttempts}},
+			{{- end}}
+			{{- if .Options.RetryPolicy.NonRetryableErrorTypes}}
+			NonRetryableErrorTypes: []string{
+				{{- range .Options.RetryPolicy.NonRetryableErrorTypes}}
+				{{Quote .}},
+				{{- end}}
+			},
+			{{- end}}
+		}
+	}
+	{{- end}}
+
+	return c.client.ExecuteWorkflow(ctx, wOptions, Workflow{{.GoName}}Name, req)
+}
+
+// ExecuteWorkflow{{.GoName}}Sync: executes the workflow and returns the result when finished
+func (c *{{.Service.GetClientName}}) ExecuteWorkflow{{.GoName}}Sync(ctx {{Context}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalClient "StartWorkflowOptions"}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	future, err := c.ExecuteWorkflow{{.GoName}}(ctx, req, options...)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+	err = future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// GetWorkflow{{.GoName}}Result: gets the result of a given workflow
+func (c *{{.Service.GetClientName}}) GetWorkflow{{.GoName}}Result(ctx {{Context}}, workflowId string, runId string) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+	err := future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ExecuteChild{{.GoName}}: executes the workflow as a child workflow and returns a future to it
+func (c *{{.Service.GetClientName}}) ExecuteChild{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalWorkflow "ChildWorkflowOptions"}}) ({{TemporalWorkflow "ChildWorkflowFuture"}}, error) {
+	wOptions := {{TemporalWorkflow "ChildWorkflowOptions"}}{}
+	if len(options) > 0 {
+		wOptions = options[0]
+	}
+
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
+	}
+
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = {{.Service.GetDefaultTaskQueueConstName}}
+	}
+
+	{{- if .Service.Config.GenWorkflowPrefix}}
+	if wOptions.WorkflowID == "" {
+		var id string
+		genId := {{TemporalWorkflow "SideEffect"}}(ctx, func(ctx {{TemporalWorkflow "Context"}}) interface{} {
+			return {{Fmt "Sprintf"}}("%s/%s", Workflow{{.GoName}}Name, {{UUID "NewString"}}())
+		})
+
+		err := genId.Get(&id)
+		if err != nil {
+			return nil, err
+		}
+
+		wOptions.WorkflowID = id
+	}
+	{{- end}}
+
+	// Apply timeout options
+	{{- if .Options.WorkflowExecutionTimeout}}
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = {{Time "Duration"}}({{toSeconds .Options.WorkflowExecutionTimeout}}) * {{Time "Second"}}
+	}
+	{{- end}}
+	{{- if .Options.WorkflowRunTimeout}}
+	if wOptions.WorkflowRunTimeout == 0 {
+		wOptions.WorkflowRunTimeout = {{Time "Duration"}}({{toSeconds .Options.WorkflowRunTimeout}}) * {{Time "Second"}}
+	}
+	{{- end}}
+	{{- if .Options.WorkflowTaskTimeout}}
+	if wOptions.WorkflowTaskTimeout == 0 {
+		wOptions.WorkflowTaskTimeout = {{Time "Duration"}}({{toSeconds .Options.WorkflowTaskTimeout}}) * {{Time "Second"}}
+	}
+	{{- end}}
+
+	// Apply retry policy
+	{{- if .Options.RetryPolicy}}
+	if wOptions.RetryPolicy == nil {
+		wOptions.RetryPolicy = &{{Temporal "RetryPolicy"}}{
+			{{- if .Options.RetryPolicy.InitialInterval}}
+			InitialInterval: {{Time "Duration"}}({{toSeconds .Options.RetryPolicy.InitialInterval}}) * {{Time "Second"}},
+			{{- end}}
+			{{- if .Options.RetryPolicy.MaximumInterval}}
+			MaximumInterval: {{Time "Duration"}}({{toSeconds .Options.RetryPolicy.MaximumInterval}}) * {{Time "Second"}},
+			{{- end}}
+			{{- if .Options.RetryPolicy.BackoffCoefficient}}
+			BackoffCoefficient: {{.Options.RetryPolicy.BackoffCoefficient}},
+			{{- end}}
+			{{- if .Options.RetryPolicy.MaximumAttempts}}
+			MaximumAttempts: {{.Options.RetryPolicy.MaximumAttempts}},
+			{{- end}}
+			{{- if .Options.RetryPolicy.NonRetryableErrorTypes}}
+			NonRetryableErrorTypes: []string{
+				{{- range .Options.RetryPolicy.NonRetryableErrorTypes}}
+				{{Quote .}},
+				{{- end}}
+			},
+			{{- end}}
+		}
+	}
+	{{- end}}
+
+	return {{TemporalWorkflow "ExecuteChildWorkflow"}}({{TemporalWorkflow "WithChildOptions"}}(ctx, wOptions), Workflow{{.GoName}}Name, req), nil
+}
+
+// ExecuteChild{{.GoName}}Sync: executes the workflow as a child workflow and returns the result when finished
+func (c *{{.Service.GetClientName}}) ExecuteChild{{.GoName}}Sync(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalWorkflow "ChildWorkflowOptions"}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	future, err := c.ExecuteChild{{.GoName}}(ctx, req, options...)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+	err = future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+{{if .Options.CronSchedule}}
+
+// CreateSchedule{{.GoName}}: Creates a schedule for {{.GoName}} with the configured cron expression
+func (c *{{.Service.GetClientName}}) CreateSchedule{{.GoName}}(ctx {{Context}}, scheduleID string, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalClient "ScheduleOptions"}}) ({{TemporalClient "ScheduleHandle"}}, error) {
+	scheduleOptions := {{TemporalClient "ScheduleOptions"}}{
+		ID: scheduleID,
+		Spec: {{TemporalClient "ScheduleSpec"}}{
+			CronExpressions: []string{ {{Quote .Options.CronSchedule}} },
+		},
+		Action: &{{TemporalClient "ScheduleWorkflowAction"}}{
+			ID:        scheduleID,
+			Workflow:  Workflow{{.GoName}}Name,
+			Args:      []interface{}{req},
+			TaskQueue: c.taskQueue,
+			{{- if .Options.WorkflowExecutionTimeout}}
+			WorkflowExecutionTimeout: {{Time "Duration"}}({{toSeconds .Options.WorkflowExecutionTimeout}}) * {{Time "Second"}},
+			{{- end}}
+			{{- if .Options.WorkflowRunTimeout}}
+			WorkflowRunTimeout: {{Time "Duration"}}({{toSeconds .Options.WorkflowRunTimeout}}) * {{Time "Second"}},
+			{{- end}}
+			{{- if .Options.WorkflowTaskTimeout}}
+			WorkflowTaskTimeout: {{Time "Duration"}}({{toSeconds .Options.WorkflowTaskTimeout}}) * {{Time "Second"}},
+			{{- end}}
+			{{- if .Options.RetryPolicy}}
+			RetryPolicy: &{{Temporal "RetryPolicy"}}{
+				{{- if .Options.RetryPolicy.InitialInterval}}
+				InitialInterval: {{Time "Duration"}}({{toSeconds .Options.RetryPolicy.InitialInterval}}) * {{Time "Second"}},
+				{{- end}}
+				{{- if .Options.RetryPolicy.MaximumInterval}}
+				MaximumInterval: {{Time "Duration"}}({{toSeconds .Options.RetryPolicy.MaximumInterval}}) * {{Time "Second"}},
+				{{- end}}
+				{{- if .Options.RetryPolicy.BackoffCoefficient}}
+				BackoffCoefficient: {{.Options.RetryPolicy.BackoffCoefficient}},
+				{{- end}}
+				{{- if .Options.RetryPolicy.MaximumAttempts}}
+				MaximumAttempts: {{.Options.RetryPolicy.MaximumAttempts}},
+				{{- end}}
+				{{- if .Options.RetryPolicy.NonRetryableErrorTypes}}
+				NonRetryableErrorTypes: []string{
+					{{- range .Options.RetryPolicy.NonRetryableErrorTypes}}
+					{{Quote .}},
+					{{- end}}
+				},
+				{{- end}}
+			},
+			{{- end}}
+		},
+	}
+
+	if len(options) > 0 {
+		providedOptions := options[0]
+		if providedOptions.ID != "" {
+			scheduleOptions.ID = providedOptions.ID
+		}
+		if len(providedOptions.Spec.CronExpressions) > 0 {
+			scheduleOptions.Spec.CronExpressions = providedOptions.Spec.CronExpressions
+		}
+		if providedOptions.Action != nil {
+			scheduleOptions.Action = providedOptions.Action
+		}
+		if providedOptions.Paused {
+			scheduleOptions.Paused = providedOptions.Paused
+		}
+		if providedOptions.Note != "" {
+			scheduleOptions.Note = providedOptions.Note
+		}
+	}
+
+	if scheduleOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}).TaskQueue == "" {
+		scheduleOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}).TaskQueue = {{.Service.GetDefaultTaskQueueConstName}}
+	}
+
+	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
+}
+
+// GetSchedule{{.GoName}}: Gets a handle to an existing schedule for {{.GoName}}
+func (c *{{.Service.GetClientName}}) GetSchedule{{.GoName}}(ctx {{Context}}, scheduleID string) {{TemporalClient "ScheduleHandle"}} {
+	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+}
+{{end}}
+{{- end}}
+
+{{- /* ----------------------------------------------------------------------------
+    SECTION 3.2: ACTIVITY EXECUTION METHODS
+    For each activity, generate 2 methods:
+    - ExecuteActivity: Async execution returning Future
+    - ExecuteActivitySync: Sync execution returning result
+---------------------------------------------------------------------------- */ -}}
+{{- range .Activities}}
+
+// ExecuteActivity{{.GoName}}: executes the activity asynchronously and returns a future to it
+func (c *{{.Service.GetClientName}}) ExecuteActivity{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalWorkflow "ActivityOptions"}}) {{TemporalWorkflow "Future"}} {
+	var aOptions {{TemporalWorkflow "ActivityOptions"}}
+
+	if len(options) > 0 {
+		aOptions = options[0]
+	}
+
+	if aOptions.TaskQueue == "" {
+		aOptions.TaskQueue = c.taskQueue
+	}
+
+	if aOptions.TaskQueue == "" {
+		aOptions.TaskQueue = {{.Service.GetDefaultTaskQueueConstName}}
+	}
+
+	// Apply timeout options
+	{{- if .Options.StartToCloseTimeout}}
+	if aOptions.StartToCloseTimeout == 0 {
+		aOptions.StartToCloseTimeout = {{Time "Duration"}}({{toSeconds .Options.StartToCloseTimeout}}) * {{Time "Second"}}
+	}
+	{{- end}}
+	{{- if .Options.ScheduleToCloseTimeout}}
+	if aOptions.ScheduleToCloseTimeout == 0 {
+		aOptions.ScheduleToCloseTimeout = {{Time "Duration"}}({{toSeconds .Options.ScheduleToCloseTimeout}}) * {{Time "Second"}}
+	}
+	{{- else}}
+	if aOptions.ScheduleToCloseTimeout == 0 {
+		aOptions.ScheduleToCloseTimeout = {{Time "Duration"}}({{.Service.GetDefaultActivityTimeoutConstName}}) * {{Time "Second"}}
+	}
+	{{- end}}
+	{{- if .Options.ScheduleToStartTimeout}}
+	if aOptions.ScheduleToStartTimeout == 0 {
+		aOptions.ScheduleToStartTimeout = {{Time "Duration"}}({{toSeconds .Options.ScheduleToStartTimeout}}) * {{Time "Second"}}
+	}
+	{{- end}}
+	{{- if .Options.HeartbeatTimeout}}
+	if aOptions.HeartbeatTimeout == 0 {
+		aOptions.HeartbeatTimeout = {{Time "Duration"}}({{toSeconds .Options.HeartbeatTimeout}}) * {{Time "Second"}}
+	}
+	{{- end}}
+
+	// Apply retry policy
+	{{- if .Options.RetryPolicy}}
+	if aOptions.RetryPolicy == nil {
+		aOptions.RetryPolicy = &{{Temporal "RetryPolicy"}}{
+			{{- if .Options.RetryPolicy.InitialInterval}}
+			InitialInterval: {{Time "Duration"}}({{toSeconds .Options.RetryPolicy.InitialInterval}}) * {{Time "Second"}},
+			{{- end}}
+			{{- if .Options.RetryPolicy.MaximumInterval}}
+			MaximumInterval: {{Time "Duration"}}({{toSeconds .Options.RetryPolicy.MaximumInterval}}) * {{Time "Second"}},
+			{{- end}}
+			{{- if .Options.RetryPolicy.BackoffCoefficient}}
+			BackoffCoefficient: {{.Options.RetryPolicy.BackoffCoefficient}},
+			{{- end}}
+			{{- if .Options.RetryPolicy.MaximumAttempts}}
+			MaximumAttempts: {{.Options.RetryPolicy.MaximumAttempts}},
+			{{- end}}
+			{{- if .Options.RetryPolicy.NonRetryableErrorTypes}}
+			NonRetryableErrorTypes: []string{
+				{{- range .Options.RetryPolicy.NonRetryableErrorTypes}}
+				{{Quote .}},
+				{{- end}}
+			},
+			{{- end}}
+		}
+	}
+	{{- end}}
+
+	return {{TemporalWorkflow "ExecuteActivity"}}({{TemporalWorkflow "WithActivityOptions"}}(ctx, aOptions), Activity{{.GoName}}Name, req)
+}
+
+// ExecuteActivity{{.GoName}}Sync: executes the activity synchronously and returns the result when finished
+func (c *{{.Service.GetClientName}}) ExecuteActivity{{.GoName}}Sync(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalWorkflow "ActivityOptions"}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	aOptions := {{TemporalWorkflow "ActivityOptions"}}{
+		TaskQueue: c.taskQueue,
+	}
+	if len(options) > 0 {
+		aOptions = options[0]
+	}
+
+	future := c.ExecuteActivity{{.GoName}}(ctx, req, aOptions)
+
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+	err := future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+{{- end}}
+
+{{/* ============================================================================
+    SECTION 4: WORKER IMPLEMENTATION
+    Worker struct that registers and runs workflows/activities
+============================================================================ */}}
+
+// {{.GetWorkerName}}: Worker for the {{.GoName}} service
+type {{.GetWorkerName}} struct {
+	client {{TemporalClient "Client"}}
+	worker {{TemporalWorker "Worker"}}
+	svc    {{.GetServiceInterfaceName}}
+}
+
+// New{{.GetWorkerName}}: Returns a new instance of the worker.
+// If `taskQueue` stays empty the default one will be used
+func New{{.GetWorkerName}}(client {{TemporalClient "Client"}}, svc {{.GetServiceInterfaceName}}, taskQueue string, workerOptions ...{{TemporalWorker "Options"}}) (*{{.GetWorkerName}}, error) {
+	wOpts := {{TemporalWorker "Options"}}{}
+	if taskQueue == "" {
+		taskQueue = {{.GetDefaultTaskQueueConstName}}
+	}
+	if len(workerOptions) > 0 {
+		wOpts = workerOptions[0]
+	}
+	w := {{TemporalWorker "New"}}(client, taskQueue, wOpts)
+
+	return &{{.GetWorkerName}}{
+		client: client,
+		svc:    svc,
+		worker: w,
+	}, nil
+}
+
+// Register: registers the worker and its activities/workflows in temporal
+func (w *{{.GetWorkerName}}) Register() {
+	{{- range .Activities}}
+	// Registers activity {{.GoName}}
+	w.worker.RegisterActivityWithOptions(w.svc.{{.GoName}}, {{TemporalActivity "RegisterOptions"}}{
+		Name: Activity{{.GoName}}Name,
+	})
+	{{- end}}
+
+	{{- range .Workflows}}
+	// Registers workflow {{.GoName}}
+	w.worker.RegisterWorkflowWithOptions(w.svc.{{.GoName}}, {{TemporalWorkflow "RegisterOptions"}}{
+		Name: Workflow{{.GoName}}Name,
+	})
+	{{- end}}
+}
+
+// Start: will run the worker in a non-blocking fashion. Use Stop() to stop the worker.
+func (w *{{.GetWorkerName}}) Start() error {
+	return w.worker.Start()
+}
+
+// Run: will run the worker until interruptCh receives a signal. Use worker.InterruptCh() to interrupt when there's an interrupt signal from the OS.
+func (w *{{.GetWorkerName}}) Run(interruptCh <-chan any) error {
+	return w.worker.Run(interruptCh)
+}
+
+// Stop: will stop the worker, may panic if called twice
+func (w *{{.GetWorkerName}}) Stop() {
+	w.worker.Stop()
+}
+
+{{/* ============================================================================
+    SECTION 5: WORKFLOW WRAPPER OBJECTS
+    Type-safe wrapper objects for managing workflow instances
+============================================================================ */}}
+{{- range .Workflows}}
+
+// {{WorkflowObjectName .Service.GoName .GoName}}: is a struct that wraps a workflow
+type {{WorkflowObjectName .Service.GoName .GoName}} struct {
+	client     {{TemporalClient "Client"}}
+	future     {{TemporalClient "WorkflowRun"}}
+	workflowId string
+	runId      string
+}
+
+// Get{{.GoName}}: gets an instance of a given workflow
+func (c *{{.Service.GetClientName}}) Get{{.GoName}}(ctx {{Context}}, workflowId string, runId string) *{{WorkflowObjectName .Service.GoName .GoName}} {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
+	return &{{WorkflowObjectName .Service.GoName .GoName}}{
+		client:     c.client,
+		future:     future,
+		workflowId: workflowId,
+		runId:      runId,
+	}
+}
+
+// Get{{.GoName}}FromRun: gets an instance of a given workflow from a future
+func (c *{{.Service.GetClientName}}) Get{{.GoName}}FromRun(future {{TemporalClient "WorkflowRun"}}) *{{WorkflowObjectName .Service.GoName .GoName}} {
+	return &{{WorkflowObjectName .Service.GoName .GoName}}{
+		workflowId: future.GetID(),
+		runId:      future.GetRunID(),
+		client:     c.client,
+		future:     future,
+	}
+}
+
+// Cancel: cancels a given workflow
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) Cancel(ctx {{Context}}) error {
+	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
+}
+
+// GetID: Returns the workflow ID
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) GetID() string {
+	return w.future.GetID()
+}
+
+// GetRunID: Returns the run ID
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) GetRunID() string {
+	return w.future.GetRunID()
+}
+
+// Terminate: terminates a given workflow
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) Terminate(ctx {{Context}}, reason string, details ...interface{}) error {
+	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
+}
+
+// Result: gets the result of a given workflow with its native type
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) Result(ctx {{Context}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ResultWithOptions: gets the result of a given workflow with its native type
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) ResultWithOptions(ctx {{Context}}, options {{TemporalClient "WorkflowRunGetOptions"}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+
+	err := w.future.GetWithOptions(ctx, &resp, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Get: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) Get(ctx {{Context}}, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// GetWithOptions: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *{{WorkflowObjectName .Service.GoName .GoName}}) GetWithOptions(ctx {{Context}}, valuePtr interface{}, options {{TemporalClient "WorkflowRunGetOptions"}}) error {
+	return w.future.GetWithOptions(ctx, valuePtr, options)
+}
+
+{{- $workflow := .}}
+{{- range .Options.Signals}}
+{{- $signal := index $.SignalsMap .}}
+{{- if $signal}}
+// Signal{{.}}: sends the {{.}} signal to the workflow
+func (w *{{WorkflowObjectName $workflow.Service.GoName $workflow.GoName}}) Signal{{.}}(ctx {{Context}}, req *{{QualifiedGoIdent $signal.Input.GoIdent}}) error {
+	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), Signal{{.}}Name, req)
+}
+{{- end}}
+{{- end}}
+
+{{- range .Options.Queries}}
+{{- $query := index $.QueriesMap .}}
+{{- if $query}}
+// Query{{.}}: queries the workflow with {{.}}
+func (w *{{WorkflowObjectName $workflow.Service.GoName $workflow.GoName}}) Query{{.}}(ctx {{Context}}, req *{{QualifiedGoIdent $query.Input.GoIdent}}) (*{{QualifiedGoIdent $query.Output.GoIdent}}, error) {
+	future, err := w.client.QueryWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), Query{{.}}Name, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *{{QualifiedGoIdent $query.Output.GoIdent}}
+	err = future.Get(&resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+{{- end}}
+{{- end}}
+
+// {{ChildWorkflowObjectName .Service.GoName .GoName}}: is a struct that wraps a workflow execution (called from another workflow)
+type {{ChildWorkflowObjectName .Service.GoName .GoName}} struct {
+	client {{TemporalClient "Client"}}
+	future {{TemporalWorkflow "ChildWorkflowFuture"}}
+}
+
+// Get{{ChildWorkflowObjectName .Service.GoName .GoName}}: gets an instance of a given workflow from a future
+func (c *{{.Service.GetClientName}}) Get{{ChildWorkflowObjectName .Service.GoName .GoName}}(future {{TemporalWorkflow "ChildWorkflowFuture"}}) *{{ChildWorkflowObjectName .Service.GoName .GoName}} {
+	return &{{ChildWorkflowObjectName .Service.GoName .GoName}}{
+		client: c.client,
+		future: future,
+	}
+}
+
+// Result: gets the result of a given workflow with its native type
+func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) Result(ctx {{TemporalWorkflow "Context"}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Get: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
+func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) Get(ctx {{TemporalWorkflow "Context"}}, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// GetChildWorkflowExecution: Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) GetChildWorkflowExecution() {{TemporalWorkflow "Future"}} {
+	return w.future
+}
+
+// IsReady: Wraps the IsReady method from the future
+func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) IsReady() bool {
+	return w.future.IsReady()
+}
+
+// SignalChildWorkflow: Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) SignalChildWorkflow(ctx {{TemporalWorkflow "Context"}}, sigName string, data interface{}) {{TemporalWorkflow "Future"}} {
+	return w.future.SignalChildWorkflow(ctx, sigName, data)
+}
+
+{{- range .Options.Signals}}
+{{- $signal := index $.SignalsMap .}}
+{{- if $signal}}
+// Signal{{.}}: sends the {{.}} signal to the workflow
+func (w *{{ChildWorkflowObjectName $workflow.Service.GoName $workflow.GoName}}) Signal{{.}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent $signal.Input.GoIdent}}) error {
+	return w.future.SignalChildWorkflow(ctx, Signal{{.}}Name, req).Get(ctx, nil)
+}
+{{- end}}
+{{- end}}
+{{- end}}
+
+{{/* ============================================================================
+    SECTION 6: SIGNAL HELPER FUNCTIONS
+    Functions to send and receive signals
+============================================================================ */}}
+{{- range .Signals}}
+
+// SendSignal{{.GoName}}: sends the {{.GoName}} signal to a workflow
+func (c *{{.Service.GetClientName}}) SendSignal{{.GoName}}(ctx {{Context}}, workflowID string, runID string, req *{{QualifiedGoIdent .Input.GoIdent}}) error {
+	return c.client.SignalWorkflow(ctx, workflowID, runID, Signal{{.GoName}}Name, req)
+}
+
+// ReceiveSignal{{.GoName}}: waits for the the {{.GoName}} signal
+func ReceiveSignal{{.GoName}}(ctx {{TemporalWorkflow "Context"}}) (*{{QualifiedGoIdent .Input.GoIdent}}, bool) {
+	var result *{{QualifiedGoIdent .Input.GoIdent}}
+	ok := {{TemporalWorkflow "GetSignalChannel"}}(ctx, Signal{{.GoName}}Name).Receive(ctx, &result)
+	return result, ok
+}
+
+// ReceiveSignal{{.GoName}}Async: recieves the the {{.GoName}} signal asynchronously. It doesn't wait if there is no signal in the queue
+func ReceiveSignal{{.GoName}}Async(ctx {{TemporalWorkflow "Context"}}) (*{{QualifiedGoIdent .Input.GoIdent}}, bool) {
+	var result *{{QualifiedGoIdent .Input.GoIdent}}
+	ok := {{TemporalWorkflow "GetSignalChannel"}}(ctx, Signal{{.GoName}}Name).ReceiveAsync(&result)
+	return result, ok
+}
+{{- end}}
+
+{{/* ============================================================================
+    SECTION 7: QUERY HELPER FUNCTIONS
+    Functions to send queries and handle query requests
+============================================================================ */}}
+{{- range .Queries}}
+
+// Query{{.GoName}}: sends the {{.GoName}} query to a workflow
+func (c *{{.Service.GetClientName}}) Query{{.GoName}}(ctx {{Context}}, workflowID string, runID string, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	future, err := c.client.QueryWorkflow(ctx, workflowID, runID, Query{{.GoName}}Name, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+	err = future.Get(&resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// HandleQuery{{.GoName}}: sets up the {{.GoName}} query and responds accordingly, returns an error if it failed
+func HandleQuery{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, queryFunc func(req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error)) error {
+	return {{TemporalWorkflow "SetQueryHandler"}}(ctx, Query{{.GoName}}Name, func(req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+		return queryFunc(req)
+	})
+}
+{{- end}}
