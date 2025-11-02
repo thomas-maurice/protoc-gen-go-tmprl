@@ -116,13 +116,13 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 				g.Add(jen.Error())
 			}).
 				BlockFunc(func(g *jen.Group) {
-					g.Add(jen.Id("wOptions").Op(":=").Id(getTemporalClientObject(gf, "StartWorkflowOptions")).BlockFunc(func(g *jen.Group) {
-						g.Add(jen.Id("TaskQueue").Op(":").Id("c").Dot("taskQueue").Op(","))
-					}))
+					g.Add(jen.Id("wOptions").Op(":=").Id(getTemporalClientObject(gf, "StartWorkflowOptions")).Block())
 					g.Add(jen.If(jen.Len(jen.Id("options")).Op(">").Lit(0).Block(
 						jen.Id("wOptions").Op("=").Id("options").Index(jen.Lit(0)),
 					)))
-
+					g.Add(jen.If(jen.Id("wOptions").Dot("TaskQueue").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
+						g.Add(jen.Id("wOptions").Dot("TaskQueue").Op("=").Id("c").Dot("taskQueue"))
+					}))
 					g.Add(jen.If(jen.Id("wOptions").Dot("TaskQueue").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
 						g.Add(jen.Id("wOptions").Dot("TaskQueue").Op("=").Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName)))
 					}))
