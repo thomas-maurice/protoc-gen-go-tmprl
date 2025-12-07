@@ -11,6 +11,8 @@ package examplev1
 import (
 	context "context"
 	fmt "fmt"
+	time "time"
+
 	uuid "github.com/google/uuid"
 	activity "go.temporal.io/sdk/activity"
 	client "go.temporal.io/sdk/client"
@@ -18,7 +20,6 @@ import (
 	worker "go.temporal.io/sdk/worker"
 	workflow "go.temporal.io/sdk/workflow"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	time "time"
 )
 
 // Constants for DieRoll service
@@ -489,8 +490,18 @@ func (c *DieRollClient) CreateScheduleThrowDies(ctx context.Context, scheduleID 
 		if providedOptions.Spec.TimeZoneName != "" {
 			scheduleOptions.Spec.TimeZoneName = providedOptions.Spec.TimeZoneName
 		}
+		if providedOptions.TypedSearchAttributes.Size() > 0 {
+			scheduleOptions.TypedSearchAttributes = providedOptions.TypedSearchAttributes
+		}
 		if providedOptions.Action != nil {
 			scheduleOptions.Action = providedOptions.Action
+		} else {
+			// Append TypedSearchAttributes from user options to the Action if provided
+			if userAction, ok := providedOptions.Action.(*client.ScheduleWorkflowAction); ok && userAction != nil && userAction.TypedSearchAttributes.Size() > 0 {
+				if action, ok := scheduleOptions.Action.(*client.ScheduleWorkflowAction); ok {
+					action.TypedSearchAttributes = userAction.TypedSearchAttributes
+				}
+			}
 		}
 		if providedOptions.Paused {
 			scheduleOptions.Paused = providedOptions.Paused
@@ -609,8 +620,18 @@ func (c *DieRollClient) UpsertScheduleThrowDies(ctx context.Context, scheduleID 
 		if providedOptions.Spec.TimeZoneName != "" {
 			scheduleOptions.Spec.TimeZoneName = providedOptions.Spec.TimeZoneName
 		}
+		if providedOptions.TypedSearchAttributes.Size() > 0 {
+			scheduleOptions.TypedSearchAttributes = providedOptions.TypedSearchAttributes
+		}
 		if providedOptions.Action != nil {
 			scheduleOptions.Action = providedOptions.Action
+		} else {
+			// Append TypedSearchAttributes from user options to the Action if provided
+			if userAction, ok := providedOptions.Action.(*client.ScheduleWorkflowAction); ok && userAction != nil && userAction.TypedSearchAttributes.Size() > 0 {
+				if action, ok := scheduleOptions.Action.(*client.ScheduleWorkflowAction); ok {
+					action.TypedSearchAttributes = userAction.TypedSearchAttributes
+				}
+			}
 		}
 		if providedOptions.Note != "" {
 			scheduleOptions.Note = providedOptions.Note
@@ -659,7 +680,8 @@ func (c *DieRollClient) UpsertScheduleThrowDies(ctx context.Context, scheduleID 
 				schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
 			}
 			return &client.ScheduleUpdate{
-				Schedule: &schedule,
+				Schedule:              &schedule,
+				TypedSearchAttributes: &scheduleOptions.TypedSearchAttributes,
 			}, nil
 		},
 	})

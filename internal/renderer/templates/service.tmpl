@@ -390,8 +390,18 @@ func (c *{{.Service.GetClientName}}) CreateSchedule{{.GoName}}(ctx {{Context}}, 
 		if providedOptions.Spec.TimeZoneName != "" {
 			scheduleOptions.Spec.TimeZoneName = providedOptions.Spec.TimeZoneName
 		}
+		if providedOptions.TypedSearchAttributes.Size() > 0 {
+			scheduleOptions.TypedSearchAttributes = providedOptions.TypedSearchAttributes
+		}
 		if providedOptions.Action != nil {
 			scheduleOptions.Action = providedOptions.Action
+		} else {
+			// Append TypedSearchAttributes from user options to the Action if provided
+			if userAction, ok := providedOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}); ok && userAction != nil && userAction.TypedSearchAttributes.Size() > 0 {
+				if action, ok := scheduleOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}); ok {
+					action.TypedSearchAttributes = userAction.TypedSearchAttributes
+				}
+			}
 		}
 		if providedOptions.Paused {
 			scheduleOptions.Paused = providedOptions.Paused
@@ -540,8 +550,18 @@ func (c *{{.Service.GetClientName}}) UpsertSchedule{{.GoName}}(ctx {{Context}}, 
 		if providedOptions.Spec.TimeZoneName != "" {
 			scheduleOptions.Spec.TimeZoneName = providedOptions.Spec.TimeZoneName
 		}
+		if providedOptions.TypedSearchAttributes.Size() > 0 {
+			scheduleOptions.TypedSearchAttributes = providedOptions.TypedSearchAttributes
+		}
 		if providedOptions.Action != nil {
 			scheduleOptions.Action = providedOptions.Action
+		} else {
+			// Append TypedSearchAttributes from user options to the Action if provided
+			if userAction, ok := providedOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}); ok && userAction != nil && userAction.TypedSearchAttributes.Size() > 0 {
+				if action, ok := scheduleOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}); ok {
+					action.TypedSearchAttributes = userAction.TypedSearchAttributes
+				}
+			}
 		}
 		if providedOptions.Note != "" {
 			scheduleOptions.Note = providedOptions.Note
@@ -591,6 +611,7 @@ func (c *{{.Service.GetClientName}}) UpsertSchedule{{.GoName}}(ctx {{Context}}, 
 			}
 			return &{{TemporalClient "ScheduleUpdate"}}{
 				Schedule: &schedule,
+				TypedSearchAttributes: &scheduleOptions.TypedSearchAttributes,
 			}, nil
 		},
 	})
