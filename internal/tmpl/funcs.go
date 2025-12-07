@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 // FuncMap: Returns the template function map
@@ -27,6 +29,14 @@ func FuncMap(gf *protogen.GeneratedFile) template.FuncMap {
 		"WorkflowObjectName":      workflowObjectName,
 		"ChildWorkflowObjectName": childWorkflowObjectName,
 		"commentOneLine":          commentOneLine,
+		"MakeAnchor":              makeAnchor,
+		"TrimComment":             trimComment,
+		"FormatDuration":          formatDuration,
+		"FormatFloat":             formatFloat,
+		"FormatStringSlice":       formatStringSlice,
+		"Cardinality":             cardinalityToString,
+		"DeprecatedIcon":          deprecatedIcon,
+		"FullName":                fullNameToString,
 	}
 }
 
@@ -80,4 +90,74 @@ func commentOneLine(s string) string {
 	// Collapse multiple spaces
 	parts := strings.Fields(s)
 	return strings.Join(parts, " ")
+}
+
+// makeAnchor: Creates a markdown-safe anchor identifier
+func makeAnchor(parts ...string) string {
+	in := strings.Join(parts, ":")
+	replaced := ":.-"
+	for _, r := range replaced {
+		in = strings.ReplaceAll(in, string(r), "_")
+	}
+	return in
+}
+
+// trimComment: Trims comment formatting from protobuf comments
+func trimComment(comment interface{}) string {
+	var s string
+	switch v := comment.(type) {
+	case string:
+		s = v
+	case protogen.Comments:
+		s = string(v)
+	default:
+		return ""
+	}
+	s = strings.TrimPrefix(s, "//")
+	return strings.TrimSpace(s)
+}
+
+// formatDuration: Formats an int64 seconds value as a duration string
+func formatDuration(seconds interface{}) string {
+	s := toSeconds(seconds)
+	d := time.Duration(s) * time.Second
+	return d.String()
+}
+
+// formatFloat: Formats a float64 value
+func formatFloat(f float64) string {
+	return fmt.Sprintf("%f", f)
+}
+
+// formatStringSlice: Formats a string slice as a bracketed list
+func formatStringSlice(slice []string) string {
+	return fmt.Sprintf("%v", slice)
+}
+
+// cardinalityToString: Converts protoreflect.Cardinality to string
+func cardinalityToString(c protoreflect.Cardinality) string {
+	switch c {
+	case protoreflect.Repeated:
+		return "Repeated"
+	case protoreflect.Optional:
+		return "Optional"
+	case protoreflect.Required:
+		return "Required"
+	}
+	return "Invalid cardinality"
+}
+
+// deprecatedIcon: Returns an icon indicating if a field is deprecated
+func deprecatedIcon(opts interface{}) string {
+	if fieldOpts, ok := opts.(*descriptorpb.FieldOptions); ok && fieldOpts != nil {
+		if fieldOpts.GetDeprecated() {
+			return "🗿"
+		}
+	}
+	return "✅"
+}
+
+// fullNameToString: Converts protoreflect.FullName to string
+func fullNameToString(name protoreflect.FullName) string {
+	return string(name)
 }

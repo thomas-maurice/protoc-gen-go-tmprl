@@ -7,7 +7,6 @@ import (
 	"go/format"
 
 	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1"
-	"github.com/thomas-maurice/protoc-gen-go-tmprl/internal/generator"
 	"github.com/thomas-maurice/protoc-gen-go-tmprl/internal/model"
 	"github.com/thomas-maurice/protoc-gen-go-tmprl/internal/renderer"
 	"github.com/thomas-maurice/protoc-gen-go-tmprl/internal/version"
@@ -146,16 +145,10 @@ func generateReadme(plugin *protogen.Plugin, file *protogen.File, config *model.
 		return nil
 	}
 
-	// Use old generator for now
+	// Use template-based renderer for documentation
 	gen := plugin.NewGeneratedFile(filename, file.GoImportPath)
 	gen.P(`<a id="top"></a>`)
 	gen.P("# Services")
-
-	// Convert to old config type for backward compatibility
-	oldConfig := &generator.Config{
-		GenWorkflowPrefix:              config.GenWorkflowPrefix,
-		DefaultActivityScheduleToClose: config.DefaultActivityScheduleToClose,
-	}
 
 	for _, s := range file.Services {
 		if so, ok := proto.GetExtension(s.Desc.Options(), temporalv1.E_Service).(*temporalv1.ServiceOptions); !ok || so == nil {
@@ -163,18 +156,41 @@ func generateReadme(plugin *protogen.Plugin, file *protogen.File, config *model.
 			continue
 		}
 
-		err := generator.ReadmeService(gen, s, oldConfig)
+		// Create service model
+		service, err := model.NewService(s, gen, config)
 		if err != nil {
 			return err
 		}
+
+		// Create renderer
+		renderer, err := renderer.NewRenderer(gen)
+		if err != nil {
+			return err
+		}
+
+		// Render documentation
+		doc, err := renderer.RenderDocumentation(service)
+		if err != nil {
+			return err
+		}
+
+		gen.P(doc)
 	}
 
 	gen.P("# Messages")
+
+	// Create renderer for messages (reuse from last service)
+	renderer, err := renderer.NewRenderer(gen)
+	if err != nil {
+		return err
+	}
+
 	for _, m := range file.Messages {
-		err := generator.ReadmeMessage(gen, m, oldConfig)
+		msgDoc, err := renderer.RenderMessageDocumentation(m)
 		if err != nil {
 			return err
 		}
+		gen.P(msgDoc)
 	}
 
 	gen.P("\n\n[Back to top](#top)")

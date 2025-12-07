@@ -53,3 +53,23 @@ func (r *Renderer) RenderAll(service *model.Service) (string, error) {
 	}
 	return buf.String(), nil
 }
+
+// RenderDocumentation: Renders markdown documentation for a service
+func (r *Renderer) RenderDocumentation(service *model.Service) (string, error) {
+	var buf bytes.Buffer
+	err := r.templates.ExecuteTemplate(&buf, "documentation.tmpl", service)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute documentation template: %w", err)
+	}
+	return buf.String(), nil
+}
+
+// RenderMessageDocumentation: Renders markdown documentation for a message
+func (r *Renderer) RenderMessageDocumentation(message *protogen.Message) (string, error) {
+	var buf bytes.Buffer
+	err := r.templates.ExecuteTemplate(&buf, "message.tmpl", message)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute message template: %w", err)
+	}
+	return buf.String(), nil
+}

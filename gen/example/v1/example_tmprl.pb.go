@@ -991,27 +991,27 @@ func (c *DieRollClient) GetParentWorkflowFromRun(future client.WorkflowRun) *Die
 	}
 }
 
-// Cancel: cancels a given workflow
+// Cancel cancels a given workflow
 func (w *DieRollParentWorkflow) Cancel(ctx context.Context) error {
 	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
 }
 
-// GetID: Returns the workflow ID
+// GetID Returns the workflow ID
 func (w *DieRollParentWorkflow) GetID() string {
 	return w.future.GetID()
 }
 
-// GetRunID: Returns the run ID
+// GetRunID Returns the run ID
 func (w *DieRollParentWorkflow) GetRunID() string {
 	return w.future.GetRunID()
 }
 
-// Terminate: terminates a given workflow
+// Terminate terminates a given workflow
 func (w *DieRollParentWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
 }
 
-// Result: gets the result of a given workflow with its native type
+// Result gets the result of a given workflow with its native type
 func (w *DieRollParentWorkflow) Result(ctx context.Context) (*ParentWorkflowReply, error) {
 	var resp *ParentWorkflowReply
 
@@ -1035,12 +1035,12 @@ func (w *DieRollParentWorkflow) ResultWithOptions(ctx context.Context, options c
 	return resp, nil
 }
 
-// Get: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollParentWorkflow) Get(ctx context.Context, valuePtr interface{}) error {
 	return w.future.Get(ctx, valuePtr)
 }
 
-// GetWithOptions: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// GetWithOptions gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollParentWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
 	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
@@ -1081,7 +1081,7 @@ func (w *ChildDieRollParentWorkflowExecution) Get(ctx workflow.Context, valuePtr
 	return w.future.Get(ctx, valuePtr)
 }
 
-// GetChildWorkflowExecution: Wraps the GetChildWorkflowExecution and returns an workflow.Future
+// GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
 func (w *ChildDieRollParentWorkflowExecution) GetChildWorkflowExecution() workflow.Future {
 	return w.future
 }
@@ -1131,27 +1131,27 @@ func (c *DieRollClient) GetChildWorkflowFromRun(future client.WorkflowRun) *DieR
 	}
 }
 
-// Cancel: cancels a given workflow
+// Cancel cancels a given workflow
 func (w *DieRollChildWorkflow) Cancel(ctx context.Context) error {
 	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
 }
 
-// GetID: Returns the workflow ID
+// GetID Returns the workflow ID
 func (w *DieRollChildWorkflow) GetID() string {
 	return w.future.GetID()
 }
 
-// GetRunID: Returns the run ID
+// GetRunID Returns the run ID
 func (w *DieRollChildWorkflow) GetRunID() string {
 	return w.future.GetRunID()
 }
 
-// Terminate: terminates a given workflow
+// Terminate terminates a given workflow
 func (w *DieRollChildWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
 }
 
-// Result: gets the result of a given workflow with its native type
+// Result gets the result of a given workflow with its native type
 func (w *DieRollChildWorkflow) Result(ctx context.Context) (*emptypb.Empty, error) {
 	var resp *emptypb.Empty
 
@@ -1175,12 +1175,12 @@ func (w *DieRollChildWorkflow) ResultWithOptions(ctx context.Context, options cl
 	return resp, nil
 }
 
-// Get: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollChildWorkflow) Get(ctx context.Context, valuePtr interface{}) error {
 	return w.future.Get(ctx, valuePtr)
 }
 
-// GetWithOptions: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// GetWithOptions gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollChildWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
 	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
@@ -1216,7 +1216,7 @@ func (w *ChildDieRollChildWorkflowExecution) Get(ctx workflow.Context, valuePtr 
 	return w.future.Get(ctx, valuePtr)
 }
 
-// GetChildWorkflowExecution: Wraps the GetChildWorkflowExecution and returns an workflow.Future
+// GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
 func (w *ChildDieRollChildWorkflowExecution) GetChildWorkflowExecution() workflow.Future {
 	return w.future
 }
@@ -1261,27 +1261,27 @@ func (c *DieRollClient) GetThrowDiesFromRun(future client.WorkflowRun) *DieRollT
 	}
 }
 
-// Cancel: cancels a given workflow
+// Cancel cancels a given workflow
 func (w *DieRollThrowDies) Cancel(ctx context.Context) error {
 	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
 }
 
-// GetID: Returns the workflow ID
+// GetID Returns the workflow ID
 func (w *DieRollThrowDies) GetID() string {
 	return w.future.GetID()
 }
 
-// GetRunID: Returns the run ID
+// GetRunID Returns the run ID
 func (w *DieRollThrowDies) GetRunID() string {
 	return w.future.GetRunID()
 }
 
-// Terminate: terminates a given workflow
+// Terminate terminates a given workflow
 func (w *DieRollThrowDies) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
 }
 
-// Result: gets the result of a given workflow with its native type
+// Result gets the result of a given workflow with its native type
 func (w *DieRollThrowDies) Result(ctx context.Context) (*ThrowDiesResponse, error) {
 	var resp *ThrowDiesResponse
 
@@ -1305,12 +1305,12 @@ func (w *DieRollThrowDies) ResultWithOptions(ctx context.Context, options client
 	return resp, nil
 }
 
-// Get: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollThrowDies) Get(ctx context.Context, valuePtr interface{}) error {
 	return w.future.Get(ctx, valuePtr)
 }
 
-// GetWithOptions: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// GetWithOptions gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollThrowDies) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
 	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
@@ -1351,7 +1351,7 @@ func (w *ChildDieRollThrowDiesExecution) Get(ctx workflow.Context, valuePtr inte
 	return w.future.Get(ctx, valuePtr)
 }
 
-// GetChildWorkflowExecution: Wraps the GetChildWorkflowExecution and returns an workflow.Future
+// GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
 func (w *ChildDieRollThrowDiesExecution) GetChildWorkflowExecution() workflow.Future {
 	return w.future
 }
@@ -1401,27 +1401,27 @@ func (c *DieRollClient) GetThrowUntilValueFromRun(future client.WorkflowRun) *Di
 	}
 }
 
-// Cancel: cancels a given workflow
+// Cancel cancels a given workflow
 func (w *DieRollThrowUntilValue) Cancel(ctx context.Context) error {
 	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
 }
 
-// GetID: Returns the workflow ID
+// GetID Returns the workflow ID
 func (w *DieRollThrowUntilValue) GetID() string {
 	return w.future.GetID()
 }
 
-// GetRunID: Returns the run ID
+// GetRunID Returns the run ID
 func (w *DieRollThrowUntilValue) GetRunID() string {
 	return w.future.GetRunID()
 }
 
-// Terminate: terminates a given workflow
+// Terminate terminates a given workflow
 func (w *DieRollThrowUntilValue) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
 }
 
-// Result: gets the result of a given workflow with its native type
+// Result gets the result of a given workflow with its native type
 func (w *DieRollThrowUntilValue) Result(ctx context.Context) (*emptypb.Empty, error) {
 	var resp *emptypb.Empty
 
@@ -1445,12 +1445,12 @@ func (w *DieRollThrowUntilValue) ResultWithOptions(ctx context.Context, options 
 	return resp, nil
 }
 
-// Get: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollThrowUntilValue) Get(ctx context.Context, valuePtr interface{}) error {
 	return w.future.Get(ctx, valuePtr)
 }
 
-// GetWithOptions: gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+// GetWithOptions gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
 func (w *DieRollThrowUntilValue) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
 	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
@@ -1502,7 +1502,7 @@ func (w *ChildDieRollThrowUntilValueExecution) Get(ctx workflow.Context, valuePt
 	return w.future.Get(ctx, valuePtr)
 }
 
-// GetChildWorkflowExecution: Wraps the GetChildWorkflowExecution and returns an workflow.Future
+// GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
 func (w *ChildDieRollThrowUntilValueExecution) GetChildWorkflowExecution() workflow.Future {
 	return w.future
 }

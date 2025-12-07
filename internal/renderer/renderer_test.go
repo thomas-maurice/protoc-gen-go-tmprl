@@ -25,6 +25,14 @@ func TestTemplatesParse(t *testing.T) {
 		"WorkflowObjectName":      func(service, method string) string { return "" },
 		"ChildWorkflowObjectName": func(service, method string) string { return "" },
 		"commentOneLine":          func(s string) string { return "" },
+		"MakeAnchor":              func(parts ...string) string { return "" },
+		"TrimComment":             func(comment interface{}) string { return "" },
+		"FormatDuration":          func(seconds interface{}) string { return "" },
+		"FormatFloat":             func(f float64) string { return "" },
+		"FormatStringSlice":       func(slice []string) string { return "" },
+		"Cardinality":             func(c interface{}) string { return "" },
+		"DeprecatedIcon":          func(opts interface{}) string { return "" },
+		"FullName":                func(name interface{}) string { return "" },
 	}
 
 	tmpl, err := template.New("").Funcs(funcMap).ParseFS(templatesFS, "templates/*.tmpl")

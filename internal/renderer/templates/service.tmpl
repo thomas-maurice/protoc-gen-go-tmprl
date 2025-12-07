@@ -920,7 +920,7 @@ func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) Get(ctx {{Temporal
 	return w.future.Get(ctx, valuePtr)
 }
 
-// GetChildWorkflowExecution: Wraps the GetChildWorkflowExecution and returns an workflow.Future
+// GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
 func (w *{{ChildWorkflowObjectName .Service.GoName .GoName}}) GetChildWorkflowExecution() {{TemporalWorkflow "Future"}} {
 	return w.future
 }
