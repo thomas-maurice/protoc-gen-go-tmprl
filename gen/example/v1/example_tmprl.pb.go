@@ -11,8 +11,6 @@ package examplev1
 import (
 	context "context"
 	fmt "fmt"
-	time "time"
-
 	uuid "github.com/google/uuid"
 	activity "go.temporal.io/sdk/activity"
 	client "go.temporal.io/sdk/client"
@@ -20,6 +18,7 @@ import (
 	worker "go.temporal.io/sdk/worker"
 	workflow "go.temporal.io/sdk/workflow"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	time "time"
 )
 
 // Constants for DieRoll service
