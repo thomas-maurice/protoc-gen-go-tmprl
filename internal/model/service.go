@@ -153,6 +153,30 @@ func (s *Service) GetDefaultActivityTimeoutConstName() string {
 	return fmt.Sprintf("Default%sActivityScheduleToCloseTimeout", s.GoName)
 }
 
+// HasScheduledWorkflows: Reports whether any workflow in the service declares
+// a cron_schedule, controlling emission of the shared schedule helper funcs.
+func (s *Service) HasScheduledWorkflows() bool {
+	for _, w := range s.Workflows {
+		if w.Options != nil && w.Options.CronSchedule != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// GetScheduleMergeFuncName: Returns the name of the per-service helper that
+// merges user-supplied client.ScheduleOptions into a base struct.
+func (s *Service) GetScheduleMergeFuncName() string {
+	return fmt.Sprintf("mergeScheduleOptions%s", s.GoName)
+}
+
+// GetScheduleDefaultsFuncName: Returns the name of the per-service helper
+// that applies the default cron expression and task queue to a
+// client.ScheduleOptions if they weren't explicitly set.
+func (s *Service) GetScheduleDefaultsFuncName() string {
+	return fmt.Sprintf("applyScheduleDefaults%s", s.GoName)
+}
+
 // getServiceComment: Extracts comments from protobuf service
 func getServiceComment(service *protogen.Service) string {
 	if service.Comments.Leading != "" {

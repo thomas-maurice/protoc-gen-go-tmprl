@@ -127,3 +127,181 @@ func TestCommentOneLine(t *testing.T) {
 		})
 	}
 }
+
+// TestCommentBlock: Tests conversion of proto comments to multi-line Go doc blocks
+func TestCommentBlock(t *testing.T) {
+	tests := []struct {
+		name     string
+		indent   string
+		input    string
+		expected string
+	}{
+		{
+			name:     "empty input",
+			indent:   "",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "whitespace only input",
+			indent:   "\t",
+			input:    "   \n   \n",
+			expected: "",
+		},
+		{
+			name:     "single line",
+			indent:   "",
+			input:    " Throws a d6 and returns the result",
+			expected: "// Throws a d6 and returns the result",
+		},
+		{
+			name:     "single line with tab indent",
+			indent:   "\t",
+			input:    " Throws a d6",
+			expected: "\t// Throws a d6",
+		},
+		{
+			name:     "multi line preserves newlines",
+			indent:   "",
+			input:    " First line\n Second line\n Third line",
+			expected: "// First line\n// Second line\n// Third line",
+		},
+		{
+			name:     "blank proto lines become bare //",
+			indent:   "",
+			input:    " Para one\n\n Para two",
+			expected: "// Para one\n//\n// Para two",
+		},
+		{
+			name:   "code fence preserved",
+			indent: "",
+			input: " Description\n" +
+				" ```golang\n" +
+				" func main() {}\n" +
+				" ```",
+			expected: "// Description\n" +
+				"// ```golang\n" +
+				"// func main() {}\n" +
+				"// ```",
+		},
+		{
+			name:     "strips trailing whitespace per line",
+			indent:   "",
+			input:    " trailing spaces   \n another  ",
+			expected: "// trailing spaces\n// another",
+		},
+		{
+			name:     "CRLF is normalised",
+			indent:   "",
+			input:    " line1\r\n line2",
+			expected: "// line1\n// line2",
+		},
+		{
+			name:     "no double space when leading space already stripped",
+			indent:   "",
+			input:    "no leading space",
+			expected: "// no leading space",
+		},
+		{
+			name:     "surrounding blank lines trimmed",
+			indent:   "",
+			input:    "\n\n real\n\n",
+			expected: "// real",
+		},
+		{
+			name:     "indent applied to every line",
+			indent:   "    ",
+			input:    " one\n\n two",
+			expected: "    // one\n    //\n    // two",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := commentBlock(tt.indent, tt.input)
+			if result != tt.expected {
+				t.Errorf("commentBlock(%q, %q) =\n%q\nexpected\n%q",
+					tt.indent, tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestDocComment: Tests Go-convention doc comment rendering with a name prefix
+func TestDocComment(t *testing.T) {
+	tests := []struct {
+		name     string
+		indent   string
+		ident    string
+		body     string
+		expected string
+	}{
+		{
+			name:     "name only, no body",
+			ident:    "ThrowDies",
+			expected: "// ThrowDies",
+		},
+		{
+			name:     "name only, whitespace body",
+			ident:    "ThrowDies",
+			body:     "   \n\n",
+			expected: "// ThrowDies",
+		},
+		{
+			name:     "name with single line body",
+			ident:    "ThrowDies",
+			body:     " Throws dies a few times",
+			expected: "// ThrowDies Throws dies a few times",
+		},
+		{
+			name:     "name with multi-line body",
+			ident:    "Ping",
+			body:     " Just a simple ping\n Takes no parameters\n returns nothing",
+			expected: "// Ping Just a simple ping\n// Takes no parameters\n// returns nothing",
+		},
+		{
+			name:   "name with body containing blank line and code fence",
+			ident:  "DieRoll",
+			indent: "",
+			body: " Description\n" +
+				"\n" +
+				" ```golang\n" +
+				" foo()\n" +
+				" ```",
+			expected: "// DieRoll Description\n" +
+				"//\n" +
+				"// ```golang\n" +
+				"// foo()\n" +
+				"// ```",
+		},
+		{
+			name:     "tab indent applied to every line",
+			indent:   "\t",
+			ident:    "ThrowDies",
+			body:     " first\n second",
+			expected: "\t// ThrowDies first\n\t// second",
+		},
+		{
+			name:     "empty name emits plain block",
+			ident:    "",
+			body:     " just text\n and more",
+			expected: "// just text\n// and more",
+		},
+		{
+			name:     "empty name and empty body returns empty",
+			ident:    "",
+			body:     "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := docComment(tt.indent, tt.ident, tt.body)
+			if result != tt.expected {
+				t.Errorf("docComment(%q, %q, %q) =\n%q\nexpected\n%q",
+					tt.indent, tt.ident, tt.body, result, tt.expected)
+			}
+		})
+	}
+}

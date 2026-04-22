@@ -29,7 +29,7 @@ test: test-unit
 .PHONY: test-unit
 test-unit:
 	@echo "Running unit tests with race detection and coverage..."
-	@go test -race -cover ./internal/...
+	@go test -race -cover ./internal/... ./gen/...
 
 .PHONY: clean
 clean:

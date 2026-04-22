@@ -58,14 +58,18 @@ const (
 ============================================================================ */}}
 
 // {{.GetServiceInterfaceName}} Interface that must be implemented to register workflows and activities
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 type {{.GetServiceInterfaceName}} interface {
 	{{- range .Workflows}}
-	// {{.GoName}} {{commentOneLine .Comment}}
+{{docComment "\t" .GoName .Comment}}
 	{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error)
 	{{- end}}
 
 	{{- range .Activities}}
-	// {{.GoName}} {{commentOneLine .Comment}}
+{{docComment "\t" .GoName .Comment}}
 	{{.GoName}}(ctx {{Context}}, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error)
 	{{- end}}
 }
@@ -122,6 +126,10 @@ func New{{.GetClientName}}(client {{TemporalClient "Client"}}, taskQueue ...stri
 {{- range .Workflows}}
 
 // ExecuteWorkflow{{.GoName}} executes the workflow and returns a future to it
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) ExecuteWorkflow{{.GoName}}(ctx {{Context}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalClient "StartWorkflowOptions"}}) ({{TemporalClient "WorkflowRun"}}, error) {
 	wOptions := {{TemporalClient "StartWorkflowOptions"}}{}
 	if len(options) > 0 {
@@ -189,7 +197,11 @@ func (c *{{.Service.GetClientName}}) ExecuteWorkflow{{.GoName}}(ctx {{Context}},
 	return c.client.ExecuteWorkflow(ctx, wOptions, Workflow{{.GoName}}Name, req)
 }
 
-// ExecuteWorkflow{{.GoName}}Sync: executes the workflow and returns the result when finished
+// ExecuteWorkflow{{.GoName}}Sync executes the workflow and returns the result when finished
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) ExecuteWorkflow{{.GoName}}Sync(ctx {{Context}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalClient "StartWorkflowOptions"}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
 	future, err := c.ExecuteWorkflow{{.GoName}}(ctx, req, options...)
 	if err != nil {
@@ -219,6 +231,10 @@ func (c *{{.Service.GetClientName}}) GetWorkflow{{.GoName}}Result(ctx {{Context}
 }
 
 // ExecuteChild{{.GoName}} executes the workflow as a child workflow and returns a future to it
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) ExecuteChild{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalWorkflow "ChildWorkflowOptions"}}) ({{TemporalWorkflow "ChildWorkflowFuture"}}, error) {
 	wOptions := {{TemporalWorkflow "ChildWorkflowOptions"}}{}
 	if len(options) > 0 {
@@ -298,7 +314,11 @@ func (c *{{.Service.GetClientName}}) ExecuteChild{{.GoName}}(ctx {{TemporalWorkf
 	return {{TemporalWorkflow "ExecuteChildWorkflow"}}({{TemporalWorkflow "WithChildOptions"}}(ctx, wOptions), Workflow{{.GoName}}Name, req), nil
 }
 
-// ExecuteChild{{.GoName}}Sync: executes the workflow as a child workflow and returns the result when finished
+// ExecuteChild{{.GoName}}Sync executes the workflow as a child workflow and returns the result when finished
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) ExecuteChild{{.GoName}}Sync(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalWorkflow "ChildWorkflowOptions"}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
 	future, err := c.ExecuteChild{{.GoName}}(ctx, req, options...)
 	if err != nil {
@@ -316,7 +336,11 @@ func (c *{{.Service.GetClientName}}) ExecuteChild{{.GoName}}Sync(ctx {{TemporalW
 
 {{if .Options.CronSchedule}}
 
-// CreateSchedule{{.GoName}} Creates a schedule for {{.GoName}}
+// CreateSchedule{{.GoName}} creates a schedule for {{.GoName}}
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) CreateSchedule{{.GoName}}(ctx {{Context}}, scheduleID string, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalClient "ScheduleOptions"}}) ({{TemporalClient "ScheduleHandle"}}, error) {
 	scheduleOptions := {{TemporalClient "ScheduleOptions"}}{
 		ID: scheduleID,
@@ -360,90 +384,79 @@ func (c *{{.Service.GetClientName}}) CreateSchedule{{.GoName}}(ctx {{Context}}, 
 		},
 	}
 
-	// Apply user-provided options
 	if len(options) > 0 {
-		providedOptions := options[0]
-		if providedOptions.ID != "" {
-			scheduleOptions.ID = providedOptions.ID
-		}
-		if providedOptions.Spec.CronExpressions != nil {
-			scheduleOptions.Spec.CronExpressions = providedOptions.Spec.CronExpressions
-		}
-		if providedOptions.Spec.Calendars != nil {
-			scheduleOptions.Spec.Calendars = providedOptions.Spec.Calendars
-		}
-		if providedOptions.Spec.Intervals != nil {
-			scheduleOptions.Spec.Intervals = providedOptions.Spec.Intervals
-		}
-		if providedOptions.Spec.Skip != nil {
-			scheduleOptions.Spec.Skip = providedOptions.Spec.Skip
-		}
-		if !providedOptions.Spec.StartAt.IsZero() {
-			scheduleOptions.Spec.StartAt = providedOptions.Spec.StartAt
-		}
-		if !providedOptions.Spec.EndAt.IsZero() {
-			scheduleOptions.Spec.EndAt = providedOptions.Spec.EndAt
-		}
-		if providedOptions.Spec.Jitter != 0 {
-			scheduleOptions.Spec.Jitter = providedOptions.Spec.Jitter
-		}
-		if providedOptions.Spec.TimeZoneName != "" {
-			scheduleOptions.Spec.TimeZoneName = providedOptions.Spec.TimeZoneName
-		}
-		if providedOptions.TypedSearchAttributes.Size() > 0 {
-			scheduleOptions.TypedSearchAttributes = providedOptions.TypedSearchAttributes
-		}
-		if providedOptions.Action != nil {
-			scheduleOptions.Action = providedOptions.Action
-		} else {
-			// Append TypedSearchAttributes from user options to the Action if provided
-			if userAction, ok := providedOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}); ok && userAction != nil && userAction.TypedSearchAttributes.Size() > 0 {
-				if action, ok := scheduleOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}); ok {
-					action.TypedSearchAttributes = userAction.TypedSearchAttributes
-				}
-			}
-		}
-		if providedOptions.Paused {
-			scheduleOptions.Paused = providedOptions.Paused
-		}
-		if providedOptions.Note != "" {
-			scheduleOptions.Note = providedOptions.Note
-		}
-		if providedOptions.Overlap != 0 {
-			scheduleOptions.Overlap = providedOptions.Overlap
-		}
-		if providedOptions.CatchupWindow != 0 {
-			scheduleOptions.CatchupWindow = providedOptions.CatchupWindow
-		}
-		if providedOptions.PauseOnFailure {
-			scheduleOptions.PauseOnFailure = providedOptions.PauseOnFailure
-		}
+		{{.Service.GetScheduleMergeFuncName}}(&scheduleOptions, options[0], true)
 	}
-
-	// Use default cron schedule if no Spec was provided
-	if scheduleOptions.Spec.CronExpressions == nil && scheduleOptions.Spec.Calendars == nil && scheduleOptions.Spec.Intervals == nil {
-		scheduleOptions.Spec.CronExpressions = []string{ {{Quote .Options.CronSchedule}} }
-	}
-
-	if scheduleOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}).TaskQueue == "" {
-		scheduleOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}).TaskQueue = {{.Service.GetDefaultTaskQueueConstName}}
-	}
+	{{.Service.GetScheduleDefaultsFuncName}}(&scheduleOptions, {{Quote .Options.CronSchedule}}, {{.Service.GetDefaultTaskQueueConstName}})
 
 	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
 }
 
-// GetSchedule{{.GoName}} Gets a handle to an existing schedule for {{.GoName}}
+// GetSchedule{{.GoName}} gets a handle to an existing schedule for {{.GoName}}
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) GetSchedule{{.GoName}}(ctx {{Context}}, scheduleID string) {{TemporalClient "ScheduleHandle"}} {
 	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 }
 
-// DeleteSchedule{{.GoName}} Deletes a schedule for {{.GoName}}
+// DeleteSchedule{{.GoName}} deletes a schedule for {{.GoName}}
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) DeleteSchedule{{.GoName}}(ctx {{Context}}, scheduleID string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	return handle.Delete(ctx)
 }
 
-// ListSchedule{{.GoName}} Lists all schedules for {{.GoName}} workflow
+// PauseSchedule{{.GoName}} pauses a running schedule for {{.GoName}}. The note is
+// recorded by Temporal on the schedule's audit trail (visible via Describe). If
+// the schedule is already paused this is a no-op: we Describe first and skip the
+// Pause API call when .Schedule.State.Paused is already true, so it's safe to
+// call on every reconcile/bootstrap path without spamming the server.
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
+func (c *{{.Service.GetClientName}}) PauseSchedule{{.GoName}}(ctx {{Context}}, scheduleID string, note string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return err
+	}
+	if desc.Schedule.State != nil && desc.Schedule.State.Paused {
+		return nil
+	}
+	return handle.Pause(ctx, {{TemporalClient "SchedulePauseOptions"}}{Note: note})
+}
+
+// UnpauseSchedule{{.GoName}} resumes a paused schedule for {{.GoName}}. Like
+// PauseSchedule{{.GoName}}, this is a read-then-write: we Describe first and
+// return nil if the schedule is already running, so idempotent bootstrap code
+// doesn't pay an extra Unpause round-trip per reconcile tick.
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
+func (c *{{.Service.GetClientName}}) UnpauseSchedule{{.GoName}}(ctx {{Context}}, scheduleID string, note string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return err
+	}
+	if desc.Schedule.State == nil || !desc.Schedule.State.Paused {
+		return nil
+	}
+	return handle.Unpause(ctx, {{TemporalClient "ScheduleUnpauseOptions"}}{Note: note})
+}
+
+// ListSchedule{{.GoName}} lists all schedules for {{.GoName}} workflow
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) ListSchedule{{.GoName}}(ctx {{Context}}, pageSize int) ([]{{TemporalClient "ScheduleListEntry"}}, error) {
 	var schedules []{{TemporalClient "ScheduleListEntry"}}
 
@@ -469,7 +482,11 @@ func (c *{{.Service.GetClientName}}) ListSchedule{{.GoName}}(ctx {{Context}}, pa
 	return schedules, nil
 }
 
-// UpsertSchedule{{.GoName}} Creates or updates a schedule for {{.GoName}}
+// UpsertSchedule{{.GoName}} creates or updates a schedule for {{.GoName}}
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) UpsertSchedule{{.GoName}}(ctx {{Context}}, scheduleID string, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalClient "ScheduleOptions"}}) ({{TemporalClient "ScheduleHandle"}}, error) {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 
@@ -523,68 +540,12 @@ func (c *{{.Service.GetClientName}}) UpsertSchedule{{.GoName}}(ctx {{Context}}, 
 		},
 	}
 
-	// Apply user-provided options
 	if len(options) > 0 {
-		providedOptions := options[0]
-		if providedOptions.Spec.CronExpressions != nil {
-			scheduleOptions.Spec.CronExpressions = providedOptions.Spec.CronExpressions
-		}
-		if providedOptions.Spec.Calendars != nil {
-			scheduleOptions.Spec.Calendars = providedOptions.Spec.Calendars
-		}
-		if providedOptions.Spec.Intervals != nil {
-			scheduleOptions.Spec.Intervals = providedOptions.Spec.Intervals
-		}
-		if providedOptions.Spec.Skip != nil {
-			scheduleOptions.Spec.Skip = providedOptions.Spec.Skip
-		}
-		if !providedOptions.Spec.StartAt.IsZero() {
-			scheduleOptions.Spec.StartAt = providedOptions.Spec.StartAt
-		}
-		if !providedOptions.Spec.EndAt.IsZero() {
-			scheduleOptions.Spec.EndAt = providedOptions.Spec.EndAt
-		}
-		if providedOptions.Spec.Jitter != 0 {
-			scheduleOptions.Spec.Jitter = providedOptions.Spec.Jitter
-		}
-		if providedOptions.Spec.TimeZoneName != "" {
-			scheduleOptions.Spec.TimeZoneName = providedOptions.Spec.TimeZoneName
-		}
-		if providedOptions.TypedSearchAttributes.Size() > 0 {
-			scheduleOptions.TypedSearchAttributes = providedOptions.TypedSearchAttributes
-		}
-		if providedOptions.Action != nil {
-			scheduleOptions.Action = providedOptions.Action
-		} else {
-			// Append TypedSearchAttributes from user options to the Action if provided
-			if userAction, ok := providedOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}); ok && userAction != nil && userAction.TypedSearchAttributes.Size() > 0 {
-				if action, ok := scheduleOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}); ok {
-					action.TypedSearchAttributes = userAction.TypedSearchAttributes
-				}
-			}
-		}
-		if providedOptions.Note != "" {
-			scheduleOptions.Note = providedOptions.Note
-		}
-		if providedOptions.Overlap != 0 {
-			scheduleOptions.Overlap = providedOptions.Overlap
-		}
-		if providedOptions.CatchupWindow != 0 {
-			scheduleOptions.CatchupWindow = providedOptions.CatchupWindow
-		}
-		if providedOptions.PauseOnFailure {
-			scheduleOptions.PauseOnFailure = providedOptions.PauseOnFailure
-		}
+		// Upsert never flips Paused on a running schedule; everything else merges
+		// identically to CreateSchedule.
+		{{.Service.GetScheduleMergeFuncName}}(&scheduleOptions, options[0], false)
 	}
-
-	// Use default cron schedule if no Spec was provided
-	if scheduleOptions.Spec.CronExpressions == nil && scheduleOptions.Spec.Calendars == nil && scheduleOptions.Spec.Intervals == nil {
-		scheduleOptions.Spec.CronExpressions = []string{ {{Quote .Options.CronSchedule}} }
-	}
-
-	if scheduleOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}).TaskQueue == "" {
-		scheduleOptions.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}).TaskQueue = {{.Service.GetDefaultTaskQueueConstName}}
-	}
+	{{.Service.GetScheduleDefaultsFuncName}}(&scheduleOptions, {{Quote .Options.CronSchedule}}, {{.Service.GetDefaultTaskQueueConstName}})
 
 	// Update the schedule
 	err = handle.Update(ctx, {{TemporalClient "ScheduleUpdateOptions"}}{
@@ -625,6 +586,87 @@ func (c *{{.Service.GetClientName}}) UpsertSchedule{{.GoName}}(ctx {{Context}}, 
 {{- end}}
 
 {{- /* ----------------------------------------------------------------------------
+    SECTION 3.1.1: SCHEDULE HELPER FUNCTIONS (per-service, emitted once)
+    Only emitted when at least one workflow declares a cron_schedule.
+    The helpers are per-service so multiple services in the same package
+    don't clash on shared top-level identifiers.
+---------------------------------------------------------------------------- */ -}}
+{{- if .HasScheduledWorkflows}}
+
+// {{.GetScheduleMergeFuncName}} merges user-supplied schedule options into the
+// base struct built by the generated CreateSchedule/UpsertSchedule methods. Only
+// non-zero fields on the user struct overwrite the base, so callers can pass a
+// partial client.ScheduleOptions and keep whatever defaults the generator baked
+// in. When applyPaused is true (the CreateSchedule flow) a user-supplied Paused
+// flag is honoured so schedules can be created in the paused state. Upsert
+// passes false: a bool can't distinguish "leave it alone" from "unpause me", so
+// run-state transitions are handled out of band via the per-workflow
+// PauseScheduleX / UnpauseScheduleX helpers rather than through the options
+// struct.
+func {{.GetScheduleMergeFuncName}}(base *{{TemporalClient "ScheduleOptions"}}, user {{TemporalClient "ScheduleOptions"}}, applyPaused bool) {
+	if user.Spec.CronExpressions != nil {
+		base.Spec.CronExpressions = user.Spec.CronExpressions
+	}
+	if user.Spec.Calendars != nil {
+		base.Spec.Calendars = user.Spec.Calendars
+	}
+	if user.Spec.Intervals != nil {
+		base.Spec.Intervals = user.Spec.Intervals
+	}
+	if user.Spec.Skip != nil {
+		base.Spec.Skip = user.Spec.Skip
+	}
+	if !user.Spec.StartAt.IsZero() {
+		base.Spec.StartAt = user.Spec.StartAt
+	}
+	if !user.Spec.EndAt.IsZero() {
+		base.Spec.EndAt = user.Spec.EndAt
+	}
+	if user.Spec.Jitter != 0 {
+		base.Spec.Jitter = user.Spec.Jitter
+	}
+	if user.Spec.TimeZoneName != "" {
+		base.Spec.TimeZoneName = user.Spec.TimeZoneName
+	}
+	if user.TypedSearchAttributes.Size() > 0 {
+		base.TypedSearchAttributes = user.TypedSearchAttributes
+	}
+	if user.Action != nil {
+		base.Action = user.Action
+	}
+	if user.Note != "" {
+		base.Note = user.Note
+	}
+	if user.Overlap != 0 {
+		base.Overlap = user.Overlap
+	}
+	if user.CatchupWindow != 0 {
+		base.CatchupWindow = user.CatchupWindow
+	}
+	if user.PauseOnFailure {
+		base.PauseOnFailure = user.PauseOnFailure
+	}
+	if applyPaused && user.Paused {
+		base.Paused = user.Paused
+	}
+}
+
+// {{.GetScheduleDefaultsFuncName}} fills in the generator-level defaults (cron
+// expression from the proto option and the service's default task queue) on a
+// ScheduleOptions struct whenever the caller left the relevant fields empty. It
+// runs after the merge helper so explicit caller input always wins over
+// generator defaults.
+func {{.GetScheduleDefaultsFuncName}}(opts *{{TemporalClient "ScheduleOptions"}}, defaultCron, defaultTaskQueue string) {
+	if opts.Spec.CronExpressions == nil && opts.Spec.Calendars == nil && opts.Spec.Intervals == nil {
+		opts.Spec.CronExpressions = []string{defaultCron}
+	}
+	if action, ok := opts.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}); ok && action.TaskQueue == "" {
+		action.TaskQueue = defaultTaskQueue
+	}
+}
+{{- end}}
+
+{{- /* ----------------------------------------------------------------------------
     SECTION 3.2: ACTIVITY EXECUTION METHODS
     For each activity, generate 2 methods:
     - ExecuteActivity: Async execution returning Future
@@ -633,6 +675,10 @@ func (c *{{.Service.GetClientName}}) UpsertSchedule{{.GoName}}(ctx {{Context}}, 
 {{- range .Activities}}
 
 // ExecuteActivity{{.GoName}} executes the activity asynchronously and returns a future to it
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) ExecuteActivity{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalWorkflow "ActivityOptions"}}) {{TemporalWorkflow "Future"}} {
 	var aOptions {{TemporalWorkflow "ActivityOptions"}}
 
@@ -705,6 +751,10 @@ func (c *{{.Service.GetClientName}}) ExecuteActivity{{.GoName}}(ctx {{TemporalWo
 }
 
 // ExecuteActivity{{.GoName}}Sync executes the activity synchronously and returns the result when finished
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) ExecuteActivity{{.GoName}}Sync(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalWorkflow "ActivityOptions"}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
 	aOptions := {{TemporalWorkflow "ActivityOptions"}}{
 		TaskQueue: c.taskQueue,
@@ -795,6 +845,10 @@ func (w *{{.GetWorkerName}}) Stop() {
 {{- range .Workflows}}
 
 // {{WorkflowObjectName .Service.GoName .GoName}} is a struct that wraps a workflow
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 type {{WorkflowObjectName .Service.GoName .GoName}} struct {
 	client     {{TemporalClient "Client"}}
 	future     {{TemporalClient "WorkflowRun"}}
@@ -974,18 +1028,30 @@ func (w *{{ChildWorkflowObjectName $workflow.Service.GoName $workflow.GoName}}) 
 {{- range .Signals}}
 
 // SendSignal{{.GoName}} sends the {{.GoName}} signal to a workflow
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) SendSignal{{.GoName}}(ctx {{Context}}, workflowID string, runID string, req *{{QualifiedGoIdent .Input.GoIdent}}) error {
 	return c.client.SignalWorkflow(ctx, workflowID, runID, Signal{{.GoName}}Name, req)
 }
 
-// ReceiveSignal{{.GoName}} waits for the the {{.GoName}} signal
+// ReceiveSignal{{.GoName}} waits for the {{.GoName}} signal
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func ReceiveSignal{{.GoName}}(ctx {{TemporalWorkflow "Context"}}) (*{{QualifiedGoIdent .Input.GoIdent}}, bool) {
 	var result *{{QualifiedGoIdent .Input.GoIdent}}
 	ok := {{TemporalWorkflow "GetSignalChannel"}}(ctx, Signal{{.GoName}}Name).Receive(ctx, &result)
 	return result, ok
 }
 
-// ReceiveSignal{{.GoName}}Async recieves the the {{.GoName}} signal asynchronously. It doesn't wait if there is no signal in the queue
+// ReceiveSignal{{.GoName}}Async receives the {{.GoName}} signal asynchronously. It doesn't wait if there is no signal in the queue
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func ReceiveSignal{{.GoName}}Async(ctx {{TemporalWorkflow "Context"}}) (*{{QualifiedGoIdent .Input.GoIdent}}, bool) {
 	var result *{{QualifiedGoIdent .Input.GoIdent}}
 	ok := {{TemporalWorkflow "GetSignalChannel"}}(ctx, Signal{{.GoName}}Name).ReceiveAsync(&result)
@@ -1000,6 +1066,10 @@ func ReceiveSignal{{.GoName}}Async(ctx {{TemporalWorkflow "Context"}}) (*{{Quali
 {{- range .Queries}}
 
 // Query{{.GoName}} sends the {{.GoName}} query to a workflow
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func (c *{{.Service.GetClientName}}) Query{{.GoName}}(ctx {{Context}}, workflowID string, runID string, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
 	future, err := c.client.QueryWorkflow(ctx, workflowID, runID, Query{{.GoName}}Name, req)
 	if err != nil {
@@ -1016,6 +1086,10 @@ func (c *{{.Service.GetClientName}}) Query{{.GoName}}(ctx {{Context}}, workflowI
 }
 
 // HandleQuery{{.GoName}} sets up the {{.GoName}} query and responds accordingly, returns an error if it failed
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
 func HandleQuery{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, queryFunc func(req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error)) error {
 	return {{TemporalWorkflow "SetQueryHandler"}}(ctx, Query{{.GoName}}Name, queryFunc)
 }

@@ -25,6 +25,8 @@ func TestTemplatesParse(t *testing.T) {
 		"WorkflowObjectName":      func(service, method string) string { return "" },
 		"ChildWorkflowObjectName": func(service, method string) string { return "" },
 		"commentOneLine":          func(s string) string { return "" },
+		"commentBlock":            func(indent, s string) string { return "" },
+		"docComment":              func(indent, name, body string) string { return "" },
 		"MakeAnchor":              func(parts ...string) string { return "" },
 		"TrimComment":             func(comment interface{}) string { return "" },
 		"FormatDuration":          func(seconds interface{}) string { return "" },

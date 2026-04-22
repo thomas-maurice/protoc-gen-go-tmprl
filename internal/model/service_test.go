@@ -129,3 +129,61 @@ func TestServiceGetQuery(t *testing.T) {
 		}
 	})
 }
+
+// TestServiceHasScheduledWorkflows: Verifies detection of cron-scheduled workflows
+func TestServiceHasScheduledWorkflows(t *testing.T) {
+	tests := []struct {
+		name      string
+		workflows []*Workflow
+		expected  bool
+	}{
+		{
+			name:      "no workflows",
+			workflows: nil,
+			expected:  false,
+		},
+		{
+			name: "no schedules",
+			workflows: []*Workflow{
+				{Options: &WorkflowOptions{}},
+				{Options: &WorkflowOptions{CronSchedule: ""}},
+			},
+			expected: false,
+		},
+		{
+			name: "one scheduled workflow",
+			workflows: []*Workflow{
+				{Options: &WorkflowOptions{}},
+				{Options: &WorkflowOptions{CronSchedule: "* * * * *"}},
+			},
+			expected: true,
+		},
+		{
+			name: "nil options doesn't panic",
+			workflows: []*Workflow{
+				{Options: nil},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Service{GoName: "X", Workflows: tt.workflows}
+			if got := s.HasScheduledWorkflows(); got != tt.expected {
+				t.Errorf("HasScheduledWorkflows() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestServiceScheduleHelperNames: Verifies the per-service schedule helper naming
+func TestServiceScheduleHelperNames(t *testing.T) {
+	s := &Service{GoName: "DieRoll"}
+	if got, want := s.GetScheduleMergeFuncName(), "mergeScheduleOptionsDieRoll"; got != want {
+		t.Errorf("GetScheduleMergeFuncName() = %q, want %q", got, want)
+	}
+	if got, want := s.GetScheduleDefaultsFuncName(), "applyScheduleDefaultsDieRoll"; got != want {
+		t.Errorf("GetScheduleDefaultsFuncName() = %q, want %q", got, want)
+	}
+}

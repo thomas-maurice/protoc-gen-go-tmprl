@@ -29,6 +29,8 @@ func FuncMap(gf *protogen.GeneratedFile) template.FuncMap {
 		"WorkflowObjectName":      workflowObjectName,
 		"ChildWorkflowObjectName": childWorkflowObjectName,
 		"commentOneLine":          commentOneLine,
+		"commentBlock":            commentBlock,
+		"docComment":              docComment,
 		"MakeAnchor":              makeAnchor,
 		"TrimComment":             trimComment,
 		"FormatDuration":          formatDuration,
@@ -90,6 +92,103 @@ func commentOneLine(s string) string {
 	// Collapse multiple spaces
 	parts := strings.Fields(s)
 	return strings.Join(parts, " ")
+}
+
+// commentBlock: Converts a proto leading-comment string into a Go doc comment
+// block. Each input line becomes a `// `-prefixed output line; empty proto
+// lines become bare `//`, which keeps paragraph breaks and code fences intact.
+// `indent` is prepended to every emitted line so the caller can place the
+// block inside an interface body, struct decl, etc. Returns an empty string
+// when the comment is empty, so templates can elide the block cleanly.
+//
+// Example:
+//
+//	commentBlock("\t", " Does a thing\n\n ```go\n foo()\n ```")
+//	// =>
+//	// \t// Does a thing
+//	// \t//
+//	// \t// ```go
+//	// \t// foo()
+//	// \t// ```
+func commentBlock(indent, s string) string {
+	lines := normaliseCommentLines(s)
+	if len(lines) == 0 {
+		return ""
+	}
+	return joinCommentLines(indent, "", lines)
+}
+
+// docComment: Renders a Go-style doc comment for a named declaration, keeping
+// the convention that the first line starts with the identifier. If `body` is
+// empty, returns `<indent>// <name>`. Otherwise emits
+// `<indent>// <name> <firstLine>` followed by the remaining proto lines each
+// prefixed with `// `, with blank lines preserved as bare `//`. Used where we
+// want idiomatic Go godoc on interface methods and generated funcs.
+func docComment(indent, name, body string) string {
+	lines := normaliseCommentLines(body)
+	if len(lines) == 0 {
+		if name == "" {
+			return ""
+		}
+		return indent + "// " + name
+	}
+	if name == "" {
+		return joinCommentLines(indent, "", lines)
+	}
+	return joinCommentLines(indent, name+" ", lines)
+}
+
+// normaliseCommentLines: Splits a raw proto leading-comment string into
+// trimmed lines, normalising CRLF, stripping a single leading space (the one
+// left over from "// foo" → " foo"), and trimming blank lines from both ends
+// while preserving interior blank lines.
+func normaliseCommentLines(s string) []string {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.Trim(s, "\n")
+	raw := strings.Split(s, "\n")
+	lines := make([]string, 0, len(raw))
+	for _, line := range raw {
+		line = strings.TrimPrefix(line, " ")
+		line = strings.TrimRight(line, " \t")
+		lines = append(lines, line)
+	}
+	// Drop leading/trailing blanks so the block is compact without losing
+	// interior paragraph breaks.
+	for len(lines) > 0 && lines[0] == "" {
+		lines = lines[1:]
+	}
+	for len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return lines
+}
+
+// joinCommentLines: Emits normalised lines as `// `-prefixed output. The first
+// line receives `firstPrefix` (e.g. the identifier) between `// ` and the
+// line body, so callers can produce `// Name <body>` while still preserving
+// a multi-line tail.
+func joinCommentLines(indent, firstPrefix string, lines []string) string {
+	out := make([]string, 0, len(lines))
+	for i, line := range lines {
+		prefix := ""
+		if i == 0 {
+			prefix = firstPrefix
+		}
+		switch {
+		case line == "" && prefix == "":
+			out = append(out, indent+"//")
+		case line == "":
+			// A blank first line with a prefix collapses to `// <prefix>`
+			// without a trailing space.
+			out = append(out, indent+"// "+strings.TrimRight(prefix, " "))
+		default:
+			out = append(out, indent+"// "+prefix+line)
+		}
+	}
+	return strings.Join(out, "\n")
 }
 
 // makeAnchor: Creates a markdown-safe anchor identifier

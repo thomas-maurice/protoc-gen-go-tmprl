@@ -107,10 +107,12 @@ You can define cron schedules for workflows directly in your protobuf definition
     }
 ```
 
-The generator creates two schedule methods for workflows with `cron_schedule`:
+The generator creates the following schedule methods for workflows with `cron_schedule`:
 
 ```golang
-// CreateScheduleThrowDies creates a schedule for ThrowDies with the configured cron expression
+// CreateScheduleThrowDies creates a schedule for ThrowDies with the configured cron expression.
+// The variadic options argument is merged on top of generator-built defaults: non-zero fields
+// from options[0] win, zero-valued fields keep their proto defaults.
 func (c *DieRollClient) CreateScheduleThrowDies(
     ctx context.Context,
     scheduleID string,
@@ -118,11 +120,54 @@ func (c *DieRollClient) CreateScheduleThrowDies(
     options ...client.ScheduleOptions,
 ) (client.ScheduleHandle, error)
 
-// GetScheduleThrowDies gets a handle to an existing schedule for ThrowDies
+// GetScheduleThrowDies gets a handle to an existing schedule for ThrowDies.
 func (c *DieRollClient) GetScheduleThrowDies(
     ctx context.Context,
     scheduleID string,
 ) client.ScheduleHandle
+
+// DeleteScheduleThrowDies deletes an existing schedule for ThrowDies.
+// Returns the underlying client error if the schedule does not exist or the delete fails.
+func (c *DieRollClient) DeleteScheduleThrowDies(
+    ctx context.Context,
+    scheduleID string,
+) error
+
+// ListScheduleThrowDies lists all schedules in the namespace whose action is the ThrowDies
+// workflow type. pageSize is forwarded to the Temporal ScheduleClient.List call.
+func (c *DieRollClient) ListScheduleThrowDies(
+    ctx context.Context,
+    pageSize int,
+) ([]client.ScheduleListEntry, error)
+
+// UpsertScheduleThrowDies creates the schedule if it does not exist, otherwise performs an
+// in-place update (Spec, Action, Overlap, CatchupWindow, PauseOnFailure, TypedSearchAttributes).
+// A user-supplied Paused flag is deliberately not honoured on the update path: a bool can't
+// distinguish "leave it alone" from "unpause", so run-state transitions are expressed through
+// PauseScheduleThrowDies / UnpauseScheduleThrowDies instead.
+func (c *DieRollClient) UpsertScheduleThrowDies(
+    ctx context.Context,
+    scheduleID string,
+    req *ThrowDiesRequest,
+    options ...client.ScheduleOptions,
+) (client.ScheduleHandle, error)
+
+// PauseScheduleThrowDies pauses a running schedule. The note is recorded on the schedule's
+// audit trail. Describe is called first and the Pause RPC is skipped when the schedule is
+// already paused, so this is safe to call on every reconcile tick.
+func (c *DieRollClient) PauseScheduleThrowDies(
+    ctx context.Context,
+    scheduleID string,
+    note string,
+) error
+
+// UnpauseScheduleThrowDies resumes a paused schedule. Describe is called first and the
+// Unpause RPC is skipped when the schedule is already running.
+func (c *DieRollClient) UnpauseScheduleThrowDies(
+    ctx context.Context,
+    scheduleID string,
+    note string,
+) error
 ```
 
 Example usage:
@@ -144,14 +189,33 @@ scheduleHandle = dieRollClient.GetScheduleThrowDies(ctx, "throw-dies-schedule")
 err = scheduleHandle.Pause(ctx, client.SchedulePauseOptions{
     Note: "Pausing for maintenance",
 })
+
+// Idempotent create-or-update. Safe to call on redeploys; the Paused flag is intentionally
+// ignored on the update path.
+_, err = dieRollClient.UpsertScheduleThrowDies(ctx, "throw-dies-schedule", &ThrowDiesRequest{
+    Results: 5,
+})
+
+// Enumerate every schedule whose action is this workflow type.
+entries, err := dieRollClient.ListScheduleThrowDies(ctx, 100)
+
+// Tear a schedule down.
+err = dieRollClient.DeleteScheduleThrowDies(ctx, "throw-dies-schedule")
+
+// Toggle run state. Each of these is a read-then-write: a Describe round-trip
+// is always paid, but the Pause/Unpause RPC is skipped when the schedule is
+// already in the target state.
+err = dieRollClient.PauseScheduleThrowDies(ctx, "throw-dies-schedule", "maintenance window")
+err = dieRollClient.UnpauseScheduleThrowDies(ctx, "throw-dies-schedule", "maintenance over")
 ```
 
 **Features:**
 - **Declarative configuration:** Define cron schedules directly in protobuf
 - **Type-safe:** Generated methods use workflow-specific request types
-- **Option merging:** Runtime `client.ScheduleOptions` can override proto defaults
+- **Option merging:** Runtime `client.ScheduleOptions` are merged field-by-field onto generator defaults (non-zero fields win); the merge logic is factored into a per-service `mergeScheduleOptions<Service>` helper in the generated file
 - **Workflow configuration:** Automatically applies workflow timeouts and retry policies to scheduled executions
 - **Conditional generation:** Schedule methods only generated for workflows with `cron_schedule` set
+- **Full CRUD surface:** `Create`, `Get`, `List`, `Upsert`, and `Delete` are all generated per scheduled workflow
 
 ### The workflow objects
 
@@ -293,6 +357,11 @@ The generated code exposes a lot of primitives such as (non exhaustive list):
 * `client.ExecuteActivityXSync`: Executes an activity and blocks until the result is returned
 * `client.CreateScheduleX`: Creates a Temporal schedule for a workflow (only if `cron_schedule` is set)
 * `client.GetScheduleX`: Gets a handle to an existing schedule (only if `cron_schedule` is set)
+* `client.DeleteScheduleX`: Deletes an existing schedule (only if `cron_schedule` is set)
+* `client.ListScheduleX`: Lists every schedule whose action is workflow `X` (only if `cron_schedule` is set)
+* `client.UpsertScheduleX`: Creates or updates a schedule idempotently (only if `cron_schedule` is set)
+* `client.PauseScheduleX`: Pauses a schedule if it's running; no-op if already paused (only if `cron_schedule` is set)
+* `client.UnpauseScheduleX`: Resumes a paused schedule; no-op if already running (only if `cron_schedule` is set)
 * `client.GetX`: Gets an instance of a workflow
 * `workflow.Cancel`: Cancels a workflow
 * `workflow.Teminate`: Terminates a workflow
