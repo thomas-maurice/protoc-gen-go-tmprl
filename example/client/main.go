@@ -42,10 +42,14 @@ func main() {
 	ctx := context.Background()
 
 	// Create a schedule for ThrowDies workflow to run every minute
-	scheduleHandle, err := dieRollClient.CreateScheduleThrowDies(ctx, "throw-dies-schedule", &examplev1.ThrowDiesRequest{
-		Results: 3,
-		Loop:    false,
-	})
+	scheduleHandle, err := dieRollClient.UpsertScheduleThrowDies(
+		ctx,
+		"throw-dies-schedule",
+		&examplev1.ThrowDiesRequest{
+			Results: 3,
+			Loop:    false,
+		},
+	)
 	if err != nil {
 		logger.Warn("could not create schedule (may already exist)", "error", err)
 	} else {
@@ -58,29 +62,29 @@ func main() {
 	_ = scheduleHandle
 
 	future, err := dieRollClient.ExecuteWorkflowThrowDies(ctx, &examplev1.ThrowDiesRequest{
-		Results: 5,
+		Results: 10,
 	})
-
 	if err != nil {
 		logger.Error("could not execute workflow", "error", err)
 		os.Exit(1)
 	}
 
-	time.Sleep(time.Second * 35)
+	time.Sleep(time.Second * 20)
 
 	run := dieRollClient.GetThrowDiesFromRun(future)
 
 	err = run.SignalContinue(ctx, &examplev1.ContinueSignalRequest{})
-
 	if err != nil {
 		logger.Error("could not send signal", "error", err)
 		os.Exit(1)
 	}
 
-	until, err := dieRollClient.ExecuteWorkflowThrowUntilValue(ctx, &examplev1.ThrowUntilValueRequest{
-		Value: 1,
-	})
-
+	until, err := dieRollClient.ExecuteWorkflowThrowUntilValue(
+		ctx,
+		&examplev1.ThrowUntilValueRequest{
+			Value: 1,
+		},
+	)
 	if err != nil {
 		logger.Error("cannot execute workflow", "error", err)
 	}
