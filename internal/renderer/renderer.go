@@ -54,6 +54,19 @@ func (r *Renderer) RenderAll(service *model.Service) (string, error) {
 	return buf.String(), nil
 }
 
+// RenderCLI renders the Cobra-based CLI for a service. The caller is
+// responsible for writing the package header and emitting this output into
+// its own Go file (e.g. `<base>_tmprl_cli.pb.go`) so the main generated
+// file stays focused on the client/worker/schedule surface.
+func (r *Renderer) RenderCLI(service *model.Service) (string, error) {
+	var buf bytes.Buffer
+	err := r.templates.ExecuteTemplate(&buf, "cli.tmpl", service)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute cli template: %w", err)
+	}
+	return buf.String(), nil
+}
+
 // RenderDocumentation Renders markdown documentation for a service
 func (r *Renderer) RenderDocumentation(service *model.Service) (string, error) {
 	var buf bytes.Buffer

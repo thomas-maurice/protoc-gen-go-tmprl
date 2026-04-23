@@ -1,8 +1,11 @@
 package tmpl
 
 import (
+	"reflect"
 	"testing"
 	"time"
+
+	"github.com/thomas-maurice/protoc-gen-go-tmprl/internal/model"
 )
 
 // TestFormatStringSlice Verifies markdown-friendly rendering of string slices
@@ -325,6 +328,228 @@ func TestDocComment(t *testing.T) {
 			if result != tt.expected {
 				t.Errorf("docComment(%q, %q, %q) =\n%q\nexpected\n%q",
 					tt.indent, tt.ident, tt.body, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestKebab Verifies snake, camel, Pascal, acronym, digit, and edge-case
+// inputs lower-kebab correctly.
+func TestKebab(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"empty", "", ""},
+		{"snake_case", "order_id", "order-id"},
+		{"camelCase", "orderID", "order-id"},
+		{"PascalCase", "OrderID", "order-id"},
+		{"single word lower", "order", "order"},
+		{"single word upper", "Order", "order"},
+		{"acronym then word", "HTTPSServer", "https-server"},
+		{"all caps acronym", "HTTP", "http"},
+		{"digits cluster with letters", "order123Id", "order123-id"},
+		{"mixed snake and camel", "shipping_addressLine", "shipping-address-line"},
+		{"nested snake", "a_b_c", "a-b-c"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := kebab(tt.input); got != tt.expected {
+				t.Errorf("kebab(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestPflagFuncName Covers every FlagKind constant in the model package
+// and asserts the panic path for an out-of-range FlagKind.
+func TestPflagFuncName(t *testing.T) {
+	tests := []struct {
+		kind     model.FlagKind
+		expected string
+	}{
+		{model.FlagKindString, "StringVar"},
+		{model.FlagKindStringSlice, "StringArrayVar"},
+		{model.FlagKindInt32, "Int32Var"},
+		{model.FlagKindInt32Slice, "Int32SliceVar"},
+		{model.FlagKindInt64, "Int64Var"},
+		{model.FlagKindInt64Slice, "Int64SliceVar"},
+		{model.FlagKindUint32, "Uint32Var"},
+		{model.FlagKindUint64, "Uint64Var"},
+		{model.FlagKindFloat32, "Float32Var"},
+		{model.FlagKindFloat64, "Float64Var"},
+		{model.FlagKindBool, "BoolVar"},
+		{model.FlagKindBytes, "BytesBase64Var"},
+		{model.FlagKindDuration, "DurationVar"},
+		{model.FlagKindTimestamp, "Var"},
+		{model.FlagKindEnum, "Var"},
+		{model.FlagKindFieldMask, "StringSliceVar"},
+		{model.FlagKindStringToString, "StringToStringVar"},
+		{model.FlagKindStringToInt, "StringToIntVar"},
+		{model.FlagKindJSONEscape, "Var"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.kind.String(), func(t *testing.T) {
+			if got := pflagFuncName(tt.kind); got != tt.expected {
+				t.Errorf("pflagFuncName(%v) = %q, want %q", tt.kind, got, tt.expected)
+			}
+		})
+	}
+
+	t.Run("panics on unknown kind", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("pflagFuncName(unknown) did not panic")
+			}
+		}()
+		_ = pflagFuncName(model.FlagKind(999))
+	})
+}
+
+// TestGoFieldAssignPath Verifies the single-expression getter-chain form
+// for nested proto field paths.
+func TestGoFieldAssignPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     []string
+		rootVar  string
+		expected string
+	}{
+		{"empty path returns root", nil, "req", "req"},
+		{"single segment", []string{"customer_id"}, "req", "req.CustomerId"},
+		{"two segments", []string{"shipping", "street"}, "req", "req.GetShipping().Street"},
+		{"three segments", []string{"shipping", "address", "street"}, "req", "req.GetShipping().GetAddress().Street"},
+		{"underscore in leaf", []string{"order_id"}, "r", "r.OrderId"},
+		{"multi-word segments", []string{"shipping_address", "postal_code"}, "req", "req.GetShippingAddress().PostalCode"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := goFieldAssignPath(tt.path, tt.rootVar); got != tt.expected {
+				t.Errorf("goFieldAssignPath(%v, %q) = %q, want %q", tt.path, tt.rootVar, got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestGoFieldAssignSteps Verifies the step-wise form the template uses
+// to allocate intermediate messages before assigning the leaf.
+func TestGoFieldAssignSteps(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     []string
+		rootVar  string
+		expected []AssignStep
+	}{
+		{"nil path yields nil", nil, "req", nil},
+		{
+			"single segment leaf",
+			[]string{"customer_id"},
+			"req",
+			[]AssignStep{{Expr: "req", FieldName: "CustomerId", IsLeaf: true}},
+		},
+		{
+			"two segments",
+			[]string{"shipping", "street"},
+			"req",
+			[]AssignStep{
+				{Expr: "req", FieldName: "Shipping", IsLeaf: false},
+				{Expr: "req.Shipping", FieldName: "Street", IsLeaf: true},
+			},
+		},
+		{
+			"three segments",
+			[]string{"shipping", "address", "street"},
+			"req",
+			[]AssignStep{
+				{Expr: "req", FieldName: "Shipping", IsLeaf: false},
+				{Expr: "req.Shipping", FieldName: "Address", IsLeaf: false},
+				{Expr: "req.Shipping.Address", FieldName: "Street", IsLeaf: true},
+			},
+		},
+		{
+			"underscore in intermediate",
+			[]string{"shipping_address", "postal_code"},
+			"r",
+			[]AssignStep{
+				{Expr: "r", FieldName: "ShippingAddress", IsLeaf: false},
+				{Expr: "r.ShippingAddress", FieldName: "PostalCode", IsLeaf: true},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := goFieldAssignSteps(tt.path, tt.rootVar)
+			if !reflect.DeepEqual(got, tt.expected) {
+				t.Errorf("goFieldAssignSteps(%v, %q) = %+v, want %+v", tt.path, tt.rootVar, got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestEnumValueTypeName Verifies the generated pflag.Value wrapper name
+// for enums is the expected `enum<GoName>Value` identifier.
+func TestEnumValueTypeName(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"OrderStatus", "enumOrderStatusValue"},
+		{"Color", "enumColorValue"},
+		{"HTTPMethod", "enumHTTPMethodValue"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			if got := enumValueTypeName(tt.input); got != tt.expected {
+				t.Errorf("enumValueTypeName(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestJsonExampleFor Covers each JSON-escape sub-case from PLAN.md §6.1
+// plus the no-op non-JSONEscape case.
+func TestJsonExampleFor(t *testing.T) {
+	tests := []struct {
+		name     string
+		spec     *model.FlagSpec
+		expected string
+	}{
+		{
+			name:     "non-JSONEscape kind returns empty",
+			spec:     &model.FlagSpec{Kind: model.FlagKindString},
+			expected: "",
+		},
+		{
+			name:     "nil spec returns empty",
+			spec:     nil,
+			expected: "",
+		},
+		{
+			name:     "repeated message",
+			spec:     &model.FlagSpec{Kind: model.FlagKindJSONEscape, Repeated: true, JSONGoType: "example.v1.Item"},
+			expected: `'[{"field":"value"}]'`,
+		},
+		{
+			name:     "Any / Struct / Value WKT",
+			spec:     &model.FlagSpec{Kind: model.FlagKindJSONEscape, JSONGoType: "google.protobuf.Struct"},
+			expected: `'<JSON value>'`,
+		},
+		{
+			name:     "cyclic subtree names the target type",
+			spec:     &model.FlagSpec{Kind: model.FlagKindJSONEscape, JSONGoType: "example.v1.Tree"},
+			expected: `'<JSON value of type Tree>'`,
+		},
+		{
+			name:     "map of message (seam falls through to typed JSON value)",
+			spec:     &model.FlagSpec{Kind: model.FlagKindJSONEscape, JSONGoType: "example.v1.Address"},
+			expected: `'<JSON value of type Address>'`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := jsonExampleFor(tt.spec); got != tt.expected {
+				t.Errorf("jsonExampleFor(%+v) = %q, want %q", tt.spec, got, tt.expected)
 			}
 		})
 	}

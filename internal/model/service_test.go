@@ -2,6 +2,8 @@ package model
 
 import (
 	"testing"
+
+	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1"
 )
 
 // TestServiceGetClientName Tests client name generation
@@ -128,6 +130,41 @@ func TestServiceGetQuery(t *testing.T) {
 			t.Error("expected error for non-existing query")
 		}
 	})
+}
+
+// TestServiceGenerateCLIDefault Verifies that GenerateCLI is false when the
+// proto option is absent (default) or explicitly set to false.
+func TestServiceGenerateCLIDefault(t *testing.T) {
+	t.Run("option absent", func(t *testing.T) {
+		opts := &temporalv1.ServiceOptions{}
+		if got := opts.GetGenerateCli(); got != false {
+			t.Errorf("expected GetGenerateCli() false when unset, got %v", got)
+		}
+		s := &Service{GenerateCLI: opts.GetGenerateCli()}
+		if s.GenerateCLI {
+			t.Error("expected Service.GenerateCLI to default to false")
+		}
+	})
+
+	t.Run("option explicitly false", func(t *testing.T) {
+		v := false
+		opts := &temporalv1.ServiceOptions{GenerateCli: &v}
+		s := &Service{GenerateCLI: opts.GetGenerateCli()}
+		if s.GenerateCLI {
+			t.Error("expected Service.GenerateCLI false when option is false")
+		}
+	})
+}
+
+// TestServiceGenerateCLITrue Verifies that GenerateCLI is true when the
+// proto option is set to true.
+func TestServiceGenerateCLITrue(t *testing.T) {
+	v := true
+	opts := &temporalv1.ServiceOptions{GenerateCli: &v}
+	s := &Service{GenerateCLI: opts.GetGenerateCli()}
+	if !s.GenerateCLI {
+		t.Error("expected Service.GenerateCLI true when option is true")
+	}
 }
 
 // TestServiceScheduleHelperNames Verifies the per-service schedule helper naming

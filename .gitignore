@@ -5,3 +5,6 @@ bin
 CLAUDE.md
 claude-*.json
 .claude-session*
+
+# CLI-generation plan progress tracking — local coordination, not artifacts
+.plan-progress/

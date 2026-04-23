@@ -58,6 +58,17 @@ func (m *BaseMethod) GetService() *Service             { return m.Service }
 type Workflow struct {
 	BaseMethod
 	Options *WorkflowOptions
+
+	// SkipCLI reports whether this workflow opts out of CLI generation.
+	// Mirrors the workflow_options.skip_cli proto option and defaults to
+	// false. Only meaningful when the enclosing service has
+	// GenerateCLI = true.
+	SkipCLI bool
+
+	// InputFlagPlan describes the CLI flags derived from the workflow's
+	// input message. Populated only when the enclosing service has
+	// GenerateCLI = true and SkipCLI = false; nil otherwise.
+	InputFlagPlan *FlagPlan
 }
 
 func (w *Workflow) GetType() MethodType { return MethodTypeWorkflow }
@@ -74,6 +85,11 @@ func (a *Activity) GetType() MethodType { return MethodTypeActivity }
 type Signal struct {
 	BaseMethod
 	CustomName string
+
+	// InputFlagPlan describes the CLI flags derived from the signal's
+	// input message. Populated only when the enclosing service has
+	// GenerateCLI = true; nil otherwise.
+	InputFlagPlan *FlagPlan
 }
 
 func (s *Signal) GetType() MethodType { return MethodTypeSignal }
@@ -82,6 +98,11 @@ func (s *Signal) GetType() MethodType { return MethodTypeSignal }
 type Query struct {
 	BaseMethod
 	CustomName string
+
+	// InputFlagPlan describes the CLI flags derived from the query's
+	// input message. Populated only when the enclosing service has
+	// GenerateCLI = true; nil otherwise.
+	InputFlagPlan *FlagPlan
 }
 
 func (q *Query) GetType() MethodType { return MethodTypeQuery }
@@ -144,10 +165,24 @@ func NewWorkflow(protoMethod *protogen.Method, service *Service, config *Config)
 
 	merged := MergeWorkflowOptions(opts, service.DefaultWorkflowOptions)
 
-	return &Workflow{
+	workflow := &Workflow{
 		BaseMethod: base,
 		Options:    merged,
-	}, nil
+		SkipCLI:    opts.GetSkipCli(),
+	}
+
+	// Build the CLI flag plan when the service opts in and the workflow
+	// does not opt out. A plan-build failure surfaces as a generator
+	// error; the workflow would otherwise silently lose its CLI command.
+	if service.GenerateCLI && !workflow.SkipCLI {
+		plan, err := NewFlagPlan(protoMethod.Input)
+		if err != nil {
+			return nil, fmt.Errorf("workflow %s: %w", protoMethod.GoName, err)
+		}
+		workflow.InputFlagPlan = plan
+	}
+
+	return workflow, nil
 }
 
 // NewActivity Creates an activity from a protobuf method
@@ -203,10 +238,20 @@ func NewSignal(protoMethod *protogen.Method, service *Service) (*Signal, error) 
 		base.RegisteredName = opts.Name
 	}
 
-	return &Signal{
+	signal := &Signal{
 		BaseMethod: base,
 		CustomName: customName,
-	}, nil
+	}
+
+	if service.GenerateCLI {
+		plan, err := NewFlagPlan(protoMethod.Input)
+		if err != nil {
+			return nil, fmt.Errorf("signal %s: %w", protoMethod.GoName, err)
+		}
+		signal.InputFlagPlan = plan
+	}
+
+	return signal, nil
 }
 
 // NewQuery Creates a query from a protobuf method
@@ -233,8 +278,18 @@ func NewQuery(protoMethod *protogen.Method, service *Service) (*Query, error) {
 		base.RegisteredName = opts.Name
 	}
 
-	return &Query{
+	query := &Query{
 		BaseMethod: base,
 		CustomName: customName,
-	}, nil
+	}
+
+	if service.GenerateCLI {
+		plan, err := NewFlagPlan(protoMethod.Input)
+		if err != nil {
+			return nil, fmt.Errorf("query %s: %w", protoMethod.GoName, err)
+		}
+		query.InputFlagPlan = plan
+	}
+
+	return query, nil
 }
