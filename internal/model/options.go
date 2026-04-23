@@ -35,7 +35,6 @@ type WorkflowOptions struct {
 	RetryPolicy              *RetryPolicy
 	Signals                  []string
 	Queries                  []string
-	CronSchedule             string
 }
 
 // MergeRetryPolicy: Merges two retry policies, method takes precedence
@@ -177,9 +176,6 @@ func MergeWorkflowOptions(method, service *temporalv1.WorkflowOptions) *Workflow
 		}
 		if method.Queries != nil {
 			result.Queries = method.Queries
-		}
-		if method.CronSchedule != nil {
-			result.CronSchedule = *method.CronSchedule
 		}
 	}
 

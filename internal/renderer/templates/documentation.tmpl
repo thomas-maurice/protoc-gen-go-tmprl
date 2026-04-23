@@ -35,7 +35,7 @@
 ### Service options
 | Option | Value |
 | --- | --- |
-| Default task queue | {{Quote .TaskQueue}} |
+| Default task queue | `{{.TaskQueue}}` |
 
 {{- if .DefaultWorkflowOptions}}
 {{- if or .DefaultWorkflowOptions.WorkflowExecutionTimeout .DefaultWorkflowOptions.WorkflowRunTimeout .DefaultWorkflowOptions.WorkflowTaskTimeout}}
@@ -89,7 +89,7 @@ Output: [{{FullName .Output.Desc.FullName}}](#{{MakeAnchor "message" (FullName .
 
 | Setting | Value |
 | ----------- | ----------------------- |
-| Temporal registered method name | {{Quote .RegisteredName}} |
+| Temporal registered method name | `{{.RegisteredName}}` |
 {{- if .Options.WorkflowExecutionTimeout}}
 | Workflow execution timeout | {{FormatDuration .Options.WorkflowExecutionTimeout}} |
 {{- end}}
@@ -160,7 +160,7 @@ Output: [{{FullName .Output.Desc.FullName}}](#{{MakeAnchor "message" (FullName .
 
 | Setting | Value |
 | ----------- | ----------------------- |
-| Temporal registered method name | {{Quote .RegisteredName}} |
+| Temporal registered method name | `{{.RegisteredName}}` |
 {{- if .Options.ScheduleToCloseTimeout}}
 | Schedule to close timeout | {{FormatDuration .Options.ScheduleToCloseTimeout}} |
 {{- end}}
@@ -212,7 +212,7 @@ Output: [{{FullName .Output.Desc.FullName}}](#{{MakeAnchor "message" (FullName .
 
 | Setting | Value |
 | ----------- | ----------------------- |
-| Temporal registered method name | {{Quote .RegisteredName}} |
+| Temporal registered method name | `{{.RegisteredName}}` |
 
 {{- end}}
 
@@ -229,6 +229,6 @@ Output: [{{FullName .Output.Desc.FullName}}](#{{MakeAnchor "message" (FullName .
 
 | Setting | Value |
 | ----------- | ----------------------- |
-| Temporal registered method name | {{Quote .RegisteredName}} |
+| Temporal registered method name | `{{.RegisteredName}}` |
 
 {{- end}}

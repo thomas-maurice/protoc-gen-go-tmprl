@@ -41,13 +41,21 @@ func main() {
 
 	ctx := context.Background()
 
-	// Create a schedule for ThrowDies workflow to run every minute
+	// Create a schedule for ThrowDies workflow to run every minute.
+	// The caller owns the Spec: pass a CronExpression/Interval/Calendar
+	// to match your scheduling needs. The generator only defaults the
+	// task queue; it does NOT pick a cadence for you.
 	scheduleHandle, err := dieRollClient.UpsertScheduleThrowDies(
 		ctx,
 		"throw-dies-schedule",
 		&examplev1.ThrowDiesRequest{
 			Results: 3,
 			Loop:    false,
+		},
+		client.ScheduleOptions{
+			Spec: client.ScheduleSpec{
+				CronExpressions: []string{"* * * * *"},
+			},
 		},
 	)
 	if err != nil {

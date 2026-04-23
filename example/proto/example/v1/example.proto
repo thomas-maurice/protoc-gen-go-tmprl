@@ -86,7 +86,6 @@ service DieRoll {
   rpc ThrowDies(ThrowDiesRequest) returns (ThrowDiesResponse) {
     option (temporal.v1.workflow) = {
       signals: ["Continue"]
-      cron_schedule: "* * * * *"
     };
   }
 

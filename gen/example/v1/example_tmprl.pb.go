@@ -29,28 +29,28 @@ const (
 	// DefaultDieRollActivityScheduleToCloseTimeout Default activity schedule to close timeout
 	DefaultDieRollActivityScheduleToCloseTimeout = 86400
 
-	// WorkflowParentWorkflowName: Registered name for workflow ParentWorkflow
+	// WorkflowParentWorkflowName is the registered name for workflow ParentWorkflow.
 	WorkflowParentWorkflowName = "example.v1.DieRoll.ParentWorkflow"
 
-	// WorkflowChildWorkflowName: Registered name for workflow ChildWorkflow
+	// WorkflowChildWorkflowName is the registered name for workflow ChildWorkflow.
 	WorkflowChildWorkflowName = "example.v1.DieRoll.ChildWorkflow"
 
-	// WorkflowThrowDiesName: Registered name for workflow ThrowDies
+	// WorkflowThrowDiesName is the registered name for workflow ThrowDies.
 	WorkflowThrowDiesName = "example.v1.DieRoll.ThrowDies"
 
-	// WorkflowThrowUntilValueName: Registered name for workflow ThrowUntilValue
+	// WorkflowThrowUntilValueName is the registered name for workflow ThrowUntilValue.
 	WorkflowThrowUntilValueName = "example.v1.DieRoll.ThrowUntilValue"
 
-	// ActivityThrowDieName: Registered name for activity ThrowDie
+	// ActivityThrowDieName is the registered name for activity ThrowDie.
 	ActivityThrowDieName = "example.v1.DieRoll.ThrowDie"
 
-	// ActivityPingName: Registered name for activity Ping
+	// ActivityPingName is the registered name for activity Ping.
 	ActivityPingName = "ping.Ping"
 
-	// SignalContinueName: Registered name for signal Continue
+	// SignalContinueName is the registered name for signal Continue.
 	SignalContinueName = "example.v1.DieRoll.Continue"
 
-	// QueryGetThrowsStatusName: Registered name for query GetThrowsStatus
+	// QueryGetThrowsStatusName is the registered name for query GetThrowsStatus.
 	QueryGetThrowsStatusName = "example.v1.DieRoll.GetThrowsStatus"
 )
 
@@ -178,7 +178,7 @@ func (c *DieRollClient) ExecuteWorkflowParentWorkflowSync(ctx context.Context, r
 	return resp, nil
 }
 
-// GetWorkflowParentWorkflowResult: gets the result of a given workflow
+// GetWorkflowParentWorkflowResult gets the result of a given workflow
 func (c *DieRollClient) GetWorkflowParentWorkflowResult(ctx context.Context, workflowId string, runId string) (*ParentWorkflowReply, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 
@@ -250,6 +250,179 @@ func (c *DieRollClient) ExecuteChildParentWorkflowSync(ctx workflow.Context, req
 	return resp, nil
 }
 
+// CreateScheduleParentWorkflow creates a schedule for ParentWorkflow
+//
+// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
+func (c *DieRollClient) CreateScheduleParentWorkflow(ctx context.Context, scheduleID string, req *emptypb.Empty, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+	scheduleOptions := client.ScheduleOptions{
+		ID: scheduleID,
+		Action: &client.ScheduleWorkflowAction{
+			ID:                       scheduleID,
+			Workflow:                 WorkflowParentWorkflowName,
+			Args:                     []interface{}{req},
+			TaskQueue:                c.taskQueue,
+			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
+			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+		},
+	}
+
+	if len(options) > 0 {
+		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], true)
+	}
+	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+
+	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
+}
+
+// GetScheduleParentWorkflow gets a handle to an existing schedule for ParentWorkflow
+//
+// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
+func (c *DieRollClient) GetScheduleParentWorkflow(ctx context.Context, scheduleID string) client.ScheduleHandle {
+	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+}
+
+// DeleteScheduleParentWorkflow deletes a schedule for ParentWorkflow
+//
+// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
+func (c *DieRollClient) DeleteScheduleParentWorkflow(ctx context.Context, scheduleID string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	return handle.Delete(ctx)
+}
+
+// PauseScheduleParentWorkflow pauses a running schedule for ParentWorkflow. The note is
+// recorded by Temporal on the schedule's audit trail (visible via Describe). If
+// the schedule is already paused this is a no-op: we Describe first and skip the
+// Pause API call when .Schedule.State.Paused is already true, so it's safe to
+// call on every reconcile/bootstrap path without spamming the server.
+//
+// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
+func (c *DieRollClient) PauseScheduleParentWorkflow(ctx context.Context, scheduleID string, note string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return err
+	}
+	if desc.Schedule.State != nil && desc.Schedule.State.Paused {
+		return nil
+	}
+	return handle.Pause(ctx, client.SchedulePauseOptions{Note: note})
+}
+
+// UnpauseScheduleParentWorkflow resumes a paused schedule for ParentWorkflow. Like
+// PauseScheduleParentWorkflow, this is a read-then-write: we Describe first and
+// return nil if the schedule is already running, so idempotent bootstrap code
+// doesn't pay an extra Unpause round-trip per reconcile tick.
+//
+// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
+func (c *DieRollClient) UnpauseScheduleParentWorkflow(ctx context.Context, scheduleID string, note string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return err
+	}
+	if desc.Schedule.State == nil || !desc.Schedule.State.Paused {
+		return nil
+	}
+	return handle.Unpause(ctx, client.ScheduleUnpauseOptions{Note: note})
+}
+
+// ListScheduleParentWorkflow lists all schedules for ParentWorkflow workflow
+//
+// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
+func (c *DieRollClient) ListScheduleParentWorkflow(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
+	var schedules []client.ScheduleListEntry
+
+	iter, err := c.client.ScheduleClient().List(ctx, client.ScheduleListOptions{
+		PageSize: pageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for iter.HasNext() {
+		entry, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		// Filter by workflow type
+		if entry.WorkflowType.Name == WorkflowParentWorkflowName {
+			schedules = append(schedules, *entry)
+		}
+	}
+
+	return schedules, nil
+}
+
+// UpsertScheduleParentWorkflow creates or updates a schedule for ParentWorkflow
+//
+// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
+func (c *DieRollClient) UpsertScheduleParentWorkflow(ctx context.Context, scheduleID string, req *emptypb.Empty, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+
+	// Try to describe the schedule to see if it exists
+	_, err := handle.Describe(ctx)
+	if err != nil {
+		// Schedule doesn't exist, create it
+		return c.CreateScheduleParentWorkflow(ctx, scheduleID, req, options...)
+	}
+
+	// Schedule exists, update it
+	scheduleOptions := client.ScheduleOptions{
+		ID: scheduleID,
+		Action: &client.ScheduleWorkflowAction{
+			ID:                       scheduleID,
+			Workflow:                 WorkflowParentWorkflowName,
+			Args:                     []interface{}{req},
+			TaskQueue:                c.taskQueue,
+			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
+			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+		},
+	}
+
+	if len(options) > 0 {
+		// Upsert never flips Paused on a running schedule; everything else merges
+		// identically to CreateSchedule.
+		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], false)
+	}
+	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+
+	// Update the schedule
+	err = handle.Update(ctx, client.ScheduleUpdateOptions{
+		DoUpdate: func(input client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
+			schedule := input.Description.Schedule
+			schedule.Spec = &scheduleOptions.Spec
+			schedule.Action = scheduleOptions.Action
+			if scheduleOptions.Overlap != 0 {
+				schedule.Policy = &client.SchedulePolicies{
+					Overlap: scheduleOptions.Overlap,
+				}
+			}
+			if scheduleOptions.CatchupWindow != 0 {
+				if schedule.Policy == nil {
+					schedule.Policy = &client.SchedulePolicies{}
+				}
+				schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
+			}
+			if scheduleOptions.PauseOnFailure {
+				if schedule.Policy == nil {
+					schedule.Policy = &client.SchedulePolicies{}
+				}
+				schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+			}
+			return &client.ScheduleUpdate{
+				Schedule:              &schedule,
+				TypedSearchAttributes: &scheduleOptions.TypedSearchAttributes,
+			}, nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return handle, nil
+}
+
 // ExecuteWorkflowChildWorkflow executes the workflow and returns a future to it
 func (c *DieRollClient) ExecuteWorkflowChildWorkflow(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
 	wOptions := client.StartWorkflowOptions{}
@@ -293,7 +466,7 @@ func (c *DieRollClient) ExecuteWorkflowChildWorkflowSync(ctx context.Context, re
 	return resp, nil
 }
 
-// GetWorkflowChildWorkflowResult: gets the result of a given workflow
+// GetWorkflowChildWorkflowResult gets the result of a given workflow
 func (c *DieRollClient) GetWorkflowChildWorkflowResult(ctx context.Context, workflowId string, runId string) (*emptypb.Empty, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 
@@ -361,6 +534,165 @@ func (c *DieRollClient) ExecuteChildChildWorkflowSync(ctx workflow.Context, req 
 	return resp, nil
 }
 
+// CreateScheduleChildWorkflow creates a schedule for ChildWorkflow
+func (c *DieRollClient) CreateScheduleChildWorkflow(ctx context.Context, scheduleID string, req *emptypb.Empty, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+	scheduleOptions := client.ScheduleOptions{
+		ID: scheduleID,
+		Action: &client.ScheduleWorkflowAction{
+			ID:                       scheduleID,
+			Workflow:                 WorkflowChildWorkflowName,
+			Args:                     []interface{}{req},
+			TaskQueue:                c.taskQueue,
+			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
+			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+		},
+	}
+
+	if len(options) > 0 {
+		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], true)
+	}
+	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+
+	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
+}
+
+// GetScheduleChildWorkflow gets a handle to an existing schedule for ChildWorkflow
+func (c *DieRollClient) GetScheduleChildWorkflow(ctx context.Context, scheduleID string) client.ScheduleHandle {
+	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+}
+
+// DeleteScheduleChildWorkflow deletes a schedule for ChildWorkflow
+func (c *DieRollClient) DeleteScheduleChildWorkflow(ctx context.Context, scheduleID string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	return handle.Delete(ctx)
+}
+
+// PauseScheduleChildWorkflow pauses a running schedule for ChildWorkflow. The note is
+// recorded by Temporal on the schedule's audit trail (visible via Describe). If
+// the schedule is already paused this is a no-op: we Describe first and skip the
+// Pause API call when .Schedule.State.Paused is already true, so it's safe to
+// call on every reconcile/bootstrap path without spamming the server.
+func (c *DieRollClient) PauseScheduleChildWorkflow(ctx context.Context, scheduleID string, note string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return err
+	}
+	if desc.Schedule.State != nil && desc.Schedule.State.Paused {
+		return nil
+	}
+	return handle.Pause(ctx, client.SchedulePauseOptions{Note: note})
+}
+
+// UnpauseScheduleChildWorkflow resumes a paused schedule for ChildWorkflow. Like
+// PauseScheduleChildWorkflow, this is a read-then-write: we Describe first and
+// return nil if the schedule is already running, so idempotent bootstrap code
+// doesn't pay an extra Unpause round-trip per reconcile tick.
+func (c *DieRollClient) UnpauseScheduleChildWorkflow(ctx context.Context, scheduleID string, note string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return err
+	}
+	if desc.Schedule.State == nil || !desc.Schedule.State.Paused {
+		return nil
+	}
+	return handle.Unpause(ctx, client.ScheduleUnpauseOptions{Note: note})
+}
+
+// ListScheduleChildWorkflow lists all schedules for ChildWorkflow workflow
+func (c *DieRollClient) ListScheduleChildWorkflow(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
+	var schedules []client.ScheduleListEntry
+
+	iter, err := c.client.ScheduleClient().List(ctx, client.ScheduleListOptions{
+		PageSize: pageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for iter.HasNext() {
+		entry, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		// Filter by workflow type
+		if entry.WorkflowType.Name == WorkflowChildWorkflowName {
+			schedules = append(schedules, *entry)
+		}
+	}
+
+	return schedules, nil
+}
+
+// UpsertScheduleChildWorkflow creates or updates a schedule for ChildWorkflow
+func (c *DieRollClient) UpsertScheduleChildWorkflow(ctx context.Context, scheduleID string, req *emptypb.Empty, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+
+	// Try to describe the schedule to see if it exists
+	_, err := handle.Describe(ctx)
+	if err != nil {
+		// Schedule doesn't exist, create it
+		return c.CreateScheduleChildWorkflow(ctx, scheduleID, req, options...)
+	}
+
+	// Schedule exists, update it
+	scheduleOptions := client.ScheduleOptions{
+		ID: scheduleID,
+		Action: &client.ScheduleWorkflowAction{
+			ID:                       scheduleID,
+			Workflow:                 WorkflowChildWorkflowName,
+			Args:                     []interface{}{req},
+			TaskQueue:                c.taskQueue,
+			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
+			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+		},
+	}
+
+	if len(options) > 0 {
+		// Upsert never flips Paused on a running schedule; everything else merges
+		// identically to CreateSchedule.
+		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], false)
+	}
+	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+
+	// Update the schedule
+	err = handle.Update(ctx, client.ScheduleUpdateOptions{
+		DoUpdate: func(input client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
+			schedule := input.Description.Schedule
+			schedule.Spec = &scheduleOptions.Spec
+			schedule.Action = scheduleOptions.Action
+			if scheduleOptions.Overlap != 0 {
+				schedule.Policy = &client.SchedulePolicies{
+					Overlap: scheduleOptions.Overlap,
+				}
+			}
+			if scheduleOptions.CatchupWindow != 0 {
+				if schedule.Policy == nil {
+					schedule.Policy = &client.SchedulePolicies{}
+				}
+				schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
+			}
+			if scheduleOptions.PauseOnFailure {
+				if schedule.Policy == nil {
+					schedule.Policy = &client.SchedulePolicies{}
+				}
+				schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+			}
+			return &client.ScheduleUpdate{
+				Schedule:              &schedule,
+				TypedSearchAttributes: &scheduleOptions.TypedSearchAttributes,
+			}, nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return handle, nil
+}
+
 // ExecuteWorkflowThrowDies executes the workflow and returns a future to it
 //
 // Throws dies a few times and return the result
@@ -408,7 +740,7 @@ func (c *DieRollClient) ExecuteWorkflowThrowDiesSync(ctx context.Context, req *T
 	return resp, nil
 }
 
-// GetWorkflowThrowDiesResult: gets the result of a given workflow
+// GetWorkflowThrowDiesResult gets the result of a given workflow
 func (c *DieRollClient) GetWorkflowThrowDiesResult(ctx context.Context, workflowId string, runId string) (*ThrowDiesResponse, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 
@@ -499,7 +831,7 @@ func (c *DieRollClient) CreateScheduleThrowDies(ctx context.Context, scheduleID 
 	if len(options) > 0 {
 		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], true)
 	}
-	applyScheduleDefaultsDieRoll(&scheduleOptions, "* * * * *", DefaultDieRollTaskQueueName)
+	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
 
 	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
 }
@@ -615,7 +947,7 @@ func (c *DieRollClient) UpsertScheduleThrowDies(ctx context.Context, scheduleID 
 		// identically to CreateSchedule.
 		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], false)
 	}
-	applyScheduleDefaultsDieRoll(&scheduleOptions, "* * * * *", DefaultDieRollTaskQueueName)
+	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
 
 	// Update the schedule
 	err = handle.Update(ctx, client.ScheduleUpdateOptions{
@@ -696,7 +1028,7 @@ func (c *DieRollClient) ExecuteWorkflowThrowUntilValueSync(ctx context.Context, 
 	return resp, nil
 }
 
-// GetWorkflowThrowUntilValueResult: gets the result of a given workflow
+// GetWorkflowThrowUntilValueResult gets the result of a given workflow
 func (c *DieRollClient) GetWorkflowThrowUntilValueResult(ctx context.Context, workflowId string, runId string) (*emptypb.Empty, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 
@@ -764,6 +1096,165 @@ func (c *DieRollClient) ExecuteChildThrowUntilValueSync(ctx workflow.Context, re
 	return resp, nil
 }
 
+// CreateScheduleThrowUntilValue creates a schedule for ThrowUntilValue
+func (c *DieRollClient) CreateScheduleThrowUntilValue(ctx context.Context, scheduleID string, req *ThrowUntilValueRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+	scheduleOptions := client.ScheduleOptions{
+		ID: scheduleID,
+		Action: &client.ScheduleWorkflowAction{
+			ID:                       scheduleID,
+			Workflow:                 WorkflowThrowUntilValueName,
+			Args:                     []interface{}{req},
+			TaskQueue:                c.taskQueue,
+			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
+			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+		},
+	}
+
+	if len(options) > 0 {
+		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], true)
+	}
+	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+
+	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
+}
+
+// GetScheduleThrowUntilValue gets a handle to an existing schedule for ThrowUntilValue
+func (c *DieRollClient) GetScheduleThrowUntilValue(ctx context.Context, scheduleID string) client.ScheduleHandle {
+	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+}
+
+// DeleteScheduleThrowUntilValue deletes a schedule for ThrowUntilValue
+func (c *DieRollClient) DeleteScheduleThrowUntilValue(ctx context.Context, scheduleID string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	return handle.Delete(ctx)
+}
+
+// PauseScheduleThrowUntilValue pauses a running schedule for ThrowUntilValue. The note is
+// recorded by Temporal on the schedule's audit trail (visible via Describe). If
+// the schedule is already paused this is a no-op: we Describe first and skip the
+// Pause API call when .Schedule.State.Paused is already true, so it's safe to
+// call on every reconcile/bootstrap path without spamming the server.
+func (c *DieRollClient) PauseScheduleThrowUntilValue(ctx context.Context, scheduleID string, note string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return err
+	}
+	if desc.Schedule.State != nil && desc.Schedule.State.Paused {
+		return nil
+	}
+	return handle.Pause(ctx, client.SchedulePauseOptions{Note: note})
+}
+
+// UnpauseScheduleThrowUntilValue resumes a paused schedule for ThrowUntilValue. Like
+// PauseScheduleThrowUntilValue, this is a read-then-write: we Describe first and
+// return nil if the schedule is already running, so idempotent bootstrap code
+// doesn't pay an extra Unpause round-trip per reconcile tick.
+func (c *DieRollClient) UnpauseScheduleThrowUntilValue(ctx context.Context, scheduleID string, note string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return err
+	}
+	if desc.Schedule.State == nil || !desc.Schedule.State.Paused {
+		return nil
+	}
+	return handle.Unpause(ctx, client.ScheduleUnpauseOptions{Note: note})
+}
+
+// ListScheduleThrowUntilValue lists all schedules for ThrowUntilValue workflow
+func (c *DieRollClient) ListScheduleThrowUntilValue(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
+	var schedules []client.ScheduleListEntry
+
+	iter, err := c.client.ScheduleClient().List(ctx, client.ScheduleListOptions{
+		PageSize: pageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for iter.HasNext() {
+		entry, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		// Filter by workflow type
+		if entry.WorkflowType.Name == WorkflowThrowUntilValueName {
+			schedules = append(schedules, *entry)
+		}
+	}
+
+	return schedules, nil
+}
+
+// UpsertScheduleThrowUntilValue creates or updates a schedule for ThrowUntilValue
+func (c *DieRollClient) UpsertScheduleThrowUntilValue(ctx context.Context, scheduleID string, req *ThrowUntilValueRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+
+	// Try to describe the schedule to see if it exists
+	_, err := handle.Describe(ctx)
+	if err != nil {
+		// Schedule doesn't exist, create it
+		return c.CreateScheduleThrowUntilValue(ctx, scheduleID, req, options...)
+	}
+
+	// Schedule exists, update it
+	scheduleOptions := client.ScheduleOptions{
+		ID: scheduleID,
+		Action: &client.ScheduleWorkflowAction{
+			ID:                       scheduleID,
+			Workflow:                 WorkflowThrowUntilValueName,
+			Args:                     []interface{}{req},
+			TaskQueue:                c.taskQueue,
+			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
+			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+		},
+	}
+
+	if len(options) > 0 {
+		// Upsert never flips Paused on a running schedule; everything else merges
+		// identically to CreateSchedule.
+		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], false)
+	}
+	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+
+	// Update the schedule
+	err = handle.Update(ctx, client.ScheduleUpdateOptions{
+		DoUpdate: func(input client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
+			schedule := input.Description.Schedule
+			schedule.Spec = &scheduleOptions.Spec
+			schedule.Action = scheduleOptions.Action
+			if scheduleOptions.Overlap != 0 {
+				schedule.Policy = &client.SchedulePolicies{
+					Overlap: scheduleOptions.Overlap,
+				}
+			}
+			if scheduleOptions.CatchupWindow != 0 {
+				if schedule.Policy == nil {
+					schedule.Policy = &client.SchedulePolicies{}
+				}
+				schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
+			}
+			if scheduleOptions.PauseOnFailure {
+				if schedule.Policy == nil {
+					schedule.Policy = &client.SchedulePolicies{}
+				}
+				schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+			}
+			return &client.ScheduleUpdate{
+				Schedule:              &schedule,
+				TypedSearchAttributes: &scheduleOptions.TypedSearchAttributes,
+			}, nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return handle, nil
+}
+
 // mergeScheduleOptionsDieRoll merges user-supplied schedule options into the
 // base struct built by the generated CreateSchedule/UpsertSchedule methods. Only
 // non-zero fields on the user struct overwrite the base, so callers can pass a
@@ -822,15 +1313,11 @@ func mergeScheduleOptionsDieRoll(base *client.ScheduleOptions, user client.Sched
 	}
 }
 
-// applyScheduleDefaultsDieRoll fills in the generator-level defaults (cron
-// expression from the proto option and the service's default task queue) on a
-// ScheduleOptions struct whenever the caller left the relevant fields empty. It
-// runs after the merge helper so explicit caller input always wins over
-// generator defaults.
-func applyScheduleDefaultsDieRoll(opts *client.ScheduleOptions, defaultCron, defaultTaskQueue string) {
-	if opts.Spec.CronExpressions == nil && opts.Spec.Calendars == nil && opts.Spec.Intervals == nil {
-		opts.Spec.CronExpressions = []string{defaultCron}
-	}
+// applyScheduleDefaultsDieRoll fills in the service's default task queue on
+// the ScheduleWorkflowAction whenever the caller left TaskQueue empty. It runs
+// after the merge helper so explicit caller input always wins over generator
+// defaults.
+func applyScheduleDefaultsDieRoll(opts *client.ScheduleOptions, defaultTaskQueue string) {
 	if action, ok := opts.Action.(*client.ScheduleWorkflowAction); ok && action.TaskQueue == "" {
 		action.TaskQueue = defaultTaskQueue
 	}
@@ -985,7 +1472,7 @@ func NewDieRollWorker(client client.Client, svc DieRollService, taskQueue string
 	}, nil
 }
 
-// Register: registers the worker and its activities/workflows in temporal
+// Register registers the worker's activities and workflows with Temporal.
 func (w *DieRollWorker) Register() {
 	// Registers activity ThrowDie
 	w.worker.RegisterActivityWithOptions(w.svc.ThrowDie, activity.RegisterOptions{
@@ -1013,17 +1500,17 @@ func (w *DieRollWorker) Register() {
 	})
 }
 
-// Start: will run the worker in a non-blocking fashion. Use Stop() to stop the worker.
+// Start runs the worker in a non-blocking fashion. Use Stop() to stop it.
 func (w *DieRollWorker) Start() error {
 	return w.worker.Start()
 }
 
-// Run: will run the worker until interruptCh receives a signal. Use worker.InterruptCh() to interrupt when there's an interrupt signal from the OS.
+// Run runs the worker until interruptCh receives a signal. Use worker.InterruptCh() to wire up an OS interrupt signal.
 func (w *DieRollWorker) Run(interruptCh <-chan any) error {
 	return w.worker.Run(interruptCh)
 }
 
-// Stop: will stop the worker, may panic if called twice
+// Stop stops the worker. It may panic if called twice.
 func (w *DieRollWorker) Stop() {
 	w.worker.Stop()
 }

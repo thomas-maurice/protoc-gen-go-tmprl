@@ -228,9 +228,19 @@ func formatFloat(f float64) string {
 	return fmt.Sprintf("%f", f)
 }
 
-// formatStringSlice: Formats a string slice as a bracketed list
+// formatStringSlice: Formats a string slice for markdown table cells, wrapping
+// each entry in backticks so identifier-like values (e.g. error type names)
+// render as inline code. Returns an empty string for an empty/nil slice so
+// callers can rely on the enclosing template's {{if}} guard.
 func formatStringSlice(slice []string) string {
-	return fmt.Sprintf("%v", slice)
+	if len(slice) == 0 {
+		return ""
+	}
+	parts := make([]string, len(slice))
+	for i, s := range slice {
+		parts[i] = "`" + s + "`"
+	}
+	return strings.Join(parts, ", ")
 }
 
 // cardinalityToString: Converts protoreflect.Cardinality to string

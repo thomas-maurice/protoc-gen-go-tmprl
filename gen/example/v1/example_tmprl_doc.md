@@ -38,7 +38,7 @@ Service DieRoll is an example implementation of a service
 ### Service options
 | Option | Value |
 | --- | --- |
-| Default task queue | "service-task-queue" |
+| Default task queue | `service-task-queue` |
 
 ### Default workflow options
 | Option | Value |
@@ -58,7 +58,7 @@ Output: [example.v1.ParentWorkflowReply](#message_example_v1_ParentWorkflowReply
 
 | Setting | Value |
 | ----------- | ----------------------- |
-| Temporal registered method name | "example.v1.DieRoll.ParentWorkflow" |
+| Temporal registered method name | `example.v1.DieRoll.ParentWorkflow` |
 | Workflow execution timeout | 24h0m0s |
 | Workflow run timeout | 2h0m0s |
 
@@ -75,7 +75,7 @@ Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 | Setting | Value |
 | ----------- | ----------------------- |
-| Temporal registered method name | "example.v1.DieRoll.ChildWorkflow" |
+| Temporal registered method name | `example.v1.DieRoll.ChildWorkflow` |
 | Workflow execution timeout | 24h0m0s |
 | Workflow run timeout | 2h0m0s |
 <a id="method_example_v1_DieRoll_ThrowDies"></a>
@@ -89,7 +89,7 @@ Output: [example.v1.ThrowDiesResponse](#message_example_v1_ThrowDiesResponse)
 
 | Setting | Value |
 | ----------- | ----------------------- |
-| Temporal registered method name | "example.v1.DieRoll.ThrowDies" |
+| Temporal registered method name | `example.v1.DieRoll.ThrowDies` |
 | Workflow execution timeout | 24h0m0s |
 | Workflow run timeout | 2h0m0s |
 
@@ -106,7 +106,7 @@ Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 | Setting | Value |
 | ----------- | ----------------------- |
-| Temporal registered method name | "example.v1.DieRoll.ThrowUntilValue" |
+| Temporal registered method name | `example.v1.DieRoll.ThrowUntilValue` |
 | Workflow execution timeout | 24h0m0s |
 | Workflow run timeout | 2h0m0s |
 
@@ -125,7 +125,7 @@ Output: [example.v1.ThrowDieResponse](#message_example_v1_ThrowDieResponse)
 
 | Setting | Value |
 | ----------- | ----------------------- |
-| Temporal registered method name | "example.v1.DieRoll.ThrowDie" |
+| Temporal registered method name | `example.v1.DieRoll.ThrowDie` |
 | Schedule to close timeout | 2m0s |
 | Schedule to start timeout | 30s |
 | Start to close timeout | 2m0s |
@@ -138,7 +138,7 @@ Retry policy:
 | Backoff coefficient | 1.500000 |
 | Maximum attempts | 10 |
 | Maximum interval | 10s |
-| Non retryable error types | [FATAL NOT_FOUND] |
+| Non retryable error types | `FATAL`, `NOT_FOUND` |
 <a id="method_example_v1_DieRoll_Ping"></a>
 #### example.v1.DieRoll.Ping
 Just a simple ping
@@ -152,7 +152,7 @@ Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 | Setting | Value |
 | ----------- | ----------------------- |
-| Temporal registered method name | "ping.Ping" |
+| Temporal registered method name | `ping.Ping` |
 | Schedule to close timeout | 24h0m0s |
 | Heartbeat timeout | 1m0s |
 
@@ -168,7 +168,7 @@ Output: [example.v1.ThrowStatusResponse](#message_example_v1_ThrowStatusResponse
 
 | Setting | Value |
 | ----------- | ----------------------- |
-| Temporal registered method name | "example.v1.DieRoll.GetThrowsStatus" |
+| Temporal registered method name | `example.v1.DieRoll.GetThrowsStatus` |
 
 ### Signals
 <a id="method_example_v1_DieRoll_Continue"></a>
@@ -182,7 +182,7 @@ Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 | Setting | Value |
 | ----------- | ----------------------- |
-| Temporal registered method name | "example.v1.DieRoll.Continue" |
+| Temporal registered method name | `example.v1.DieRoll.Continue` |
 
 # Messages
 <a id="message_example_v1_ContinueSignalRequest"></a>

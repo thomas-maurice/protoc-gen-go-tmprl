@@ -132,10 +132,7 @@ type WorkflowOptions struct {
 	// workflow can process. They MUST be defined in
 	// the same service. The values of the list is
 	// simply the name of the corresponding RPC method
-	Queries []string `protobuf:"bytes,7,rep,name=queries,proto3" json:"queries,omitempty"`
-	// Cron expression for scheduling this workflow (e.g., "0 12 * * MON-FRI")
-	// If set, generates schedule helper methods for this workflow
-	CronSchedule  *string `protobuf:"bytes,8,opt,name=cron_schedule,json=cronSchedule,proto3,oneof" json:"cron_schedule,omitempty"`
+	Queries       []string `protobuf:"bytes,7,rep,name=queries,proto3" json:"queries,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -217,13 +214,6 @@ func (x *WorkflowOptions) GetQueries() []string {
 		return x.Queries
 	}
 	return nil
-}
-
-func (x *WorkflowOptions) GetCronSchedule() string {
-	if x != nil && x.CronSchedule != nil {
-		return *x.CronSchedule
-	}
-	return ""
 }
 
 type ServiceOptions struct {
@@ -538,7 +528,7 @@ const file_temporal_v1_temporal_proto_rawDesc = "" +
 	"\x17_start_to_close_timeoutB\x1c\n" +
 	"\x1a_schedule_to_start_timeoutB\x0f\n" +
 	"\r_retry_policyB\x14\n" +
-	"\x12_heartbeat_timeout\"\xed\x03\n" +
+	"\x12_heartbeat_timeout\"\xb1\x03\n" +
 	"\x0fWorkflowOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12A\n" +
 	"\x1aworkflow_execution_timeout\x18\x02 \x01(\x05H\x00R\x18workflowExecutionTimeout\x88\x01\x01\x125\n" +
@@ -546,13 +536,11 @@ const file_temporal_v1_temporal_proto_rawDesc = "" +
 	"\x15workflow_task_timeout\x18\x04 \x01(\x05H\x02R\x13workflowTaskTimeout\x88\x01\x01\x12@\n" +
 	"\fretry_policy\x18\x05 \x01(\v2\x18.temporal.v1.RetryPolicyH\x03R\vretryPolicy\x88\x01\x01\x12\x18\n" +
 	"\asignals\x18\x06 \x03(\tR\asignals\x12\x18\n" +
-	"\aqueries\x18\a \x03(\tR\aqueries\x12(\n" +
-	"\rcron_schedule\x18\b \x01(\tH\x04R\fcronSchedule\x88\x01\x01B\x1d\n" +
+	"\aqueries\x18\a \x03(\tR\aqueriesB\x1d\n" +
 	"\x1b_workflow_execution_timeoutB\x17\n" +
 	"\x15_workflow_run_timeoutB\x18\n" +
 	"\x16_workflow_task_timeoutB\x0f\n" +
-	"\r_retry_policyB\x10\n" +
-	"\x0e_cron_schedule\"\xdf\x01\n" +
+	"\r_retry_policy\"\xdf\x01\n" +
 	"\x0eServiceOptions\x12\x1d\n" +
 	"\n" +
 	"task_queue\x18\x01 \x01(\tR\ttaskQueue\x12V\n" +

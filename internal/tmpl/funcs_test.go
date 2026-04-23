@@ -5,6 +5,30 @@ import (
 	"time"
 )
 
+// TestFormatStringSlice: Verifies markdown-friendly rendering of string slices
+// used in the generated documentation (each entry wrapped in backticks so
+// identifier-like values render as inline code).
+func TestFormatStringSlice(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected string
+	}{
+		{"nil slice", nil, ""},
+		{"empty slice", []string{}, ""},
+		{"single entry", []string{"FATAL"}, "`FATAL`"},
+		{"multiple entries", []string{"FATAL", "NOT_FOUND"}, "`FATAL`, `NOT_FOUND`"},
+		{"preserves entries verbatim", []string{"a b", "c"}, "`a b`, `c`"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := formatStringSlice(tt.input); got != tt.expected {
+				t.Errorf("formatStringSlice(%v) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
 // TestToSeconds: Tests duration to seconds conversion
 func TestToSeconds(t *testing.T) {
 	tests := []struct {

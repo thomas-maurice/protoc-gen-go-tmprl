@@ -199,44 +199,6 @@ func TestMergeScheduleOptionsDieRoll_TypedSearchAttributes(t *testing.T) {
 	}
 }
 
-// TestApplyScheduleDefaultsDieRoll_FillsCronWhenSpecEmpty: the generator's
-// default cron expression should be copied onto the options whenever the user
-// hasn't supplied any Spec entry.
-func TestApplyScheduleDefaultsDieRoll_FillsCronWhenSpecEmpty(t *testing.T) {
-	opts := client.ScheduleOptions{
-		Action: &client.ScheduleWorkflowAction{TaskQueue: "x"},
-	}
-	applyScheduleDefaultsDieRoll(&opts, "0 * * * *", "default-tq")
-
-	if got := opts.Spec.CronExpressions; len(got) != 1 || got[0] != "0 * * * *" {
-		t.Errorf("CronExpressions = %v, want [0 * * * *]", got)
-	}
-}
-
-// TestApplyScheduleDefaultsDieRoll_PreservesUserSpec: if the user already
-// populated any of CronExpressions/Calendars/Intervals the default cron must
-// not be appended.
-func TestApplyScheduleDefaultsDieRoll_PreservesUserSpec(t *testing.T) {
-	cases := map[string]client.ScheduleSpec{
-		"CronExpressions set": {CronExpressions: []string{"*/1 * * * *"}},
-		"Calendars set":       {Calendars: []client.ScheduleCalendarSpec{{Hour: []client.ScheduleRange{{Start: 9}}}}},
-		"Intervals set":       {Intervals: []client.ScheduleIntervalSpec{{Every: time.Hour}}},
-	}
-	for name, spec := range cases {
-		t.Run(name, func(t *testing.T) {
-			opts := client.ScheduleOptions{
-				Spec:   spec,
-				Action: &client.ScheduleWorkflowAction{TaskQueue: "x"},
-			}
-			applyScheduleDefaultsDieRoll(&opts, "should-not-appear", "default-tq")
-
-			if len(opts.Spec.CronExpressions) == 1 && opts.Spec.CronExpressions[0] == "should-not-appear" {
-				t.Error("default cron overwrote user-provided spec")
-			}
-		})
-	}
-}
-
 // TestApplyScheduleDefaultsDieRoll_FillsTaskQueueWhenEmpty: the service's
 // default task queue is applied only when the ScheduleWorkflowAction has an
 // empty TaskQueue; a user-supplied one always wins.
@@ -245,7 +207,7 @@ func TestApplyScheduleDefaultsDieRoll_FillsTaskQueueWhenEmpty(t *testing.T) {
 		opts := client.ScheduleOptions{
 			Action: &client.ScheduleWorkflowAction{},
 		}
-		applyScheduleDefaultsDieRoll(&opts, "* * * * *", "default-tq")
+		applyScheduleDefaultsDieRoll(&opts, "default-tq")
 		action := opts.Action.(*client.ScheduleWorkflowAction)
 		if action.TaskQueue != "default-tq" {
 			t.Errorf("TaskQueue = %q, want default-tq", action.TaskQueue)
@@ -256,7 +218,7 @@ func TestApplyScheduleDefaultsDieRoll_FillsTaskQueueWhenEmpty(t *testing.T) {
 		opts := client.ScheduleOptions{
 			Action: &client.ScheduleWorkflowAction{TaskQueue: "user-tq"},
 		}
-		applyScheduleDefaultsDieRoll(&opts, "* * * * *", "default-tq")
+		applyScheduleDefaultsDieRoll(&opts, "default-tq")
 		action := opts.Action.(*client.ScheduleWorkflowAction)
 		if action.TaskQueue != "user-tq" {
 			t.Errorf("TaskQueue = %q, want user-tq (user override must win)", action.TaskQueue)
@@ -267,7 +229,7 @@ func TestApplyScheduleDefaultsDieRoll_FillsTaskQueueWhenEmpty(t *testing.T) {
 		// Pass a nil Action; the type assertion fails and the helper must
 		// not panic.
 		opts := client.ScheduleOptions{}
-		applyScheduleDefaultsDieRoll(&opts, "* * * * *", "default-tq")
+		applyScheduleDefaultsDieRoll(&opts, "default-tq")
 		if opts.Action != nil {
 			t.Errorf("Action = %v, want nil (no synthesis)", opts.Action)
 		}
@@ -285,11 +247,11 @@ func TestScheduleHelpers_CreateAndUpsertSemantics(t *testing.T) {
 
 	createBase := newBase()
 	mergeScheduleOptionsDieRoll(&createBase, user, true)
-	applyScheduleDefaultsDieRoll(&createBase, "* * * * *", "default-tq")
+	applyScheduleDefaultsDieRoll(&createBase, "default-tq")
 
 	upsertBase := newBase()
 	mergeScheduleOptionsDieRoll(&upsertBase, user, false)
-	applyScheduleDefaultsDieRoll(&upsertBase, "* * * * *", "default-tq")
+	applyScheduleDefaultsDieRoll(&upsertBase, "default-tq")
 
 	if !createBase.Paused {
 		t.Error("Create flow should honour Paused=true from user")

@@ -29,25 +29,25 @@ const (
 
 {{- range .Workflows}}
 
-	// Workflow{{.GoName}}Name: Registered name for workflow {{.GoName}}
+	// Workflow{{.GoName}}Name is the registered name for workflow {{.GoName}}.
 	Workflow{{.GoName}}Name = {{Quote .RegisteredName}}
 {{- end}}
 
 {{- range .Activities}}
 
-	// Activity{{.GoName}}Name: Registered name for activity {{.GoName}}
+	// Activity{{.GoName}}Name is the registered name for activity {{.GoName}}.
 	Activity{{.GoName}}Name = {{Quote .RegisteredName}}
 {{- end}}
 
 {{- range .Signals}}
 
-	// Signal{{.GoName}}Name: Registered name for signal {{.GoName}}
+	// Signal{{.GoName}}Name is the registered name for signal {{.GoName}}.
 	Signal{{.GoName}}Name = {{Quote .RegisteredName}}
 {{- end}}
 
 {{- range .Queries}}
 
-	// Query{{.GoName}}Name: Registered name for query {{.GoName}}
+	// Query{{.GoName}}Name is the registered name for query {{.GoName}}.
 	Query{{.GoName}}Name = {{Quote .RegisteredName}}
 {{- end}}
 )
@@ -217,7 +217,7 @@ func (c *{{.Service.GetClientName}}) ExecuteWorkflow{{.GoName}}Sync(ctx {{Contex
 	return resp, nil
 }
 
-// GetWorkflow{{.GoName}}Result: gets the result of a given workflow
+// GetWorkflow{{.GoName}}Result gets the result of a given workflow
 func (c *{{.Service.GetClientName}}) GetWorkflow{{.GoName}}Result(ctx {{Context}}, workflowId string, runId string) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 
@@ -334,7 +334,6 @@ func (c *{{.Service.GetClientName}}) ExecuteChild{{.GoName}}Sync(ctx {{TemporalW
 	return resp, nil
 }
 
-{{if .Options.CronSchedule}}
 
 // CreateSchedule{{.GoName}} creates a schedule for {{.GoName}}
 {{- if .Comment}}
@@ -387,7 +386,7 @@ func (c *{{.Service.GetClientName}}) CreateSchedule{{.GoName}}(ctx {{Context}}, 
 	if len(options) > 0 {
 		{{.Service.GetScheduleMergeFuncName}}(&scheduleOptions, options[0], true)
 	}
-	{{.Service.GetScheduleDefaultsFuncName}}(&scheduleOptions, {{Quote .Options.CronSchedule}}, {{.Service.GetDefaultTaskQueueConstName}})
+	{{.Service.GetScheduleDefaultsFuncName}}(&scheduleOptions, {{.Service.GetDefaultTaskQueueConstName}})
 
 	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
 }
@@ -545,7 +544,7 @@ func (c *{{.Service.GetClientName}}) UpsertSchedule{{.GoName}}(ctx {{Context}}, 
 		// identically to CreateSchedule.
 		{{.Service.GetScheduleMergeFuncName}}(&scheduleOptions, options[0], false)
 	}
-	{{.Service.GetScheduleDefaultsFuncName}}(&scheduleOptions, {{Quote .Options.CronSchedule}}, {{.Service.GetDefaultTaskQueueConstName}})
+	{{.Service.GetScheduleDefaultsFuncName}}(&scheduleOptions, {{.Service.GetDefaultTaskQueueConstName}})
 
 	// Update the schedule
 	err = handle.Update(ctx, {{TemporalClient "ScheduleUpdateOptions"}}{
@@ -582,16 +581,15 @@ func (c *{{.Service.GetClientName}}) UpsertSchedule{{.GoName}}(ctx {{Context}}, 
 
 	return handle, nil
 }
-{{end}}
 {{- end}}
 
 {{- /* ----------------------------------------------------------------------------
     SECTION 3.1.1: SCHEDULE HELPER FUNCTIONS (per-service, emitted once)
-    Only emitted when at least one workflow declares a cron_schedule.
-    The helpers are per-service so multiple services in the same package
-    don't clash on shared top-level identifiers.
----------------------------------------------------------------------------- */ -}}
-{{- if .HasScheduledWorkflows}}
+    Emitted once per service so multiple services in the same package don't
+    clash on shared top-level identifiers. Schedule creation is always
+    available per-workflow; the caller supplies the Spec on their
+    client.ScheduleOptions.
+---------------------------------------------------------------------------- */}}
 
 // {{.GetScheduleMergeFuncName}} merges user-supplied schedule options into the
 // base struct built by the generated CreateSchedule/UpsertSchedule methods. Only
@@ -651,20 +649,15 @@ func {{.GetScheduleMergeFuncName}}(base *{{TemporalClient "ScheduleOptions"}}, u
 	}
 }
 
-// {{.GetScheduleDefaultsFuncName}} fills in the generator-level defaults (cron
-// expression from the proto option and the service's default task queue) on a
-// ScheduleOptions struct whenever the caller left the relevant fields empty. It
-// runs after the merge helper so explicit caller input always wins over
-// generator defaults.
-func {{.GetScheduleDefaultsFuncName}}(opts *{{TemporalClient "ScheduleOptions"}}, defaultCron, defaultTaskQueue string) {
-	if opts.Spec.CronExpressions == nil && opts.Spec.Calendars == nil && opts.Spec.Intervals == nil {
-		opts.Spec.CronExpressions = []string{defaultCron}
-	}
+// {{.GetScheduleDefaultsFuncName}} fills in the service's default task queue on
+// the ScheduleWorkflowAction whenever the caller left TaskQueue empty. It runs
+// after the merge helper so explicit caller input always wins over generator
+// defaults.
+func {{.GetScheduleDefaultsFuncName}}(opts *{{TemporalClient "ScheduleOptions"}}, defaultTaskQueue string) {
 	if action, ok := opts.Action.(*{{TemporalClient "ScheduleWorkflowAction"}}); ok && action.TaskQueue == "" {
 		action.TaskQueue = defaultTaskQueue
 	}
 }
-{{- end}}
 
 {{- /* ----------------------------------------------------------------------------
     SECTION 3.2: ACTIVITY EXECUTION METHODS
@@ -806,7 +799,7 @@ func New{{.GetWorkerName}}(client {{TemporalClient "Client"}}, svc {{.GetService
 	}, nil
 }
 
-// Register: registers the worker and its activities/workflows in temporal
+// Register registers the worker's activities and workflows with Temporal.
 func (w *{{.GetWorkerName}}) Register() {
 	{{- range .Activities}}
 	// Registers activity {{.GoName}}
@@ -823,17 +816,17 @@ func (w *{{.GetWorkerName}}) Register() {
 	{{- end}}
 }
 
-// Start: will run the worker in a non-blocking fashion. Use Stop() to stop the worker.
+// Start runs the worker in a non-blocking fashion. Use Stop() to stop it.
 func (w *{{.GetWorkerName}}) Start() error {
 	return w.worker.Start()
 }
 
-// Run: will run the worker until interruptCh receives a signal. Use worker.InterruptCh() to interrupt when there's an interrupt signal from the OS.
+// Run runs the worker until interruptCh receives a signal. Use worker.InterruptCh() to wire up an OS interrupt signal.
 func (w *{{.GetWorkerName}}) Run(interruptCh <-chan any) error {
 	return w.worker.Run(interruptCh)
 }
 
-// Stop: will stop the worker, may panic if called twice
+// Stop stops the worker. It may panic if called twice.
 func (w *{{.GetWorkerName}}) Stop() {
 	w.worker.Stop()
 }

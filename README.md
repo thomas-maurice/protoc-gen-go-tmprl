@@ -95,24 +95,23 @@ Similarly for the workflows
 
 ### Workflow Schedules
 
-You can define cron schedules for workflows directly in your protobuf definitions. When a workflow has a `cron_schedule` set, the generator creates helper methods to manage Temporal schedules.
+Every workflow in a service gets a generated set of schedule-management helpers — there is no proto annotation required to opt in. Scheduling cadence is a runtime concern, not part of the workflow's schema, so callers pass their own `client.ScheduleOptions` (with a `Spec` of their choice: `CronExpressions`, `Intervals`, `Calendars`, etc.) when they create or upsert a schedule. The generator only fills in the service's default task queue if the caller left it empty.
 
 ```protobuf
     // Throws dies a few times and return the result
     rpc ThrowDies(ThrowDiesRequest) returns (ThrowDiesResponse) {
         option (temporal.v1.workflow) = {
             signals: ["Continue"]
-            cron_schedule: "* * * * *"  // Run every minute
         };
     }
 ```
 
-The generator creates the following schedule methods for workflows with `cron_schedule`:
+The generator creates the following schedule methods for every workflow in the service:
 
 ```golang
-// CreateScheduleThrowDies creates a schedule for ThrowDies with the configured cron expression.
-// The variadic options argument is merged on top of generator-built defaults: non-zero fields
-// from options[0] win, zero-valued fields keep their proto defaults.
+// CreateScheduleThrowDies creates a schedule for ThrowDies. The caller supplies the cadence via
+// options[0].Spec (CronExpressions / Intervals / Calendars). Non-zero fields from options[0] win
+// over generator defaults; if TaskQueue is left empty the service's default task queue is used.
 func (c *DieRollClient) CreateScheduleThrowDies(
     ctx context.Context,
     scheduleID string,
@@ -173,11 +172,17 @@ func (c *DieRollClient) UnpauseScheduleThrowDies(
 Example usage:
 
 ```golang
-// Create a schedule
-scheduleHandle, err := dieRollClient.CreateScheduleThrowDies(ctx, "throw-dies-schedule", &ThrowDiesRequest{
-    Results: 3,
-    Loop:    false,
-})
+// Create a schedule. The caller owns the cadence: supply a Spec.
+scheduleHandle, err := dieRollClient.CreateScheduleThrowDies(
+    ctx,
+    "throw-dies-schedule",
+    &ThrowDiesRequest{Results: 3, Loop: false},
+    client.ScheduleOptions{
+        Spec: client.ScheduleSpec{
+            CronExpressions: []string{"* * * * *"},
+        },
+    },
+)
 if err != nil {
     log.Fatal(err)
 }
@@ -192,9 +197,14 @@ err = scheduleHandle.Pause(ctx, client.SchedulePauseOptions{
 
 // Idempotent create-or-update. Safe to call on redeploys; the Paused flag is intentionally
 // ignored on the update path.
-_, err = dieRollClient.UpsertScheduleThrowDies(ctx, "throw-dies-schedule", &ThrowDiesRequest{
-    Results: 5,
-})
+_, err = dieRollClient.UpsertScheduleThrowDies(
+    ctx,
+    "throw-dies-schedule",
+    &ThrowDiesRequest{Results: 5},
+    client.ScheduleOptions{
+        Spec: client.ScheduleSpec{CronExpressions: []string{"* * * * *"}},
+    },
+)
 
 // Enumerate every schedule whose action is this workflow type.
 entries, err := dieRollClient.ListScheduleThrowDies(ctx, 100)
@@ -210,12 +220,11 @@ err = dieRollClient.UnpauseScheduleThrowDies(ctx, "throw-dies-schedule", "mainte
 ```
 
 **Features:**
-- **Declarative configuration:** Define cron schedules directly in protobuf
 - **Type-safe:** Generated methods use workflow-specific request types
 - **Option merging:** Runtime `client.ScheduleOptions` are merged field-by-field onto generator defaults (non-zero fields win); the merge logic is factored into a per-service `mergeScheduleOptions<Service>` helper in the generated file
 - **Workflow configuration:** Automatically applies workflow timeouts and retry policies to scheduled executions
-- **Conditional generation:** Schedule methods only generated for workflows with `cron_schedule` set
-- **Full CRUD surface:** `Create`, `Get`, `List`, `Upsert`, and `Delete` are all generated per scheduled workflow
+- **Unconditional generation:** Every workflow gets the schedule surface — cadence is a runtime concern, not part of the schema
+- **Full CRUD surface:** `Create`, `Get`, `List`, `Upsert`, `Delete`, `Pause`, and `Unpause` are all generated per workflow
 
 ### The workflow objects
 
@@ -355,13 +364,13 @@ The generated code exposes a lot of primitives such as (non exhaustive list):
 * `client.ExecuteChildXSync`: Executes a workflow from a workflow and blocks until the result is returned
 * `client.ExecuteActivityX`: Executes an activity and returns a future
 * `client.ExecuteActivityXSync`: Executes an activity and blocks until the result is returned
-* `client.CreateScheduleX`: Creates a Temporal schedule for a workflow (only if `cron_schedule` is set)
-* `client.GetScheduleX`: Gets a handle to an existing schedule (only if `cron_schedule` is set)
-* `client.DeleteScheduleX`: Deletes an existing schedule (only if `cron_schedule` is set)
-* `client.ListScheduleX`: Lists every schedule whose action is workflow `X` (only if `cron_schedule` is set)
-* `client.UpsertScheduleX`: Creates or updates a schedule idempotently (only if `cron_schedule` is set)
-* `client.PauseScheduleX`: Pauses a schedule if it's running; no-op if already paused (only if `cron_schedule` is set)
-* `client.UnpauseScheduleX`: Resumes a paused schedule; no-op if already running (only if `cron_schedule` is set)
+* `client.CreateScheduleX`: Creates a Temporal schedule for a workflow (caller supplies the Spec)
+* `client.GetScheduleX`: Gets a handle to an existing schedule
+* `client.DeleteScheduleX`: Deletes an existing schedule
+* `client.ListScheduleX`: Lists every schedule whose action is workflow `X`
+* `client.UpsertScheduleX`: Creates or updates a schedule idempotently (caller supplies the Spec)
+* `client.PauseScheduleX`: Pauses a schedule if it's running; no-op if already paused
+* `client.UnpauseScheduleX`: Resumes a paused schedule; no-op if already running
 * `client.GetX`: Gets an instance of a workflow
 * `workflow.Cancel`: Cancels a workflow
 * `workflow.Teminate`: Terminates a workflow
