@@ -1,0 +1,234 @@
+{{- /* documentation.tmpl - Template for generating markdown documentation */ -}}
+<a id="{{MakeAnchor "service" .PackageName .Name}}"></a>
+## {{.PackageName}}.{{.Name}}
+{{TrimComment .Comment}}
+
+### Table of contents
+
+   * [{{.PackageName}}.{{.Name}} default settings](#{{MakeAnchor "svcoptions" .PackageName .Name}})
+{{- if .Workflows}}
+ * Workflows
+{{- range .Workflows}}
+   * [{{$.PackageName}}.{{$.Name}}.{{.GoName}}](#{{MakeAnchor "method" $.PackageName $.Name .GoName}})
+{{- end}}
+{{- end}}
+{{- if .Activities}}
+ * Activities
+{{- range .Activities}}
+   * [{{$.PackageName}}.{{$.Name}}.{{.GoName}}](#{{MakeAnchor "method" $.PackageName $.Name .GoName}})
+{{- end}}
+{{- end}}
+{{- if .Signals}}
+ * Signals
+{{- range .Signals}}
+   * [{{$.PackageName}}.{{$.Name}}.{{.GoName}}](#{{MakeAnchor "method" $.PackageName $.Name .GoName}})
+{{- end}}
+{{- end}}
+{{- if .Queries}}
+ * Queries
+{{- range .Queries}}
+   * [{{$.PackageName}}.{{$.Name}}.{{.GoName}}](#{{MakeAnchor "method" $.PackageName $.Name .GoName}})
+{{- end}}
+{{- end}}
+
+<a id="{{MakeAnchor "svcoptions" .PackageName .Name}}"></a>
+### Service options
+| Option | Value |
+| --- | --- |
+| Default task queue | `{{.TaskQueue}}` |
+
+{{- if .DefaultWorkflowOptions}}
+{{- if or .DefaultWorkflowOptions.WorkflowExecutionTimeout .DefaultWorkflowOptions.WorkflowRunTimeout .DefaultWorkflowOptions.WorkflowTaskTimeout}}
+
+### Default workflow options
+| Option | Value |
+| --- | --- |
+{{- if .DefaultWorkflowOptions.WorkflowExecutionTimeout}}
+| Workflow execution timeout | {{FormatDuration .DefaultWorkflowOptions.WorkflowExecutionTimeout}} |
+{{- end}}
+{{- if .DefaultWorkflowOptions.WorkflowRunTimeout}}
+| Workflow run timeout | {{FormatDuration .DefaultWorkflowOptions.WorkflowRunTimeout}} |
+{{- end}}
+{{- if .DefaultWorkflowOptions.WorkflowTaskTimeout}}
+| Workflow task timeout | {{FormatDuration .DefaultWorkflowOptions.WorkflowTaskTimeout}} |
+{{- end}}
+{{- end}}
+{{- end}}
+
+{{- if .DefaultActivityOptions}}
+{{- if or .DefaultActivityOptions.ScheduleToCloseTimeout .DefaultActivityOptions.ScheduleToStartTimeout .DefaultActivityOptions.StartToCloseTimeout .DefaultActivityOptions.HeartbeatTimeout}}
+
+### Default activity options
+| Option | Value |
+| --- | --- |
+{{- if .DefaultActivityOptions.ScheduleToCloseTimeout}}
+| Schedule to close timeout | {{FormatDuration .DefaultActivityOptions.ScheduleToCloseTimeout}} |
+{{- end}}
+{{- if .DefaultActivityOptions.ScheduleToStartTimeout}}
+| Schedule to start timeout | {{FormatDuration .DefaultActivityOptions.ScheduleToStartTimeout}} |
+{{- end}}
+{{- if .DefaultActivityOptions.StartToCloseTimeout}}
+| Start to close timeout | {{FormatDuration .DefaultActivityOptions.StartToCloseTimeout}} |
+{{- end}}
+{{- if .DefaultActivityOptions.HeartbeatTimeout}}
+| Heartbeat timeout | {{FormatDuration .DefaultActivityOptions.HeartbeatTimeout}} |
+{{- end}}
+{{- end}}
+{{- end}}
+
+### Workflows
+{{- range .Workflows}}
+<a id="{{MakeAnchor "method" $.PackageName $.Name .GoName}}"></a>
+#### {{$.PackageName}}.{{$.Name}}.{{.GoName}}
+{{TrimComment .Comment}}
+
+Input: [{{FullName .Input.Desc.FullName}}](#{{MakeAnchor "message" (FullName .Input.Desc.FullName)}})
+
+Output: [{{FullName .Output.Desc.FullName}}](#{{MakeAnchor "message" (FullName .Output.Desc.FullName)}})
+
+
+| Setting | Value |
+| ----------- | ----------------------- |
+| Temporal registered method name | `{{.RegisteredName}}` |
+{{- if .Options.WorkflowExecutionTimeout}}
+| Workflow execution timeout | {{FormatDuration .Options.WorkflowExecutionTimeout}} |
+{{- end}}
+{{- if .Options.WorkflowRunTimeout}}
+| Workflow run timeout | {{FormatDuration .Options.WorkflowRunTimeout}} |
+{{- end}}
+{{- if .Options.WorkflowTaskTimeout}}
+| Workflow task timeout | {{FormatDuration .Options.WorkflowTaskTimeout}} |
+{{- end}}
+{{- if .Options.RetryPolicy}}
+
+Retry policy:
+
+| Option | Value |
+| --- | --- |
+{{- if .Options.RetryPolicy.InitialInterval}}
+| Initial interval | {{FormatDuration .Options.RetryPolicy.InitialInterval}} |
+{{- end}}
+{{- if .Options.RetryPolicy.BackoffCoefficient}}
+| Backoff coefficient | {{FormatFloat .Options.RetryPolicy.BackoffCoefficient}} |
+{{- end}}
+{{- if .Options.RetryPolicy.MaximumAttempts}}
+| Maximum attempts | {{.Options.RetryPolicy.MaximumAttempts}} |
+{{- end}}
+{{- if .Options.RetryPolicy.MaximumInterval}}
+| Maximum interval | {{FormatDuration .Options.RetryPolicy.MaximumInterval}} |
+{{- end}}
+{{- if .Options.RetryPolicy.NonRetryableErrorTypes}}
+| Non retryable error types | {{FormatStringSlice .Options.RetryPolicy.NonRetryableErrorTypes}} |
+{{- end}}
+
+{{- end}}
+
+{{- if .Options.Signals}}
+
+Signals:
+{{- range .Options.Signals}}
+{{- $signal := index $.SignalsMap .}}
+{{- if $signal}}
+ * [{{$.PackageName}}.{{$.Name}}.{{.}}](#{{MakeAnchor "method" $.PackageName $.Name .}})
+{{- end}}
+{{- end}}
+{{- end}}
+
+{{- if .Options.Queries}}
+
+Queries:
+{{- range .Options.Queries}}
+{{- $query := index $.QueriesMap .}}
+{{- if $query}}
+ * [{{$.PackageName}}.{{$.Name}}.{{.}}](#{{MakeAnchor "method" $.PackageName $.Name .}})
+{{- end}}
+{{- end}}
+{{- end}}
+
+{{- end}}
+
+### Activities
+{{- range .Activities}}
+<a id="{{MakeAnchor "method" $.PackageName $.Name .GoName}}"></a>
+#### {{$.PackageName}}.{{$.Name}}.{{.GoName}}
+{{TrimComment .Comment}}
+
+Input: [{{FullName .Input.Desc.FullName}}](#{{MakeAnchor "message" (FullName .Input.Desc.FullName)}})
+
+Output: [{{FullName .Output.Desc.FullName}}](#{{MakeAnchor "message" (FullName .Output.Desc.FullName)}})
+
+
+| Setting | Value |
+| ----------- | ----------------------- |
+| Temporal registered method name | `{{.RegisteredName}}` |
+{{- if .Options.ScheduleToCloseTimeout}}
+| Schedule to close timeout | {{FormatDuration .Options.ScheduleToCloseTimeout}} |
+{{- end}}
+{{- if .Options.ScheduleToStartTimeout}}
+| Schedule to start timeout | {{FormatDuration .Options.ScheduleToStartTimeout}} |
+{{- end}}
+{{- if .Options.StartToCloseTimeout}}
+| Start to close timeout | {{FormatDuration .Options.StartToCloseTimeout}} |
+{{- end}}
+{{- if .Options.HeartbeatTimeout}}
+| Heartbeat timeout | {{FormatDuration .Options.HeartbeatTimeout}} |
+{{- end}}
+{{- if .Options.RetryPolicy}}
+
+Retry policy:
+
+| Option | Value |
+| --- | --- |
+{{- if .Options.RetryPolicy.InitialInterval}}
+| Initial interval | {{FormatDuration .Options.RetryPolicy.InitialInterval}} |
+{{- end}}
+{{- if .Options.RetryPolicy.BackoffCoefficient}}
+| Backoff coefficient | {{FormatFloat .Options.RetryPolicy.BackoffCoefficient}} |
+{{- end}}
+{{- if .Options.RetryPolicy.MaximumAttempts}}
+| Maximum attempts | {{.Options.RetryPolicy.MaximumAttempts}} |
+{{- end}}
+{{- if .Options.RetryPolicy.MaximumInterval}}
+| Maximum interval | {{FormatDuration .Options.RetryPolicy.MaximumInterval}} |
+{{- end}}
+{{- if .Options.RetryPolicy.NonRetryableErrorTypes}}
+| Non retryable error types | {{FormatStringSlice .Options.RetryPolicy.NonRetryableErrorTypes}} |
+{{- end}}
+
+{{- end}}
+
+{{- end}}
+
+### Queries
+{{- range .Queries}}
+<a id="{{MakeAnchor "method" $.PackageName $.Name .GoName}}"></a>
+#### {{$.PackageName}}.{{$.Name}}.{{.GoName}}
+{{TrimComment .Comment}}
+
+Input: [{{FullName .Input.Desc.FullName}}](#{{MakeAnchor "message" (FullName .Input.Desc.FullName)}})
+
+Output: [{{FullName .Output.Desc.FullName}}](#{{MakeAnchor "message" (FullName .Output.Desc.FullName)}})
+
+
+| Setting | Value |
+| ----------- | ----------------------- |
+| Temporal registered method name | `{{.RegisteredName}}` |
+
+{{- end}}
+
+### Signals
+{{- range .Signals}}
+<a id="{{MakeAnchor "method" $.PackageName $.Name .GoName}}"></a>
+#### {{$.PackageName}}.{{$.Name}}.{{.GoName}}
+{{TrimComment .Comment}}
+
+Input: [{{FullName .Input.Desc.FullName}}](#{{MakeAnchor "message" (FullName .Input.Desc.FullName)}})
+
+Output: [{{FullName .Output.Desc.FullName}}](#{{MakeAnchor "message" (FullName .Output.Desc.FullName)}})
+
+
+| Setting | Value |
+| ----------- | ----------------------- |
+| Temporal registered method name | `{{.RegisteredName}}` |
+
+{{- end}}

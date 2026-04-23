@@ -83,19 +83,52 @@ func (s *DieRollService) ChildWorkflow(ctx workflow.Context, req *emptypb.Empty)
 func (s *DieRollService) ThrowDies(ctx workflow.Context, req *examplev1.ThrowDiesRequest) (*examplev1.ThrowDiesResponse, error) {
 	results := make([]int32, 0)
 
-	for i := int32(0); i < req.Results; i++ {
-		r, err := s.c.ExecuteActivityThrowDieSync(ctx, &emptypb.Empty{})
-		if err != nil {
-			return nil, err
+	for {
+		// Throw the requested number of dice
+		for i := int32(0); i < req.Results; i++ {
+			r, err := s.c.ExecuteActivityThrowDieSync(ctx, &emptypb.Empty{})
+			if err != nil {
+				return nil, err
+			}
+
+			results = append(results, r.Result)
+
+			if err := workflow.Sleep(ctx, time.Second*5); err != nil {
+				return nil, err
+			}
 		}
 
-		results = append(results, r.Result)
+		// If not looping, exit immediately
+		if !req.Loop {
+			break
+		}
 
-		workflow.Sleep(ctx, time.Second*5)
+		// Wait for Continue signal with 1 minute timeout
+		signalChan := workflow.GetSignalChannel(ctx, examplev1.SignalContinueName)
+		selector := workflow.NewSelector(ctx)
+
+		shouldContinue := false
+		selector.AddReceive(signalChan, func(c workflow.ReceiveChannel, more bool) {
+			var sig examplev1.ContinueSignalRequest
+			c.Receive(ctx, &sig)
+			shouldContinue = sig.Continue
+			workflow.GetLogger(ctx).Info("Received Continue signal", "continue", sig.Continue)
+		})
+
+		selector.AddFuture(workflow.NewTimer(ctx, time.Minute), func(f workflow.Future) {
+			workflow.GetLogger(ctx).Info("No signal received within 1 minute, exiting workflow")
+		})
+
+		selector.Select(ctx)
+
+		// Exit if signal said not to continue or timeout occurred
+		if !shouldContinue {
+			break
+		}
+
+		// Clear results for next iteration
+		results = make([]int32, 0)
 	}
-
-	// This will let the workflow die
-	examplev1.ReceiveSignalContinue(ctx)
 
 	return &examplev1.ThrowDiesResponse{
 		Results: results,

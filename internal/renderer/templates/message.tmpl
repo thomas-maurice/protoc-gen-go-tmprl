@@ -1,0 +1,10 @@
+{{- /* message.tmpl - Template for generating message documentation */ -}}
+<a id="{{MakeAnchor "message" (FullName .Desc.FullName)}}"></a>
+## {{FullName .Desc.FullName}}
+{{TrimComment .Comments.Leading}}
+| Field name | Type | Cardinality | Deprecated ? | Description |
+| --- | --- | --- | --- | --- |
+{{- range .Fields}}
+| {{.GoName}} | {{.Desc.Kind.String}} | {{Cardinality .Desc.Cardinality}} | {{DeprecatedIcon .Desc.Options}} | <pre>{{TrimComment .Comments.Leading}}</pre> |
+{{- end}}
+

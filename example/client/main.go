@@ -41,30 +41,58 @@ func main() {
 
 	ctx := context.Background()
 
-	future, err := dieRollClient.ExecuteWorkflowThrowDies(ctx, &examplev1.ThrowDiesRequest{
-		Results: 5,
-	})
+	// Create a schedule for ThrowDies workflow to run every minute.
+	// The caller owns the Spec: pass a CronExpression/Interval/Calendar
+	// to match your scheduling needs. The generator only defaults the
+	// task queue; it does NOT pick a cadence for you.
+	scheduleHandle, err := dieRollClient.UpsertScheduleThrowDies(
+		ctx,
+		"throw-dies-schedule",
+		&examplev1.ThrowDiesRequest{
+			Results: 3,
+			Loop:    false,
+		},
+		client.ScheduleOptions{
+			Spec: client.ScheduleSpec{
+				CronExpressions: []string{"* * * * *"},
+			},
+		},
+	)
+	if err != nil {
+		logger.Warn("could not create schedule (may already exist)", "error", err)
+	} else {
+		logger.Info("created schedule", "scheduleID", "throw-dies-schedule")
 
+		// Get schedule handle to demonstrate retrieval
+		scheduleHandle = dieRollClient.GetScheduleThrowDies(ctx, "throw-dies-schedule")
+		logger.Info("retrieved schedule handle", "scheduleID", "throw-dies-schedule")
+	}
+	_ = scheduleHandle
+
+	future, err := dieRollClient.ExecuteWorkflowThrowDies(ctx, &examplev1.ThrowDiesRequest{
+		Results: 10,
+	})
 	if err != nil {
 		logger.Error("could not execute workflow", "error", err)
 		os.Exit(1)
 	}
 
-	time.Sleep(time.Second * 35)
+	time.Sleep(time.Second * 20)
 
 	run := dieRollClient.GetThrowDiesFromRun(future)
 
 	err = run.SignalContinue(ctx, &examplev1.ContinueSignalRequest{})
-
 	if err != nil {
 		logger.Error("could not send signal", "error", err)
 		os.Exit(1)
 	}
 
-	until, err := dieRollClient.ExecuteWorkflowThrowUntilValue(ctx, &examplev1.ThrowUntilValueRequest{
-		Value: 1,
-	})
-
+	until, err := dieRollClient.ExecuteWorkflowThrowUntilValue(
+		ctx,
+		&examplev1.ThrowUntilValueRequest{
+			Value: 1,
+		},
+	)
 	if err != nil {
 		logger.Error("cannot execute workflow", "error", err)
 	}
