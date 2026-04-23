@@ -14,13 +14,13 @@ import (
 //go:embed templates/*.tmpl
 var templatesFS embed.FS
 
-// Renderer: Handles template rendering for code generation
+// Renderer Handles template rendering for code generation
 type Renderer struct {
 	templates *template.Template
 	gf        *protogen.GeneratedFile
 }
 
-// NewRenderer: Creates a new renderer instance
+// NewRenderer Creates a new renderer instance
 func NewRenderer(gf *protogen.GeneratedFile) (*Renderer, error) {
 	funcMap := tmpl.FuncMap(gf)
 
@@ -35,7 +35,7 @@ func NewRenderer(gf *protogen.GeneratedFile) (*Renderer, error) {
 	}, nil
 }
 
-// RenderAll: Renders all components for a service using the comprehensive service template
+// RenderAll Renders all components for a service using the comprehensive service template
 //
 // The service.tmpl template contains all sections:
 // - Constants (task queue, timeouts, workflow/activity/signal/query names)
@@ -54,7 +54,7 @@ func (r *Renderer) RenderAll(service *model.Service) (string, error) {
 	return buf.String(), nil
 }
 
-// RenderDocumentation: Renders markdown documentation for a service
+// RenderDocumentation Renders markdown documentation for a service
 func (r *Renderer) RenderDocumentation(service *model.Service) (string, error) {
 	var buf bytes.Buffer
 	err := r.templates.ExecuteTemplate(&buf, "documentation.tmpl", service)
@@ -64,7 +64,7 @@ func (r *Renderer) RenderDocumentation(service *model.Service) (string, error) {
 	return buf.String(), nil
 }
 
-// RenderMessageDocumentation: Renders markdown documentation for a message
+// RenderMessageDocumentation Renders markdown documentation for a message
 func (r *Renderer) RenderMessageDocumentation(message *protogen.Message) (string, error) {
 	var buf bytes.Buffer
 	err := r.templates.ExecuteTemplate(&buf, "message.tmpl", message)

@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-// FuncMap: Returns the template function map
+// FuncMap Returns the template function map
 func FuncMap(gf *protogen.GeneratedFile) template.FuncMap {
 	return template.FuncMap{
 		"QualifiedGoIdent":        func(ident protogen.GoIdent) string { return gf.QualifiedGoIdent(ident) },
@@ -42,7 +42,7 @@ func FuncMap(gf *protogen.GeneratedFile) template.FuncMap {
 	}
 }
 
-// qualifiedTemporalIdent: Returns a qualified identifier for temporal imports
+// qualifiedTemporalIdent Returns a qualified identifier for temporal imports
 func qualifiedTemporalIdent(gf *protogen.GeneratedFile, importPath, name string) string {
 	return gf.QualifiedGoIdent(protogen.GoIdent{
 		GoImportPath: protogen.GoImportPath(importPath),
@@ -50,7 +50,7 @@ func qualifiedTemporalIdent(gf *protogen.GeneratedFile, importPath, name string)
 	})
 }
 
-// qualifiedIdent: Returns a qualified identifier for standard imports
+// qualifiedIdent Returns a qualified identifier for standard imports
 func qualifiedIdent(gf *protogen.GeneratedFile, importPath, name string) string {
 	return gf.QualifiedGoIdent(protogen.GoIdent{
 		GoImportPath: protogen.GoImportPath(importPath),
@@ -58,7 +58,7 @@ func qualifiedIdent(gf *protogen.GeneratedFile, importPath, name string) string 
 	})
 }
 
-// toSeconds: Converts a duration to seconds for template usage
+// toSeconds Converts a duration to seconds for template usage
 func toSeconds(d interface{}) int64 {
 	switch v := d.(type) {
 	case int:
@@ -74,17 +74,17 @@ func toSeconds(d interface{}) int64 {
 	}
 }
 
-// workflowObjectName: Generates the workflow object name
+// workflowObjectName Generates the workflow object name
 func workflowObjectName(serviceName, methodName string) string {
 	return fmt.Sprintf("%s%s", serviceName, methodName)
 }
 
-// childWorkflowObjectName: Generates the child workflow object name
+// childWorkflowObjectName Generates the child workflow object name
 func childWorkflowObjectName(serviceName, methodName string) string {
 	return fmt.Sprintf("Child%s%sExecution", serviceName, methodName)
 }
 
-// commentOneLine: Converts a multiline comment to a single line
+// commentOneLine Converts a multiline comment to a single line
 func commentOneLine(s string) string {
 	// Replace newlines with spaces and collapse multiple spaces
 	s = strings.ReplaceAll(s, "\n", " ")
@@ -94,7 +94,7 @@ func commentOneLine(s string) string {
 	return strings.Join(parts, " ")
 }
 
-// commentBlock: Converts a proto leading-comment string into a Go doc comment
+// commentBlock Converts a proto leading-comment string into a Go doc comment
 // block. Each input line becomes a `// `-prefixed output line; empty proto
 // lines become bare `//`, which keeps paragraph breaks and code fences intact.
 // `indent` is prepended to every emitted line so the caller can place the
@@ -118,7 +118,7 @@ func commentBlock(indent, s string) string {
 	return joinCommentLines(indent, "", lines)
 }
 
-// docComment: Renders a Go-style doc comment for a named declaration, keeping
+// docComment Renders a Go-style doc comment for a named declaration, keeping
 // the convention that the first line starts with the identifier. If `body` is
 // empty, returns `<indent>// <name>`. Otherwise emits
 // `<indent>// <name> <firstLine>` followed by the remaining proto lines each
@@ -138,7 +138,7 @@ func docComment(indent, name, body string) string {
 	return joinCommentLines(indent, name+" ", lines)
 }
 
-// normaliseCommentLines: Splits a raw proto leading-comment string into
+// normaliseCommentLines Splits a raw proto leading-comment string into
 // trimmed lines, normalising CRLF, stripping a single leading space (the one
 // left over from "// foo" → " foo"), and trimming blank lines from both ends
 // while preserving interior blank lines.
@@ -166,7 +166,7 @@ func normaliseCommentLines(s string) []string {
 	return lines
 }
 
-// joinCommentLines: Emits normalised lines as `// `-prefixed output. The first
+// joinCommentLines Emits normalised lines as `// `-prefixed output. The first
 // line receives `firstPrefix` (e.g. the identifier) between `// ` and the
 // line body, so callers can produce `// Name <body>` while still preserving
 // a multi-line tail.
@@ -191,7 +191,7 @@ func joinCommentLines(indent, firstPrefix string, lines []string) string {
 	return strings.Join(out, "\n")
 }
 
-// makeAnchor: Creates a markdown-safe anchor identifier
+// makeAnchor Creates a markdown-safe anchor identifier
 func makeAnchor(parts ...string) string {
 	in := strings.Join(parts, ":")
 	replaced := ":.-"
@@ -201,7 +201,7 @@ func makeAnchor(parts ...string) string {
 	return in
 }
 
-// trimComment: Trims comment formatting from protobuf comments
+// trimComment Trims comment formatting from protobuf comments
 func trimComment(comment interface{}) string {
 	var s string
 	switch v := comment.(type) {
@@ -216,19 +216,19 @@ func trimComment(comment interface{}) string {
 	return strings.TrimSpace(s)
 }
 
-// formatDuration: Formats an int64 seconds value as a duration string
+// formatDuration Formats an int64 seconds value as a duration string
 func formatDuration(seconds interface{}) string {
 	s := toSeconds(seconds)
 	d := time.Duration(s) * time.Second
 	return d.String()
 }
 
-// formatFloat: Formats a float64 value
+// formatFloat Formats a float64 value
 func formatFloat(f float64) string {
 	return fmt.Sprintf("%f", f)
 }
 
-// formatStringSlice: Formats a string slice for markdown table cells, wrapping
+// formatStringSlice Formats a string slice for markdown table cells, wrapping
 // each entry in backticks so identifier-like values (e.g. error type names)
 // render as inline code. Returns an empty string for an empty/nil slice so
 // callers can rely on the enclosing template's {{if}} guard.
@@ -243,7 +243,7 @@ func formatStringSlice(slice []string) string {
 	return strings.Join(parts, ", ")
 }
 
-// cardinalityToString: Converts protoreflect.Cardinality to string
+// cardinalityToString Converts protoreflect.Cardinality to string
 func cardinalityToString(c protoreflect.Cardinality) string {
 	switch c {
 	case protoreflect.Repeated:
@@ -256,7 +256,7 @@ func cardinalityToString(c protoreflect.Cardinality) string {
 	return "Invalid cardinality"
 }
 
-// deprecatedIcon: Returns an icon indicating if a field is deprecated
+// deprecatedIcon Returns an icon indicating if a field is deprecated
 func deprecatedIcon(opts interface{}) string {
 	if fieldOpts, ok := opts.(*descriptorpb.FieldOptions); ok && fieldOpts != nil {
 		if fieldOpts.GetDeprecated() {
@@ -266,7 +266,7 @@ func deprecatedIcon(opts interface{}) string {
 	return "✅"
 }
 
-// fullNameToString: Converts protoreflect.FullName to string
+// fullNameToString Converts protoreflect.FullName to string
 func fullNameToString(name protoreflect.FullName) string {
 	return string(name)
 }

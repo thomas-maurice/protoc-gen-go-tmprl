@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TestServiceGetClientName: Tests client name generation
+// TestServiceGetClientName Tests client name generation
 func TestServiceGetClientName(t *testing.T) {
 	service := &Service{
 		GoName: "ExampleService",
@@ -16,7 +16,7 @@ func TestServiceGetClientName(t *testing.T) {
 	}
 }
 
-// TestServiceGetWorkerName: Tests worker name generation
+// TestServiceGetWorkerName Tests worker name generation
 func TestServiceGetWorkerName(t *testing.T) {
 	service := &Service{
 		GoName: "ExampleService",
@@ -28,7 +28,7 @@ func TestServiceGetWorkerName(t *testing.T) {
 	}
 }
 
-// TestServiceGetServiceInterfaceName: Tests service interface name generation
+// TestServiceGetServiceInterfaceName Tests service interface name generation
 func TestServiceGetServiceInterfaceName(t *testing.T) {
 	service := &Service{
 		GoName: "ExampleService",
@@ -40,7 +40,7 @@ func TestServiceGetServiceInterfaceName(t *testing.T) {
 	}
 }
 
-// TestServiceGetDefaultTaskQueueConstName: Tests default task queue constant name generation
+// TestServiceGetDefaultTaskQueueConstName Tests default task queue constant name generation
 func TestServiceGetDefaultTaskQueueConstName(t *testing.T) {
 	service := &Service{
 		GoName: "ExampleService",
@@ -52,7 +52,7 @@ func TestServiceGetDefaultTaskQueueConstName(t *testing.T) {
 	}
 }
 
-// TestServiceGetDefaultActivityTimeoutConstName: Tests default activity timeout constant name generation
+// TestServiceGetDefaultActivityTimeoutConstName Tests default activity timeout constant name generation
 func TestServiceGetDefaultActivityTimeoutConstName(t *testing.T) {
 	service := &Service{
 		GoName: "ExampleService",
@@ -64,7 +64,7 @@ func TestServiceGetDefaultActivityTimeoutConstName(t *testing.T) {
 	}
 }
 
-// TestServiceGetSignal: Tests signal retrieval from map
+// TestServiceGetSignal Tests signal retrieval from map
 func TestServiceGetSignal(t *testing.T) {
 	signal := &Signal{
 		BaseMethod: BaseMethod{
@@ -97,7 +97,7 @@ func TestServiceGetSignal(t *testing.T) {
 	})
 }
 
-// TestServiceGetQuery: Tests query retrieval from map
+// TestServiceGetQuery Tests query retrieval from map
 func TestServiceGetQuery(t *testing.T) {
 	query := &Query{
 		BaseMethod: BaseMethod{
@@ -130,7 +130,7 @@ func TestServiceGetQuery(t *testing.T) {
 	})
 }
 
-// TestServiceScheduleHelperNames: Verifies the per-service schedule helper naming
+// TestServiceScheduleHelperNames Verifies the per-service schedule helper naming
 func TestServiceScheduleHelperNames(t *testing.T) {
 	s := &Service{GoName: "DieRoll"}
 	if got, want := s.GetScheduleMergeFuncName(), "mergeScheduleOptionsDieRoll"; got != want {

@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TestMethodTypeConstants: Tests that method type constants are defined
+// TestMethodTypeConstants Tests that method type constants are defined
 func TestMethodTypeConstants(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -27,7 +27,7 @@ func TestMethodTypeConstants(t *testing.T) {
 	}
 }
 
-// TestBaseMethodGetters: Tests BaseMethod getter methods
+// TestBaseMethodGetters Tests BaseMethod getter methods
 func TestBaseMethodGetters(t *testing.T) {
 	base := BaseMethod{
 		Name:           "TestMethod",
@@ -69,7 +69,7 @@ func TestBaseMethodGetters(t *testing.T) {
 	}
 }
 
-// TestWorkflowGetType: Tests Workflow.GetType() returns correct type
+// TestWorkflowGetType Tests Workflow.GetType() returns correct type
 func TestWorkflowGetType(t *testing.T) {
 	workflow := &Workflow{}
 	if workflow.GetType() != MethodTypeWorkflow {
@@ -77,7 +77,7 @@ func TestWorkflowGetType(t *testing.T) {
 	}
 }
 
-// TestActivityGetType: Tests Activity.GetType() returns correct type
+// TestActivityGetType Tests Activity.GetType() returns correct type
 func TestActivityGetType(t *testing.T) {
 	activity := &Activity{}
 	if activity.GetType() != MethodTypeActivity {
@@ -85,7 +85,7 @@ func TestActivityGetType(t *testing.T) {
 	}
 }
 
-// TestSignalGetType: Tests Signal.GetType() returns correct type
+// TestSignalGetType Tests Signal.GetType() returns correct type
 func TestSignalGetType(t *testing.T) {
 	signal := &Signal{}
 	if signal.GetType() != MethodTypeSignal {
@@ -93,7 +93,7 @@ func TestSignalGetType(t *testing.T) {
 	}
 }
 
-// TestQueryGetType: Tests Query.GetType() returns correct type
+// TestQueryGetType Tests Query.GetType() returns correct type
 func TestQueryGetType(t *testing.T) {
 	query := &Query{}
 	if query.GetType() != MethodTypeQuery {
@@ -101,7 +101,7 @@ func TestQueryGetType(t *testing.T) {
 	}
 }
 
-// TestMethodInterface: Tests that all method types implement Method interface
+// TestMethodInterface Tests that all method types implement Method interface
 func TestMethodInterface(t *testing.T) {
 	var _ Method = &Workflow{}
 	var _ Method = &Activity{}

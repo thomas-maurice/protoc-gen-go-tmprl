@@ -7,7 +7,7 @@ import (
 	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1"
 )
 
-// TestMergeRetryPolicy: Tests retry policy merging
+// TestMergeRetryPolicy Tests retry policy merging
 func TestMergeRetryPolicy(t *testing.T) {
 	t.Run("both nil returns nil", func(t *testing.T) {
 		result := MergeRetryPolicy(nil, nil)
@@ -102,7 +102,7 @@ func TestMergeRetryPolicy(t *testing.T) {
 	})
 }
 
-// TestMergeActivityOptions: Tests activity options merging
+// TestMergeActivityOptions Tests activity options merging
 func TestMergeActivityOptions(t *testing.T) {
 	t.Run("default schedule to close used when nothing specified", func(t *testing.T) {
 		result := MergeActivityOptions(nil, nil, 3600)
@@ -199,7 +199,7 @@ func TestMergeActivityOptions(t *testing.T) {
 	})
 }
 
-// TestMergeWorkflowOptions: Tests workflow options merging
+// TestMergeWorkflowOptions Tests workflow options merging
 func TestMergeWorkflowOptions(t *testing.T) {
 	t.Run("both nil returns empty options", func(t *testing.T) {
 		result := MergeWorkflowOptions(nil, nil)

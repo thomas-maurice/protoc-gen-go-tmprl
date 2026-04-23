@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Service: Represents a temporal service with all its methods
+// Service Represents a temporal service with all its methods
 type Service struct {
 	Name          string
 	GoName        string
@@ -35,7 +35,7 @@ type Service struct {
 	QueriesMap map[string]*Query
 }
 
-// NewService: Creates a service model from a protobuf service
+// NewService Creates a service model from a protobuf service
 func NewService(protoService *protogen.Service, gf *protogen.GeneratedFile, config *Config) (*Service, error) {
 	serviceOpts, ok := proto.GetExtension(protoService.Desc.Options(), temporalv1.E_Service).(*temporalv1.ServiceOptions)
 	if !ok || serviceOpts == nil {
@@ -110,7 +110,7 @@ func NewService(protoService *protogen.Service, gf *protogen.GeneratedFile, conf
 	return service, nil
 }
 
-// GetSignal: Retrieves a signal by name
+// GetSignal Retrieves a signal by name
 func (s *Service) GetSignal(name string) (*Signal, error) {
 	signal, ok := s.SignalsMap[name]
 	if !ok {
@@ -119,7 +119,7 @@ func (s *Service) GetSignal(name string) (*Signal, error) {
 	return signal, nil
 }
 
-// GetQuery: Retrieves a query by name
+// GetQuery Retrieves a query by name
 func (s *Service) GetQuery(name string) (*Query, error) {
 	query, ok := s.QueriesMap[name]
 	if !ok {
@@ -128,45 +128,45 @@ func (s *Service) GetQuery(name string) (*Query, error) {
 	return query, nil
 }
 
-// GetClientName: Returns the generated client name
+// GetClientName Returns the generated client name
 func (s *Service) GetClientName() string {
 	return fmt.Sprintf("%sClient", s.GoName)
 }
 
-// GetWorkerName: Returns the generated worker name
+// GetWorkerName Returns the generated worker name
 func (s *Service) GetWorkerName() string {
 	return fmt.Sprintf("%sWorker", s.GoName)
 }
 
-// GetServiceInterfaceName: Returns the service interface name
+// GetServiceInterfaceName Returns the service interface name
 func (s *Service) GetServiceInterfaceName() string {
 	return s.GoName + "Service"
 }
 
-// GetDefaultTaskQueueConstName: Returns the constant name for default task queue
+// GetDefaultTaskQueueConstName Returns the constant name for default task queue
 func (s *Service) GetDefaultTaskQueueConstName() string {
 	return fmt.Sprintf("Default%sTaskQueueName", s.GoName)
 }
 
-// GetDefaultActivityTimeoutConstName: Returns the constant name for default activity timeout
+// GetDefaultActivityTimeoutConstName Returns the constant name for default activity timeout
 func (s *Service) GetDefaultActivityTimeoutConstName() string {
 	return fmt.Sprintf("Default%sActivityScheduleToCloseTimeout", s.GoName)
 }
 
-// GetScheduleMergeFuncName: Returns the name of the per-service helper that
+// GetScheduleMergeFuncName Returns the name of the per-service helper that
 // merges user-supplied client.ScheduleOptions into a base struct.
 func (s *Service) GetScheduleMergeFuncName() string {
 	return fmt.Sprintf("mergeScheduleOptions%s", s.GoName)
 }
 
-// GetScheduleDefaultsFuncName: Returns the name of the per-service helper
+// GetScheduleDefaultsFuncName Returns the name of the per-service helper
 // that applies the default task queue to a client.ScheduleOptions if it
 // wasn't explicitly set.
 func (s *Service) GetScheduleDefaultsFuncName() string {
 	return fmt.Sprintf("applyScheduleDefaults%s", s.GoName)
 }
 
-// getServiceComment: Extracts comments from protobuf service
+// getServiceComment Extracts comments from protobuf service
 func getServiceComment(service *protogen.Service) string {
 	if service.Comments.Leading != "" {
 		return strings.TrimSpace(string(service.Comments.Leading))

@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// MethodType: Type of temporal method
+// MethodType Type of temporal method
 type MethodType int
 
 const (
@@ -20,7 +20,7 @@ const (
 	MethodTypeQuery
 )
 
-// Method: Base interface for all method types
+// Method Base interface for all method types
 type Method interface {
 	GetName() string
 	GetGoName() string
@@ -33,7 +33,7 @@ type Method interface {
 	GetType() MethodType
 }
 
-// BaseMethod: Common fields for all method types
+// BaseMethod Common fields for all method types
 type BaseMethod struct {
 	Name           string
 	GoName         string
@@ -54,7 +54,7 @@ func (m *BaseMethod) GetComment() string               { return m.Comment }
 func (m *BaseMethod) GetProtoMethod() *protogen.Method { return m.ProtoMethod }
 func (m *BaseMethod) GetService() *Service             { return m.Service }
 
-// Workflow: Represents a temporal workflow
+// Workflow Represents a temporal workflow
 type Workflow struct {
 	BaseMethod
 	Options *WorkflowOptions
@@ -62,7 +62,7 @@ type Workflow struct {
 
 func (w *Workflow) GetType() MethodType { return MethodTypeWorkflow }
 
-// Activity: Represents a temporal activity
+// Activity Represents a temporal activity
 type Activity struct {
 	BaseMethod
 	Options *ActivityOptions
@@ -70,7 +70,7 @@ type Activity struct {
 
 func (a *Activity) GetType() MethodType { return MethodTypeActivity }
 
-// Signal: Represents a temporal signal
+// Signal Represents a temporal signal
 type Signal struct {
 	BaseMethod
 	CustomName string
@@ -78,7 +78,7 @@ type Signal struct {
 
 func (s *Signal) GetType() MethodType { return MethodTypeSignal }
 
-// Query: Represents a temporal query
+// Query Represents a temporal query
 type Query struct {
 	BaseMethod
 	CustomName string
@@ -86,7 +86,7 @@ type Query struct {
 
 func (q *Query) GetType() MethodType { return MethodTypeQuery }
 
-// detectMethodType: Determines the type of a protobuf method
+// detectMethodType Determines the type of a protobuf method
 func detectMethodType(method *protogen.Method) (MethodType, error) {
 	if opts, ok := proto.GetExtension(method.Desc.Options(), temporalv1.E_Workflow).(*temporalv1.WorkflowOptions); ok && opts != nil {
 		return MethodTypeWorkflow, nil
@@ -103,7 +103,7 @@ func detectMethodType(method *protogen.Method) (MethodType, error) {
 	return MethodTypeUnknown, fmt.Errorf("method %s has no temporal annotation", method.GoName)
 }
 
-// getRegisteredName: Gets the fully qualified name for temporal registration
+// getRegisteredName Gets the fully qualified name for temporal registration
 func getRegisteredName(method *protogen.Method) string {
 	pkg := string(method.Parent.Desc.ParentFile().Package())
 	service := string(method.Parent.Desc.Name())
@@ -111,7 +111,7 @@ func getRegisteredName(method *protogen.Method) string {
 	return fmt.Sprintf("%s.%s.%s", pkg, service, methodName)
 }
 
-// getComment: Extracts comments from protobuf method
+// getComment Extracts comments from protobuf method
 func getComment(method *protogen.Method) string {
 	if method.Comments.Leading != "" {
 		return strings.TrimSpace(string(method.Comments.Leading))
@@ -119,7 +119,7 @@ func getComment(method *protogen.Method) string {
 	return ""
 }
 
-// NewWorkflow: Creates a workflow from a protobuf method
+// NewWorkflow Creates a workflow from a protobuf method
 func NewWorkflow(protoMethod *protogen.Method, service *Service, config *Config) (*Workflow, error) {
 	opts, ok := proto.GetExtension(protoMethod.Desc.Options(), temporalv1.E_Workflow).(*temporalv1.WorkflowOptions)
 	if !ok || opts == nil {
@@ -150,7 +150,7 @@ func NewWorkflow(protoMethod *protogen.Method, service *Service, config *Config)
 	}, nil
 }
 
-// NewActivity: Creates an activity from a protobuf method
+// NewActivity Creates an activity from a protobuf method
 func NewActivity(protoMethod *protogen.Method, service *Service, config *Config) (*Activity, error) {
 	opts, ok := proto.GetExtension(protoMethod.Desc.Options(), temporalv1.E_Activity).(*temporalv1.ActivityOptions)
 	if !ok || opts == nil {
@@ -179,7 +179,7 @@ func NewActivity(protoMethod *protogen.Method, service *Service, config *Config)
 	}, nil
 }
 
-// NewSignal: Creates a signal from a protobuf method
+// NewSignal Creates a signal from a protobuf method
 func NewSignal(protoMethod *protogen.Method, service *Service) (*Signal, error) {
 	opts, ok := proto.GetExtension(protoMethod.Desc.Options(), temporalv1.E_Signal).(*temporalv1.SignalOptions)
 	if !ok || opts == nil {
@@ -209,7 +209,7 @@ func NewSignal(protoMethod *protogen.Method, service *Service) (*Signal, error) 
 	}, nil
 }
 
-// NewQuery: Creates a query from a protobuf method
+// NewQuery Creates a query from a protobuf method
 func NewQuery(protoMethod *protogen.Method, service *Service) (*Query, error) {
 	opts, ok := proto.GetExtension(protoMethod.Desc.Options(), temporalv1.E_Query).(*temporalv1.QueryOptions)
 	if !ok || opts == nil {

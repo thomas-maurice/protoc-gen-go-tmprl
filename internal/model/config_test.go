@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TestConfig: Tests Config struct creation and field access
+// TestConfig Tests Config struct creation and field access
 func TestConfig(t *testing.T) {
 	t.Run("default config", func(t *testing.T) {
 		config := &Config{}

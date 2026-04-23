@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// TestFormatStringSlice: Verifies markdown-friendly rendering of string slices
+// TestFormatStringSlice Verifies markdown-friendly rendering of string slices
 // used in the generated documentation (each entry wrapped in backticks so
 // identifier-like values render as inline code).
 func TestFormatStringSlice(t *testing.T) {
@@ -29,7 +29,7 @@ func TestFormatStringSlice(t *testing.T) {
 	}
 }
 
-// TestToSeconds: Tests duration to seconds conversion
+// TestToSeconds Tests duration to seconds conversion
 func TestToSeconds(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -55,7 +55,7 @@ func TestToSeconds(t *testing.T) {
 	}
 }
 
-// TestWorkflowObjectName: Tests workflow object name generation
+// TestWorkflowObjectName Tests workflow object name generation
 func TestWorkflowObjectName(t *testing.T) {
 	tests := []struct {
 		serviceName string
@@ -79,7 +79,7 @@ func TestWorkflowObjectName(t *testing.T) {
 	}
 }
 
-// TestChildWorkflowObjectName: Tests child workflow object name generation
+// TestChildWorkflowObjectName Tests child workflow object name generation
 func TestChildWorkflowObjectName(t *testing.T) {
 	tests := []struct {
 		serviceName string
@@ -103,7 +103,7 @@ func TestChildWorkflowObjectName(t *testing.T) {
 	}
 }
 
-// TestCommentOneLine: Tests multiline comment collapse
+// TestCommentOneLine Tests multiline comment collapse
 func TestCommentOneLine(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -152,7 +152,7 @@ func TestCommentOneLine(t *testing.T) {
 	}
 }
 
-// TestCommentBlock: Tests conversion of proto comments to multi-line Go doc blocks
+// TestCommentBlock Tests conversion of proto comments to multi-line Go doc blocks
 func TestCommentBlock(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -251,7 +251,7 @@ func TestCommentBlock(t *testing.T) {
 	}
 }
 
-// TestDocComment: Tests Go-convention doc comment rendering with a name prefix
+// TestDocComment Tests Go-convention doc comment rendering with a name prefix
 func TestDocComment(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -6,7 +6,7 @@ import (
 	"text/template"
 )
 
-// TestTemplatesParse: Verifies that all templates parse correctly
+// TestTemplatesParse Verifies that all templates parse correctly
 func TestTemplatesParse(t *testing.T) {
 	// Create a minimal function map for parsing
 	funcMap := template.FuncMap{
@@ -48,7 +48,7 @@ func TestTemplatesParse(t *testing.T) {
 	}
 }
 
-// TestTemplateEmbedding: Verifies templates are properly embedded
+// TestTemplateEmbedding Verifies templates are properly embedded
 func TestTemplateEmbedding(t *testing.T) {
 	entries, err := templatesFS.ReadDir("templates")
 	if err != nil {
@@ -67,7 +67,7 @@ func TestTemplateEmbedding(t *testing.T) {
 	}
 }
 
-// TestTemplateFilesCoverage: Verifies the main service template exists
+// TestTemplateFilesCoverage Verifies the main service template exists
 func TestTemplateFilesCoverage(t *testing.T) {
 	entries, err := templatesFS.ReadDir("templates")
 	if err != nil {
@@ -89,7 +89,7 @@ func TestTemplateFilesCoverage(t *testing.T) {
 	}
 }
 
-// TestRendererStructure: Verifies Renderer struct has expected fields and RenderAll method
+// TestRendererStructure Verifies Renderer struct has expected fields and RenderAll method
 func TestRendererStructure(t *testing.T) {
 	// This test documents the Renderer structure
 	var r Renderer
@@ -103,7 +103,7 @@ func TestRendererStructure(t *testing.T) {
 	_ = r.RenderAll
 }
 
-// TestServiceTemplateSections: Documents what the comprehensive service.tmpl contains
+// TestServiceTemplateSections Documents what the comprehensive service.tmpl contains
 func TestServiceTemplateSections(t *testing.T) {
 	sections := []string{
 		"Constants (task queue, timeouts, workflow/activity/signal/query names)",

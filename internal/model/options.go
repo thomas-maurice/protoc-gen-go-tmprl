@@ -6,7 +6,7 @@ import (
 	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1"
 )
 
-// RetryPolicy: Represents a retry policy configuration
+// RetryPolicy Represents a retry policy configuration
 type RetryPolicy struct {
 	InitialInterval        time.Duration
 	BackoffCoefficient     float64
@@ -15,7 +15,7 @@ type RetryPolicy struct {
 	NonRetryableErrorTypes []string
 }
 
-// ActivityOptions: Configuration for activity execution
+// ActivityOptions Configuration for activity execution
 type ActivityOptions struct {
 	Name                          string
 	ScheduleToStartTimeout        time.Duration
@@ -26,7 +26,7 @@ type ActivityOptions struct {
 	ScheduleToCloseTimeoutFromDefault bool // true if ScheduleToCloseTimeout came from default config
 }
 
-// WorkflowOptions: Configuration for workflow execution
+// WorkflowOptions Configuration for workflow execution
 type WorkflowOptions struct {
 	Name                     string
 	WorkflowExecutionTimeout time.Duration
@@ -37,7 +37,7 @@ type WorkflowOptions struct {
 	Queries                  []string
 }
 
-// MergeRetryPolicy: Merges two retry policies, method takes precedence
+// MergeRetryPolicy Merges two retry policies, method takes precedence
 func MergeRetryPolicy(method, service *temporalv1.RetryPolicy) *RetryPolicy {
 	if method == nil && service == nil {
 		return nil
@@ -85,7 +85,7 @@ func MergeRetryPolicy(method, service *temporalv1.RetryPolicy) *RetryPolicy {
 	return result
 }
 
-// MergeActivityOptions: Merges activity options with service defaults
+// MergeActivityOptions Merges activity options with service defaults
 func MergeActivityOptions(method, service *temporalv1.ActivityOptions, defaultScheduleToClose int) *ActivityOptions {
 	if method == nil && service == nil {
 		return &ActivityOptions{
@@ -149,7 +149,7 @@ func MergeActivityOptions(method, service *temporalv1.ActivityOptions, defaultSc
 	return result
 }
 
-// MergeWorkflowOptions: Merges workflow options with service defaults
+// MergeWorkflowOptions Merges workflow options with service defaults
 func MergeWorkflowOptions(method, service *temporalv1.WorkflowOptions) *WorkflowOptions {
 	if method == nil && service == nil {
 		return &WorkflowOptions{}
