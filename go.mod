@@ -9,7 +9,7 @@ require (
 	github.com/dave/jennifer v1.7.1
 	github.com/google/uuid v1.6.0
 	go.temporal.io/sdk v1.30.0
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
