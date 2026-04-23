@@ -2,6 +2,8 @@ package model
 
 import (
 	"testing"
+
+	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1"
 )
 
 // TestMethodTypeConstants Tests that method type constants are defined
@@ -107,4 +109,39 @@ func TestMethodInterface(t *testing.T) {
 	var _ Method = &Activity{}
 	var _ Method = &Signal{}
 	var _ Method = &Query{}
+}
+
+// TestWorkflowSkipCLIDefault Verifies that SkipCLI is false when the proto
+// option is absent (default) or explicitly set to false.
+func TestWorkflowSkipCLIDefault(t *testing.T) {
+	t.Run("option absent", func(t *testing.T) {
+		opts := &temporalv1.WorkflowOptions{}
+		if got := opts.GetSkipCli(); got != false {
+			t.Errorf("expected GetSkipCli() false when unset, got %v", got)
+		}
+		w := &Workflow{SkipCLI: opts.GetSkipCli()}
+		if w.SkipCLI {
+			t.Error("expected Workflow.SkipCLI to default to false")
+		}
+	})
+
+	t.Run("option explicitly false", func(t *testing.T) {
+		v := false
+		opts := &temporalv1.WorkflowOptions{SkipCli: &v}
+		w := &Workflow{SkipCLI: opts.GetSkipCli()}
+		if w.SkipCLI {
+			t.Error("expected Workflow.SkipCLI false when option is false")
+		}
+	})
+}
+
+// TestWorkflowSkipCLITrue Verifies that SkipCLI is true when the proto
+// option is set to true.
+func TestWorkflowSkipCLITrue(t *testing.T) {
+	v := true
+	opts := &temporalv1.WorkflowOptions{SkipCli: &v}
+	w := &Workflow{SkipCLI: opts.GetSkipCli()}
+	if !w.SkipCLI {
+		t.Error("expected Workflow.SkipCLI true when option is true")
+	}
 }

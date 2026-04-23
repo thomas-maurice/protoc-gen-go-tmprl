@@ -484,7 +484,7 @@ const file_example_v1_example_proto_rawDesc = "" +
 	"\x06Status\x12\r\n" +
 	"\tUNDEFINED\x10\x00\x12\v\n" +
 	"\aSUCCESS\x10\x01\x12\v\n" +
-	"\aFAILURE\x10\x022\xe5\x05\n" +
+	"\aFAILURE\x10\x022\xe7\x05\n" +
 	"\aDieRoll\x12k\n" +
 	"\bThrowDie\x12\x16.google.protobuf.Empty\x1a\x1c.example.v1.ThrowDieResponse\")\x82\xb5\x18%\x10x\x18x \x1e*\x1d\b\x01\x15\x00\x00\xc0?\x18\n" +
 	" \n" +
@@ -498,8 +498,8 @@ const file_example_v1_example_proto_rawDesc = "" +
 	"2\bContinue\x12d\n" +
 	"\x0fThrowUntilValue\x12\".example.v1.ThrowUntilValueRequest\x1a\x16.google.protobuf.Empty\"\x15\x8a\xb5\x18\x11:\x0fGetThrowsStatus\x12K\n" +
 	"\bContinue\x12!.example.v1.ContinueSignalRequest\x1a\x16.google.protobuf.Empty\"\x04\x92\xb5\x18\x00\x12P\n" +
-	"\x0fGetThrowsStatus\x12\x16.google.protobuf.Empty\x1a\x1f.example.v1.ThrowStatusResponse\"\x04\x9a\xb5\x18\x00\x1a!\x92\xb5\x18\x1d\n" +
-	"\x12service-task-queue\x12\a\x10\x80\xa3\x05\x18\xa08B\xaf\x01\n" +
+	"\x0fGetThrowsStatus\x12\x16.google.protobuf.Empty\x1a\x1f.example.v1.ThrowStatusResponse\"\x04\x9a\xb5\x18\x00\x1a#\x92\xb5\x18\x1f\n" +
+	"\x12service-task-queue\x12\a\x10\x80\xa3\x05\x18\xa08 \x01B\xaf\x01\n" +
 	"\x0ecom.example.v1B\fExampleProtoP\x01ZFgithub.com/thomas-maurice/protoc-gen-go-tmprl/gen/example/v1;examplev1\xa2\x02\x03EXX\xaa\x02\n" +
 	"Example.V1\xca\x02\n" +
 	"Example\\V1\xe2\x02\x16Example\\V1\\GPBMetadata\xea\x02\vExample::V1b\x06proto3"

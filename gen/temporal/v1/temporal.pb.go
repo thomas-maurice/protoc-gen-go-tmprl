@@ -132,7 +132,13 @@ type WorkflowOptions struct {
 	// workflow can process. They MUST be defined in
 	// the same service. The values of the list is
 	// simply the name of the corresponding RPC method
-	Queries       []string `protobuf:"bytes,7,rep,name=queries,proto3" json:"queries,omitempty"`
+	Queries []string `protobuf:"bytes,7,rep,name=queries,proto3" json:"queries,omitempty"`
+	// When true, this workflow is excluded from the generated CLI. Use for
+	// workflows whose inputs can't be reasonably expressed as flags
+	// (extreme nesting, heavy dependence on Any/Struct, etc.). Default
+	// false. Only meaningful when the enclosing service has
+	// generate_cli = true.
+	SkipCli       *bool `protobuf:"varint,8,opt,name=skip_cli,json=skipCli,proto3,oneof" json:"skip_cli,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -216,6 +222,13 @@ func (x *WorkflowOptions) GetQueries() []string {
 	return nil
 }
 
+func (x *WorkflowOptions) GetSkipCli() bool {
+	if x != nil && x.SkipCli != nil {
+		return *x.SkipCli
+	}
+	return false
+}
+
 type ServiceOptions struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	TaskQueue string                 `protobuf:"bytes,1,opt,name=task_queue,json=taskQueue,proto3" json:"task_queue,omitempty"`
@@ -225,8 +238,12 @@ type ServiceOptions struct {
 	// These settings will apply to all activities unless defined otherwise
 	// appart from the `name` one that is ignored here
 	DefaultActivityOptions *ActivityOptions `protobuf:"bytes,3,opt,name=default_activity_options,json=defaultActivityOptions,proto3" json:"default_activity_options,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// When true, a Cobra CLI is generated for this service. A
+	// NewCLI(client.Client) *cobra.Command function is emitted alongside
+	// the client/worker code. Default false.
+	GenerateCli   *bool `protobuf:"varint,4,opt,name=generate_cli,json=generateCli,proto3,oneof" json:"generate_cli,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServiceOptions) Reset() {
@@ -278,6 +295,13 @@ func (x *ServiceOptions) GetDefaultActivityOptions() *ActivityOptions {
 		return x.DefaultActivityOptions
 	}
 	return nil
+}
+
+func (x *ServiceOptions) GetGenerateCli() bool {
+	if x != nil && x.GenerateCli != nil {
+		return *x.GenerateCli
+	}
+	return false
 }
 
 type RetryPolicy struct {
@@ -528,7 +552,7 @@ const file_temporal_v1_temporal_proto_rawDesc = "" +
 	"\x17_start_to_close_timeoutB\x1c\n" +
 	"\x1a_schedule_to_start_timeoutB\x0f\n" +
 	"\r_retry_policyB\x14\n" +
-	"\x12_heartbeat_timeout\"\xb1\x03\n" +
+	"\x12_heartbeat_timeout\"\xde\x03\n" +
 	"\x0fWorkflowOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12A\n" +
 	"\x1aworkflow_execution_timeout\x18\x02 \x01(\x05H\x00R\x18workflowExecutionTimeout\x88\x01\x01\x125\n" +
@@ -536,16 +560,20 @@ const file_temporal_v1_temporal_proto_rawDesc = "" +
 	"\x15workflow_task_timeout\x18\x04 \x01(\x05H\x02R\x13workflowTaskTimeout\x88\x01\x01\x12@\n" +
 	"\fretry_policy\x18\x05 \x01(\v2\x18.temporal.v1.RetryPolicyH\x03R\vretryPolicy\x88\x01\x01\x12\x18\n" +
 	"\asignals\x18\x06 \x03(\tR\asignals\x12\x18\n" +
-	"\aqueries\x18\a \x03(\tR\aqueriesB\x1d\n" +
+	"\aqueries\x18\a \x03(\tR\aqueries\x12\x1e\n" +
+	"\bskip_cli\x18\b \x01(\bH\x04R\askipCli\x88\x01\x01B\x1d\n" +
 	"\x1b_workflow_execution_timeoutB\x17\n" +
 	"\x15_workflow_run_timeoutB\x18\n" +
 	"\x16_workflow_task_timeoutB\x0f\n" +
-	"\r_retry_policy\"\xdf\x01\n" +
+	"\r_retry_policyB\v\n" +
+	"\t_skip_cli\"\x98\x02\n" +
 	"\x0eServiceOptions\x12\x1d\n" +
 	"\n" +
 	"task_queue\x18\x01 \x01(\tR\ttaskQueue\x12V\n" +
 	"\x18default_workflow_options\x18\x02 \x01(\v2\x1c.temporal.v1.WorkflowOptionsR\x16defaultWorkflowOptions\x12V\n" +
-	"\x18default_activity_options\x18\x03 \x01(\v2\x1c.temporal.v1.ActivityOptionsR\x16defaultActivityOptions\"\xe5\x02\n" +
+	"\x18default_activity_options\x18\x03 \x01(\v2\x1c.temporal.v1.ActivityOptionsR\x16defaultActivityOptions\x12&\n" +
+	"\fgenerate_cli\x18\x04 \x01(\bH\x00R\vgenerateCli\x88\x01\x01B\x0f\n" +
+	"\r_generate_cli\"\xe5\x02\n" +
 	"\vRetryPolicy\x12.\n" +
 	"\x10initial_interval\x18\x01 \x01(\x05H\x00R\x0finitialInterval\x88\x01\x01\x124\n" +
 	"\x13backoff_coefficient\x18\x02 \x01(\x02H\x01R\x12backoffCoefficient\x88\x01\x01\x12.\n" +
@@ -619,6 +647,7 @@ func file_temporal_v1_temporal_proto_init() {
 	}
 	file_temporal_v1_temporal_proto_msgTypes[0].OneofWrappers = []any{}
 	file_temporal_v1_temporal_proto_msgTypes[1].OneofWrappers = []any{}
+	file_temporal_v1_temporal_proto_msgTypes[2].OneofWrappers = []any{}
 	file_temporal_v1_temporal_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

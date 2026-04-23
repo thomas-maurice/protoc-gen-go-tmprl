@@ -52,6 +52,12 @@ message WorkflowOptions {
   // the same service. The values of the list is
   // simply the name of the corresponding RPC method
   repeated string queries = 7;
+  // When true, this workflow is excluded from the generated CLI. Use for
+  // workflows whose inputs can't be reasonably expressed as flags
+  // (extreme nesting, heavy dependence on Any/Struct, etc.). Default
+  // false. Only meaningful when the enclosing service has
+  // generate_cli = true.
+  optional bool skip_cli = 8;
 }
 
 message ServiceOptions {
@@ -62,6 +68,10 @@ message ServiceOptions {
   // These settings will apply to all activities unless defined otherwise
   // appart from the `name` one that is ignored here
   ActivityOptions default_activity_options = 3;
+  // When true, a Cobra CLI is generated for this service. A
+  // NewCLI(client.Client) *cobra.Command function is emitted alongside
+  // the client/worker code. Default false.
+  optional bool generate_cli = 4;
 }
 
 message RetryPolicy {

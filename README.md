@@ -226,6 +226,135 @@ err = dieRollClient.UnpauseScheduleThrowDies(ctx, "throw-dies-schedule", "mainte
 - **Unconditional generation:** Every workflow gets the schedule surface — cadence is a runtime concern, not part of the schema
 - **Full CRUD surface:** `Create`, `Get`, `List`, `Upsert`, `Delete`, `Pause`, and `Unpause` are all generated per workflow
 
+### Generating a CLI
+
+Opt a service into CLI generation and the plugin emits a `NewXxxCLI(client.Client) *cobra.Command` entry point alongside the client and worker code. The returned command wraps every workflow / signal / query / schedule helper the service already has, with semantic per-field flags rather than JSON blobs — so you can start, signal, query, cancel, terminate, and manage schedules from the shell without writing glue.
+
+#### Opt in
+
+```protobuf
+service OrdersService {
+    option (temporal.v1.service) = {
+        task_queue: "orders"
+        generate_cli: true
+    };
+
+    rpc Submit(SubmitRequest) returns (SubmitResponse) {
+        option (temporal.v1.workflow) = {};
+    }
+}
+```
+
+Per-workflow opt-out for inputs that cannot reasonably be expressed as flags:
+
+```protobuf
+    rpc Complex(ComplexInput) returns (ComplexOutput) {
+        option (temporal.v1.workflow) = {
+            skip_cli: true
+        };
+    }
+```
+
+#### Wiring it into your binary
+
+The generator never emits `main.go` — you own the `client.Client` lifecycle and connection flags. A minimal wrapper:
+
+```go
+package main
+
+import (
+    "fmt"
+    "os"
+
+    ordersv1 "example.com/gen/orders/v1"
+
+    "github.com/spf13/cobra"
+    "go.temporal.io/sdk/client"
+)
+
+func main() {
+    root := &cobra.Command{Use: "myctl"}
+    c, err := client.NewLazyClient(client.Options{})
+    if err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        os.Exit(1)
+    }
+    defer c.Close()
+    root.AddCommand(ordersv1.NewOrdersServiceCLI(c))
+    _ = root.Execute()
+}
+```
+
+#### Command tree
+
+```
+myctl
+`-- orders-service
+    |-- workflow
+    |   |-- start     <workflow>
+    |   |-- execute   <workflow>
+    |   |-- signal    <workflow> <signal>
+    |   |-- query     <workflow> <query>
+    |   |-- cancel
+    |   |-- terminate
+    |   `-- describe
+    `-- schedule
+        |-- create    <workflow>
+        |-- pause
+        |-- unpause
+        |-- delete
+        `-- describe
+```
+
+#### Proto-type to CLI-flag mapping
+
+Every flag's help text explicitly states the expected input shape — you never have to guess whether a list is comma-separated, JSON, or repeatable. Hints below match the generator's output character-for-character.
+
+| Proto type | CLI flag kind | Example |
+| --- | --- | --- |
+| `string` | String | `--customer-id ACME-1` |
+| `int32` / `sint32` / `sfixed32` | Int32 | `--quantity 5` |
+| `int64` / `sint64` / `sfixed64` | Int64 | `--total-cents 1299` |
+| `uint32` / `fixed32` | Uint32 | `--retries 3` |
+| `uint64` / `fixed64` | Uint64 | `--cursor 42` |
+| `float` | Float32 | `--rate 1.5` |
+| `double` | Float64 | `--ratio 0.125` |
+| `bool` | Bool | `--express` / `--express=false` |
+| `bytes` | Bytes (base64) | `--payload aGVsbG8=` |
+| `enum` | Enum (case-insensitive) | `--shipping-speed express` |
+| `google.protobuf.Duration` | Duration | `--timeout 5m` / `1h30m` |
+| `google.protobuf.Timestamp` | Timestamp (RFC3339) | `--scheduled-at 2025-01-02T15:04:05Z` |
+| `google.protobuf.FieldMask` | StringSlice | `--update-mask name,address.city` |
+| `google.protobuf.StringValue` and sibling wrappers | Underlying scalar, presence-gated | `--wrapped-string hi` |
+| `google.protobuf.Any` / `Struct` / `Value` | JSON escape | `--payload '<JSON value>'` |
+| `google.protobuf.Empty` | _(no flag emitted)_ | — |
+| nested `message` | recurses, child flags prefixed (dot-separated per nesting level, dashes within a single snake_case name) | `--shipping-address.street ...` |
+| `repeated string` | StringSlice (repeatable) | `--tag foo --tag bar` |
+| `repeated int32` | Int32Slice (repeatable) | `--count 1 --count 2` |
+| `repeated int64` / `uint32` / `uint64` | Int64Slice (repeatable) | `--id 10 --id 20` |
+| `repeated bool` / `float` / `double` | StringSlice (repeatable) | `--flag true --flag false` |
+| `repeated <Message>` | JSON escape | `--items '[{"sku":"x","qty":1}]'` |
+| `map<string, string>` | StringToString (repeatable) | `--labels env=prod --labels team=a` |
+| `map<string, int*>` | StringToInt (repeatable) | `--weights a=1 --weights b=2` |
+| `map<string, <Message>>` / non-string key | JSON escape | `--by-id '{"x":{"qty":1}}'` |
+| `oneof` branches | scalar flags, mutually exclusive | `--payment.card-number ...` XOR `--payment.bank-account ...` |
+| Cyclic / self-referencing subtree | JSON escape at the seam | `--node '<JSON value of type Node>'` |
+
+The `schedule create <workflow>` command additionally accepts the schedule flags `--schedule-id` (required), `--schedule-cron`, `--schedule-interval`, `--schedule-start-at`, `--schedule-end-at`, `--schedule-timezone`, `--schedule-jitter`, `--schedule-paused`, `--schedule-note`, `--schedule-overlap`, `--schedule-catchup-window`, and `--schedule-task-queue`.
+
+#### Opt-out
+
+Set `skip_cli: true` on `temporal.v1.workflow` when an input message is too tangled to flag-ify (heavy nesting with `Any`/`Struct`, very deep polymorphism, etc.). The workflow keeps its client/worker surface; only the `start`, `execute`, `signal`, `query`, and `schedule create` subcommands for it are skipped.
+
+#### Not generated
+
+- A `main.go` binary. Wire `NewXxxCLI` into your own Cobra root.
+- Connection flags (`--address`, `--namespace`, TLS). These belong to the caller; see `example/cli/main.go` for how to add them.
+- `workflow list` / generic search. There is no generated client equivalent to wrap.
+- Direct activity invocation. Activities are invoked by workflows, not by end users.
+- Structured calendar schedule specs. Users who need calendars build the `client.ScheduleOptions.Spec` in Go.
+- Interactive prompts. Everything comes from flags.
+
 ### The workflow objects
 
 Each workflow will get assigned a dedicated object in the generated code. All the workflow objects implement the `internal.WorkflowRun`

@@ -184,6 +184,129 @@ Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 | ----------- | ----------------------- |
 | Temporal registered method name | `example.v1.DieRoll.Continue` |
 
+<a id="cli_example_v1_DieRoll"></a>
+## CLI
+
+This service is opted into CLI generation (`generate_cli = true`). The
+generated entry point `NewDieRollCLI(client.Client) *cobra.Command`
+returns a root subcommand that the caller plugs under its own Cobra root.
+
+The root command is `die-roll` and groups the following
+subcommands:
+
+```
+die-roll
+|-- workflow
+|   |-- start     <workflow>
+|   |-- execute   <workflow>
+|   |-- signal    <workflow> <signal>
+|   |-- query     <workflow> <query>
+|   |-- cancel
+|   |-- terminate
+|   `-- describe
+`-- schedule
+    |-- create    <workflow>
+    |-- pause
+    |-- unpause
+    |-- delete
+    `-- describe
+```
+
+### Workflow commands
+
+#### `die-roll workflow start parent-workflow` / `execute parent-workflow` / `schedule create parent-workflow`
+
+Input flags (derived from `google.protobuf.Empty`):
+
+_(no input flags)_
+
+##### `die-roll workflow signal parent-workflow continue`
+
+Targeting flags: `--workflow-id` (required), `--run-id` (optional).
+
+Signal payload flags (derived from `example.v1.ContinueSignalRequest`):
+
+| Flag | Kind | Description |
+| --- | --- | --- |
+| `--continue` | Bool | continue |
+
+#### `die-roll workflow start child-workflow` / `execute child-workflow` / `schedule create child-workflow`
+
+Input flags (derived from `google.protobuf.Empty`):
+
+_(no input flags)_
+
+#### `die-roll workflow start throw-dies` / `execute throw-dies` / `schedule create throw-dies`
+
+Input flags (derived from `example.v1.ThrowDiesRequest`):
+
+| Flag | Kind | Description |
+| --- | --- | --- |
+| `--results` | Int32 | Result array |
+| `--loop` | Bool | Loop ? |
+| `--result-status` | String | A deprecated field |
+
+##### `die-roll workflow signal throw-dies continue`
+
+Targeting flags: `--workflow-id` (required), `--run-id` (optional).
+
+Signal payload flags (derived from `example.v1.ContinueSignalRequest`):
+
+| Flag | Kind | Description |
+| --- | --- | --- |
+| `--continue` | Bool | continue |
+
+#### `die-roll workflow start throw-until-value` / `execute throw-until-value` / `schedule create throw-until-value`
+
+Input flags (derived from `example.v1.ThrowUntilValueRequest`):
+
+| Flag | Kind | Description |
+| --- | --- | --- |
+| `--value` | Int32 | Target value |
+
+##### `die-roll workflow query throw-until-value get-throws-status`
+
+Targeting flags: `--workflow-id` (required), `--run-id` (optional).
+
+### Cross-workflow commands
+
+These act on a running workflow by ID. They do not take workflow-input flags.
+
+| Command | Required flags | Optional flags |
+| --- | --- | --- |
+| `die-roll workflow cancel` | `--workflow-id` | `--run-id` |
+| `die-roll workflow terminate` | `--workflow-id` | `--run-id`, `--reason` |
+| `die-roll workflow describe` | `--workflow-id` | `--run-id` |
+
+### Schedule commands
+
+`schedule create <workflow>` accepts the workflow's input flags (see above)
+plus the schedule flags below.
+
+| Flag | Kind | Description |
+| --- | --- | --- |
+| `--schedule-id` | String | Schedule identifier (required). |
+| `--schedule-cron` | StringSlice | Cron expression. Repeatable for multiple cron rules. |
+| `--schedule-interval` | DurationSlice | Interval spec. Repeatable, e.g. `5m`, `1h`. |
+| `--schedule-start-at` | Timestamp | RFC3339. Do not fire before this time. |
+| `--schedule-end-at` | Timestamp | RFC3339. Stop firing after this time. |
+| `--schedule-timezone` | String | IANA timezone name, e.g. `Europe/Paris`. |
+| `--schedule-jitter` | Duration | Max random offset applied to each firing. |
+| `--schedule-paused` | Bool | Start the schedule in paused state. |
+| `--schedule-note` | String | Free-text note attached to the schedule state. |
+| `--schedule-overlap` | Enum | `skip` \| `buffer-one` \| `buffer-all` \| `cancel-other` \| `terminate-other` \| `allow-all`. |
+| `--schedule-catchup-window` | Duration | Max catch-up window. |
+| `--schedule-task-queue` | String | Override task queue for this schedule's runs. |
+
+Schedule lifecycle commands (keyed by schedule ID, no workflow input):
+
+| Command | Required flags | Optional flags |
+| --- | --- | --- |
+| `die-roll schedule pause` | `--schedule-id` | `--note` |
+| `die-roll schedule unpause` | `--schedule-id` | `--note` |
+| `die-roll schedule delete` | `--schedule-id` | _(none)_ |
+| `die-roll schedule describe` | `--schedule-id` | _(none)_ |
+
 # Messages
 <a id="message_example_v1_ContinueSignalRequest"></a>
 ## example.v1.ContinueSignalRequest

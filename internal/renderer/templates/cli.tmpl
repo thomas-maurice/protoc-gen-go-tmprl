@@ -1,0 +1,926 @@
+{{- /*
+CLI template - generates a Cobra-based CLI for the service. Sections:
+  1. Entry point + subgroups (workflow, schedule).
+  2. Per-workflow commands: start, execute, signal*, query*, schedule-create.
+  3. Cross-workflow commands: cancel, terminate, describe.
+  4. Schedule group: pause, unpause, delete, describe.
+  5. Shared pflag.Value types (timestamp, overlap, enum-per-type, JSON).
+  6. Reflection-based setter helpers + JSON unmarshal shim.
+
+Shared helper identifiers are service-prefixed (e.g. <GoName>cliXxx) so
+multiple services in the same package do not collide.
+*/ -}}
+
+{{- $svc := . -}}
+{{- $svcKebab := .GoName | kebab -}}
+{{- $prefix := printf "%scli" .GoName -}}
+
+// New{{.GoName}}CLI returns the root cobra command wiring every generated
+// command for the {{.GoName}} service. The caller constructs the temporal
+// client and adds the returned command under its own root.
+func New{{.GoName}}CLI(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	root := &{{Cobra "Command"}}{
+		Use:   {{Quote $svcKebab}},
+		Short: "CLI for {{.GoName}} workflows and schedules",
+	}
+	root.AddCommand({{$prefix}}NewWorkflowGroup(c))
+	root.AddCommand({{$prefix}}NewScheduleGroup(c))
+	return root
+}
+
+// {{$prefix}}NewWorkflowGroup assembles the `workflow` subcommand tree:
+// `workflow start/execute/signal/query <workflow-name>` plus the
+// workflow-id targeted helpers (cancel, terminate, describe). Per
+// PLAN.md §3.2 start/execute are themselves groups with one subcommand
+// per workflow; signal and query additionally nest the signal/query
+// name under the workflow's subcommand.
+func {{$prefix}}NewWorkflowGroup(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	cmd := &{{Cobra "Command"}}{
+		Use:   "workflow",
+		Short: "Workflow operations",
+	}
+	start := &{{Cobra "Command"}}{Use: "start", Short: "Start a workflow"}
+	execute := &{{Cobra "Command"}}{Use: "execute", Short: "Execute a workflow and wait for the result"}
+	signal := &{{Cobra "Command"}}{Use: "signal", Short: "Send a signal to a running workflow"}
+	query := &{{Cobra "Command"}}{Use: "query", Short: "Query a running workflow"}
+{{- range .Workflows}}
+{{- if .InputFlagPlan}}
+{{- $wf := .}}
+{{- $wfKebab := .GoName | kebab}}
+	start.AddCommand({{$prefix}}New{{.GoName}}StartCmd(c))
+	execute.AddCommand({{$prefix}}New{{.GoName}}ExecuteCmd(c))
+{{- $sigGroup := printf "%sSignalGroup" $wfKebab -}}
+{{- $anySig := false -}}
+{{- range .Options.Signals -}}
+{{- $sig := index $svc.SignalsMap . -}}
+{{- if $sig -}}
+{{- $anySig = true -}}
+{{- end -}}
+{{- end}}
+{{- if $anySig}}
+	{{printf "sig%s" $wf.GoName}} := &{{Cobra "Command"}}{Use: {{Quote $wfKebab}}, Short: "Signals for workflow {{$wf.GoName}}"}
+{{- range .Options.Signals}}
+{{- $sig := index $svc.SignalsMap .}}
+{{- if $sig}}
+	{{printf "sig%s" $wf.GoName}}.AddCommand({{$prefix}}New{{$wf.GoName}}Signal{{$sig.GoName}}Cmd(c))
+{{- end}}
+{{- end}}
+	signal.AddCommand({{printf "sig%s" $wf.GoName}})
+{{- end}}
+{{- $anyQ := false -}}
+{{- range .Options.Queries -}}
+{{- $q := index $svc.QueriesMap . -}}
+{{- if $q -}}
+{{- $anyQ = true -}}
+{{- end -}}
+{{- end}}
+{{- if $anyQ}}
+	{{printf "q%s" $wf.GoName}} := &{{Cobra "Command"}}{Use: {{Quote $wfKebab}}, Short: "Queries for workflow {{$wf.GoName}}"}
+{{- range .Options.Queries}}
+{{- $q := index $svc.QueriesMap .}}
+{{- if $q}}
+	{{printf "q%s" $wf.GoName}}.AddCommand({{$prefix}}New{{$wf.GoName}}Query{{$q.GoName}}Cmd(c))
+{{- end}}
+{{- end}}
+	query.AddCommand({{printf "q%s" $wf.GoName}})
+{{- end}}
+{{- end}}
+{{- end}}
+	cmd.AddCommand(start)
+	cmd.AddCommand(execute)
+	cmd.AddCommand(signal)
+	cmd.AddCommand(query)
+	cmd.AddCommand({{$prefix}}NewCancelCmd(c))
+	cmd.AddCommand({{$prefix}}NewTerminateCmd(c))
+	cmd.AddCommand({{$prefix}}NewDescribeCmd(c))
+	return cmd
+}
+
+// {{$prefix}}NewScheduleGroup assembles the `schedule` subcommand tree.
+func {{$prefix}}NewScheduleGroup(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	cmd := &{{Cobra "Command"}}{
+		Use:   "schedule",
+		Short: "Schedule operations",
+	}
+	create := &{{Cobra "Command"}}{
+		Use:   "create",
+		Short: "Create a schedule for a workflow",
+	}
+{{- range .Workflows}}
+{{- if .InputFlagPlan}}
+	create.AddCommand({{$prefix}}New{{.GoName}}ScheduleCreateCmd(c))
+{{- end}}
+{{- end}}
+	cmd.AddCommand(create)
+	cmd.AddCommand({{$prefix}}NewSchedulePauseCmd(c))
+	cmd.AddCommand({{$prefix}}NewScheduleUnpauseCmd(c))
+	cmd.AddCommand({{$prefix}}NewScheduleDeleteCmd(c))
+	cmd.AddCommand({{$prefix}}NewScheduleDescribeCmd(c))
+	return cmd
+}
+
+{{- range .Workflows}}
+{{- if .InputFlagPlan}}
+{{- $wf := .}}
+{{- $plan := .InputFlagPlan}}
+{{- $wfKebab := .GoName | kebab}}
+
+// {{$prefix}}New{{.GoName}}StartCmd returns `workflow start {{$wfKebab}}`.
+// It populates {{QualifiedGoIdent .Input.GoIdent}} from flags and invokes
+// ExecuteWorkflow{{.GoName}}, printing workflow and run ids on success.
+func {{$prefix}}New{{.GoName}}StartCmd(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	var workflowID string
+	req := &{{QualifiedGoIdent .Input.GoIdent}}{}
+{{- range $plan.Flags}}
+	{{cliVarDecl . $prefix}}
+{{- end}}
+	cmd := &{{Cobra "Command"}}{
+		Use:   {{Quote $wfKebab}},
+		Short: "Start workflow {{.GoName}}",
+		Long:  {{Quote (printf "Start workflow %s asynchronously and print the workflow/run ids." .GoName)}} + {{$prefix}}OneofLong({{oneofGroupsGoLiteral $plan.OneofGroups}}),
+		RunE: func(cmd *{{Cobra "Command"}}, args []string) error {
+{{- range $plan.Flags}}
+			if cmd.Flags().Changed({{Quote .CLIName}}) {
+				{{cliApplyBlock . $prefix}}
+			}
+{{- end}}
+			svc, err := New{{$svc.GetClientName}}(c)
+			if err != nil {
+				return err
+			}
+			opts := {{TemporalClient "StartWorkflowOptions"}}{ID: workflowID}
+			run, err := svc.ExecuteWorkflow{{.GoName}}(cmd.Context(), req, opts)
+			if err != nil {
+				return err
+			}
+			{{Fmt "Fprintf"}}(cmd.OutOrStdout(), "workflow-id: %s\nrun-id: %s\n", run.GetID(), run.GetRunID())
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&workflowID, "workflow-id", "", "Workflow ID. Optional; a UUID-suffixed id is generated when empty.")
+{{- range $plan.Flags}}
+	{{cliRegisterLine . $prefix}}
+{{- end}}
+	{{oneofExclusiveCalls $plan.OneofGroups}}
+	return cmd
+}
+
+// {{$prefix}}New{{.GoName}}ExecuteCmd returns `workflow execute {{$wfKebab}}`.
+// It starts the workflow, blocks on the result, and prints a
+// JSON-encoded {{QualifiedGoIdent .Output.GoIdent}}.
+func {{$prefix}}New{{.GoName}}ExecuteCmd(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	var workflowID string
+	req := &{{QualifiedGoIdent .Input.GoIdent}}{}
+{{- range $plan.Flags}}
+	{{cliVarDecl . $prefix}}
+{{- end}}
+	cmd := &{{Cobra "Command"}}{
+		Use:   {{Quote $wfKebab}},
+		Short: "Execute workflow {{.GoName}} and wait for the result",
+		Long:  {{Quote (printf "Execute workflow %s synchronously and print its JSON-encoded result." .GoName)}} + {{$prefix}}OneofLong({{oneofGroupsGoLiteral $plan.OneofGroups}}),
+		RunE: func(cmd *{{Cobra "Command"}}, args []string) error {
+{{- range $plan.Flags}}
+			if cmd.Flags().Changed({{Quote .CLIName}}) {
+				{{cliApplyBlock . $prefix}}
+			}
+{{- end}}
+			svc, err := New{{$svc.GetClientName}}(c)
+			if err != nil {
+				return err
+			}
+			opts := {{TemporalClient "StartWorkflowOptions"}}{ID: workflowID}
+			resp, err := svc.ExecuteWorkflow{{.GoName}}Sync(cmd.Context(), req, opts)
+			if err != nil {
+				return err
+			}
+			return {{$prefix}}PrintJSON(cmd.OutOrStdout(), resp)
+		},
+	}
+	cmd.Flags().StringVar(&workflowID, "workflow-id", "", "Workflow ID. Optional; a UUID-suffixed id is generated when empty.")
+{{- range $plan.Flags}}
+	{{cliRegisterLine . $prefix}}
+{{- end}}
+	{{oneofExclusiveCalls $plan.OneofGroups}}
+	return cmd
+}
+
+{{- range .Options.Signals}}
+{{- $sig := index $svc.SignalsMap .}}
+{{- if $sig}}
+{{- $sigPlan := $sig.InputFlagPlan}}
+{{- $sigKebab := $sig.GoName | kebab}}
+
+// {{$prefix}}New{{$wf.GoName}}Signal{{$sig.GoName}}Cmd returns
+// `workflow signal {{$wfKebab}} {{$sigKebab}}`. It sends signal
+// {{$sig.GoName}} to the workflow run identified by --workflow-id
+// (required) and --run-id.
+func {{$prefix}}New{{$wf.GoName}}Signal{{$sig.GoName}}Cmd(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	var workflowID string
+	var runID string
+	req := &{{QualifiedGoIdent $sig.Input.GoIdent}}{}
+{{- range $sigPlan.Flags}}
+	{{cliVarDecl . $prefix}}
+{{- end}}
+	cmd := &{{Cobra "Command"}}{
+		Use:   {{Quote $sigKebab}},
+		Short: "Send signal {{$sig.GoName}} to workflow {{$wf.GoName}}",
+		Long:  {{Quote (printf "Send signal %s to a running %s workflow." $sig.GoName $wf.GoName)}} + {{$prefix}}OneofLong({{oneofGroupsGoLiteral $sigPlan.OneofGroups}}),
+		RunE: func(cmd *{{Cobra "Command"}}, args []string) error {
+{{- range $sigPlan.Flags}}
+			if cmd.Flags().Changed({{Quote .CLIName}}) {
+				{{cliApplyBlock . $prefix}}
+			}
+{{- end}}
+			return c.SignalWorkflow(cmd.Context(), workflowID, runID, Signal{{$sig.GoName}}Name, req)
+		},
+	}
+	cmd.Flags().StringVar(&workflowID, "workflow-id", "", "Workflow ID of the target run. Required.")
+	cmd.Flags().StringVar(&runID, "run-id", "", "Run ID of the target run. Optional; empty targets the latest run.")
+	_ = cmd.MarkFlagRequired("workflow-id")
+{{- range $sigPlan.Flags}}
+	{{cliRegisterLine . $prefix}}
+{{- end}}
+	{{oneofExclusiveCalls $sigPlan.OneofGroups}}
+	return cmd
+}
+{{- end}}
+{{- end}}
+
+{{- range .Options.Queries}}
+{{- $q := index $svc.QueriesMap .}}
+{{- if $q}}
+{{- $qPlan := $q.InputFlagPlan}}
+{{- $qKebab := $q.GoName | kebab}}
+
+// {{$prefix}}New{{$wf.GoName}}Query{{$q.GoName}}Cmd returns
+// `workflow query {{$wfKebab}} {{$qKebab}}`. It issues query {{$q.GoName}}
+// on the workflow identified by --workflow-id (required) and prints the
+// JSON-encoded result.
+func {{$prefix}}New{{$wf.GoName}}Query{{$q.GoName}}Cmd(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	var workflowID string
+	var runID string
+	req := &{{QualifiedGoIdent $q.Input.GoIdent}}{}
+{{- range $qPlan.Flags}}
+	{{cliVarDecl . $prefix}}
+{{- end}}
+	cmd := &{{Cobra "Command"}}{
+		Use:   {{Quote $qKebab}},
+		Short: "Query workflow {{$wf.GoName}} with {{$q.GoName}}",
+		Long:  {{Quote (printf "Send query %s to a running %s workflow and print its JSON-encoded result." $q.GoName $wf.GoName)}} + {{$prefix}}OneofLong({{oneofGroupsGoLiteral $qPlan.OneofGroups}}),
+		RunE: func(cmd *{{Cobra "Command"}}, args []string) error {
+{{- range $qPlan.Flags}}
+			if cmd.Flags().Changed({{Quote .CLIName}}) {
+				{{cliApplyBlock . $prefix}}
+			}
+{{- end}}
+			enc, err := c.QueryWorkflow(cmd.Context(), workflowID, runID, Query{{$q.GoName}}Name, req)
+			if err != nil {
+				return err
+			}
+			var resp *{{QualifiedGoIdent $q.Output.GoIdent}}
+			if err := enc.Get(&resp); err != nil {
+				return err
+			}
+			return {{$prefix}}PrintJSON(cmd.OutOrStdout(), resp)
+		},
+	}
+	cmd.Flags().StringVar(&workflowID, "workflow-id", "", "Workflow ID of the target run. Required.")
+	cmd.Flags().StringVar(&runID, "run-id", "", "Run ID of the target run. Optional; empty targets the latest run.")
+	_ = cmd.MarkFlagRequired("workflow-id")
+{{- range $qPlan.Flags}}
+	{{cliRegisterLine . $prefix}}
+{{- end}}
+	{{oneofExclusiveCalls $qPlan.OneofGroups}}
+	return cmd
+}
+{{- end}}
+{{- end}}
+
+// {{$prefix}}New{{.GoName}}ScheduleCreateCmd returns the
+// `schedule create {{$wfKebab}}` command. Workflow input flags populate
+// the request; --schedule-* flags configure the schedule.
+func {{$prefix}}New{{.GoName}}ScheduleCreateCmd(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	var scheduleID string
+	var scheduleCron []string
+	var scheduleInterval []{{Time "Duration"}}
+	var scheduleTimezone string
+	var scheduleJitter {{Time "Duration"}}
+	var schedulePaused bool
+	var scheduleNote string
+	var scheduleCatchup {{Time "Duration"}}
+	var scheduleTaskQueue string
+	scheduleStartAt := &{{$prefix}}TimestampValue{}
+	scheduleEndAt := &{{$prefix}}TimestampValue{}
+	scheduleOverlap := &{{$prefix}}OverlapValue{}
+	req := &{{QualifiedGoIdent .Input.GoIdent}}{}
+{{- range $plan.Flags}}
+	{{cliVarDecl . $prefix}}
+{{- end}}
+	cmd := &{{Cobra "Command"}}{
+		Use:   {{Quote $wfKebab}},
+		Short: "Create a schedule for workflow {{.GoName}}",
+		Long:  {{Quote (printf "Create a Temporal schedule that starts %s runs. Use --schedule-* flags to configure the schedule; the remaining flags populate the workflow input." .GoName)}} + {{$prefix}}OneofLong({{oneofGroupsGoLiteral $plan.OneofGroups}}),
+		RunE: func(cmd *{{Cobra "Command"}}, args []string) error {
+{{- range $plan.Flags}}
+			if cmd.Flags().Changed({{Quote .CLIName}}) {
+				{{cliApplyBlock . $prefix}}
+			}
+{{- end}}
+			svc, err := New{{$svc.GetClientName}}(c, scheduleTaskQueue)
+			if err != nil {
+				return err
+			}
+			opts := {{TemporalClient "ScheduleOptions"}}{
+				Spec: {{TemporalClient "ScheduleSpec"}}{
+					CronExpressions: scheduleCron,
+					TimeZoneName:    scheduleTimezone,
+					Jitter:          scheduleJitter,
+				},
+				Note:          scheduleNote,
+				Paused:        schedulePaused,
+				CatchupWindow: scheduleCatchup,
+			}
+			for _, d := range scheduleInterval {
+				opts.Spec.Intervals = append(opts.Spec.Intervals, {{TemporalClient "ScheduleIntervalSpec"}}{Every: d})
+			}
+			if scheduleStartAt.ts != nil {
+				opts.Spec.StartAt = scheduleStartAt.ts.AsTime()
+			}
+			if scheduleEndAt.ts != nil {
+				opts.Spec.EndAt = scheduleEndAt.ts.AsTime()
+			}
+			if scheduleOverlap.set {
+				opts.Overlap = scheduleOverlap.v
+			}
+			handle, err := svc.CreateSchedule{{.GoName}}(cmd.Context(), scheduleID, req, opts)
+			if err != nil {
+				return err
+			}
+			{{Fmt "Fprintf"}}(cmd.OutOrStdout(), "schedule-id: %s\n", handle.GetID())
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&scheduleID, "schedule-id", "", "Schedule identifier. Required.")
+	cmd.Flags().StringArrayVar(&scheduleCron, "schedule-cron", nil, "Cron expression for the schedule (repeatable flag: pass --schedule-cron once per expression).")
+	cmd.Flags().DurationSliceVar(&scheduleInterval, "schedule-interval", nil, "Interval spec, e.g. 5m or 1h (repeatable flag: pass --schedule-interval once per element).")
+	cmd.Flags().Var(scheduleStartAt, "schedule-start-at", "Earliest time the schedule may fire (RFC3339 timestamp, e.g. \"2025-01-02T15:04:05Z\").")
+	cmd.Flags().Var(scheduleEndAt, "schedule-end-at", "Latest time the schedule may fire (RFC3339 timestamp, e.g. \"2025-01-02T15:04:05Z\").")
+	cmd.Flags().StringVar(&scheduleTimezone, "schedule-timezone", "", "IANA timezone name, e.g. Europe/Paris.")
+	cmd.Flags().DurationVar(&scheduleJitter, "schedule-jitter", 0, "Maximum random offset applied to each firing (Go duration, e.g. \"5m\", \"1h30m\").")
+	cmd.Flags().BoolVar(&schedulePaused, "schedule-paused", false, "Create the schedule in paused state.")
+	cmd.Flags().StringVar(&scheduleNote, "schedule-note", "", "Free-text note attached to the schedule state.")
+	cmd.Flags().Var(scheduleOverlap, "schedule-overlap", "Overlap policy (one of: skip, buffer-one, buffer-all, cancel-other, terminate-other, allow-all; case-insensitive).")
+	cmd.Flags().DurationVar(&scheduleCatchup, "schedule-catchup-window", 0, "Maximum catch-up window (Go duration, e.g. \"5m\", \"1h30m\").")
+	cmd.Flags().StringVar(&scheduleTaskQueue, "schedule-task-queue", "", "Override task queue for this schedule's runs. Defaults to the service task queue.")
+	_ = cmd.MarkFlagRequired("schedule-id")
+{{- range $plan.Flags}}
+	{{cliRegisterLine . $prefix}}
+{{- end}}
+	{{oneofExclusiveCalls $plan.OneofGroups}}
+	return cmd
+}
+{{- end}}
+{{- end}}
+
+// {{$prefix}}NewCancelCmd returns the `workflow cancel` command.
+func {{$prefix}}NewCancelCmd(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	var workflowID, runID string
+	cmd := &{{Cobra "Command"}}{
+		Use:   "cancel",
+		Short: "Cancel a running workflow",
+		RunE: func(cmd *{{Cobra "Command"}}, args []string) error {
+			return c.CancelWorkflow(cmd.Context(), workflowID, runID)
+		},
+	}
+	cmd.Flags().StringVar(&workflowID, "workflow-id", "", "Workflow ID of the target run. Required.")
+	cmd.Flags().StringVar(&runID, "run-id", "", "Run ID of the target run. Optional; empty targets the latest run.")
+	_ = cmd.MarkFlagRequired("workflow-id")
+	return cmd
+}
+
+// {{$prefix}}NewTerminateCmd returns the `workflow terminate` command.
+// Terminate is more forceful than Cancel; the workflow stops immediately
+// and the supplied --reason is recorded on its history.
+func {{$prefix}}NewTerminateCmd(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	var workflowID, runID, reason string
+	cmd := &{{Cobra "Command"}}{
+		Use:   "terminate",
+		Short: "Terminate a running workflow",
+		RunE: func(cmd *{{Cobra "Command"}}, args []string) error {
+			return c.TerminateWorkflow(cmd.Context(), workflowID, runID, reason)
+		},
+	}
+	cmd.Flags().StringVar(&workflowID, "workflow-id", "", "Workflow ID of the target run. Required.")
+	cmd.Flags().StringVar(&runID, "run-id", "", "Run ID of the target run. Optional; empty targets the latest run.")
+	cmd.Flags().StringVar(&reason, "reason", "", "Reason recorded on the terminated workflow's history.")
+	_ = cmd.MarkFlagRequired("workflow-id")
+	return cmd
+}
+
+// {{$prefix}}NewDescribeCmd returns the `workflow describe` command.
+func {{$prefix}}NewDescribeCmd(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	var workflowID, runID string
+	cmd := &{{Cobra "Command"}}{
+		Use:   "describe",
+		Short: "Describe a workflow execution",
+		RunE: func(cmd *{{Cobra "Command"}}, args []string) error {
+			resp, err := c.DescribeWorkflowExecution(cmd.Context(), workflowID, runID)
+			if err != nil {
+				return err
+			}
+			out, err := {{EncodingJSON "MarshalIndent"}}(resp, "", "  ")
+			if err != nil {
+				return err
+			}
+			{{Fmt "Fprintln"}}(cmd.OutOrStdout(), string(out))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&workflowID, "workflow-id", "", "Workflow ID of the target run. Required.")
+	cmd.Flags().StringVar(&runID, "run-id", "", "Run ID of the target run. Optional; empty targets the latest run.")
+	_ = cmd.MarkFlagRequired("workflow-id")
+	return cmd
+}
+
+// {{$prefix}}NewSchedulePauseCmd returns the `schedule pause` command.
+// Pause is idempotent; the note is recorded on the schedule's audit trail.
+func {{$prefix}}NewSchedulePauseCmd(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	var scheduleID, note string
+	cmd := &{{Cobra "Command"}}{
+		Use:   "pause",
+		Short: "Pause a schedule",
+		RunE: func(cmd *{{Cobra "Command"}}, args []string) error {
+			h := c.ScheduleClient().GetHandle(cmd.Context(), scheduleID)
+			return h.Pause(cmd.Context(), {{TemporalClient "SchedulePauseOptions"}}{Note: note})
+		},
+	}
+	cmd.Flags().StringVar(&scheduleID, "schedule-id", "", "Schedule identifier. Required.")
+	cmd.Flags().StringVar(&note, "note", "", "Free-text note recorded on the schedule's audit trail.")
+	_ = cmd.MarkFlagRequired("schedule-id")
+	return cmd
+}
+
+// {{$prefix}}NewScheduleUnpauseCmd returns the `schedule unpause` command.
+func {{$prefix}}NewScheduleUnpauseCmd(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	var scheduleID, note string
+	cmd := &{{Cobra "Command"}}{
+		Use:   "unpause",
+		Short: "Unpause a schedule",
+		RunE: func(cmd *{{Cobra "Command"}}, args []string) error {
+			h := c.ScheduleClient().GetHandle(cmd.Context(), scheduleID)
+			return h.Unpause(cmd.Context(), {{TemporalClient "ScheduleUnpauseOptions"}}{Note: note})
+		},
+	}
+	cmd.Flags().StringVar(&scheduleID, "schedule-id", "", "Schedule identifier. Required.")
+	cmd.Flags().StringVar(&note, "note", "", "Free-text note recorded on the schedule's audit trail.")
+	_ = cmd.MarkFlagRequired("schedule-id")
+	return cmd
+}
+
+// {{$prefix}}NewScheduleDeleteCmd returns the `schedule delete` command.
+func {{$prefix}}NewScheduleDeleteCmd(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	var scheduleID string
+	cmd := &{{Cobra "Command"}}{
+		Use:   "delete",
+		Short: "Delete a schedule",
+		RunE: func(cmd *{{Cobra "Command"}}, args []string) error {
+			h := c.ScheduleClient().GetHandle(cmd.Context(), scheduleID)
+			return h.Delete(cmd.Context())
+		},
+	}
+	cmd.Flags().StringVar(&scheduleID, "schedule-id", "", "Schedule identifier. Required.")
+	_ = cmd.MarkFlagRequired("schedule-id")
+	return cmd
+}
+
+// {{$prefix}}NewScheduleDescribeCmd returns the `schedule describe`
+// command and prints the schedule description as JSON.
+func {{$prefix}}NewScheduleDescribeCmd(c {{TemporalClient "Client"}}) *{{Cobra "Command"}} {
+	var scheduleID string
+	cmd := &{{Cobra "Command"}}{
+		Use:   "describe",
+		Short: "Describe a schedule",
+		RunE: func(cmd *{{Cobra "Command"}}, args []string) error {
+			h := c.ScheduleClient().GetHandle(cmd.Context(), scheduleID)
+			desc, err := h.Describe(cmd.Context())
+			if err != nil {
+				return err
+			}
+			out, err := {{EncodingJSON "MarshalIndent"}}(desc, "", "  ")
+			if err != nil {
+				return err
+			}
+			{{Fmt "Fprintln"}}(cmd.OutOrStdout(), string(out))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&scheduleID, "schedule-id", "", "Schedule identifier. Required.")
+	_ = cmd.MarkFlagRequired("schedule-id")
+	return cmd
+}
+
+// {{$prefix}}TimestampValue is a pflag.Value parsing RFC3339 / RFC3339Nano
+// into a *timestamppb.Timestamp. Empty input is an error; callers
+// presence-gate via cmd.Flags().Changed.
+type {{$prefix}}TimestampValue struct {
+	ts *{{Timestamppb "Timestamp"}}
+}
+
+func (v *{{$prefix}}TimestampValue) Set(s string) error {
+	t, err := {{Time "Parse"}}({{Time "RFC3339Nano"}}, s)
+	if err != nil {
+		t, err = {{Time "Parse"}}({{Time "RFC3339"}}, s)
+		if err != nil {
+			return {{Fmt "Errorf"}}("invalid RFC3339 timestamp %q: %w", s, err)
+		}
+	}
+	v.ts = {{Timestamppb "New"}}(t)
+	return nil
+}
+
+func (v *{{$prefix}}TimestampValue) String() string {
+	if v == nil || v.ts == nil {
+		return ""
+	}
+	return v.ts.AsTime().Format({{Time "RFC3339Nano"}})
+}
+
+func (v *{{$prefix}}TimestampValue) Type() string { return "timestamp" }
+
+// {{$prefix}}OverlapValue is a pflag.Value for the schedule overlap
+// policy. Value names are kebab-case; Set is case-insensitive.
+type {{$prefix}}OverlapValue struct {
+	v   {{Enumspb "ScheduleOverlapPolicy"}}
+	set bool
+}
+
+func (v *{{$prefix}}OverlapValue) Set(s string) error {
+	switch {{Strings "ToLower"}}(s) {
+	case "skip":
+		v.v = {{Enumspb "SCHEDULE_OVERLAP_POLICY_SKIP"}}
+	case "buffer-one":
+		v.v = {{Enumspb "SCHEDULE_OVERLAP_POLICY_BUFFER_ONE"}}
+	case "buffer-all":
+		v.v = {{Enumspb "SCHEDULE_OVERLAP_POLICY_BUFFER_ALL"}}
+	case "cancel-other":
+		v.v = {{Enumspb "SCHEDULE_OVERLAP_POLICY_CANCEL_OTHER"}}
+	case "terminate-other":
+		v.v = {{Enumspb "SCHEDULE_OVERLAP_POLICY_TERMINATE_OTHER"}}
+	case "allow-all":
+		v.v = {{Enumspb "SCHEDULE_OVERLAP_POLICY_ALLOW_ALL"}}
+	default:
+		return {{Fmt "Errorf"}}("invalid overlap %q; want one of: skip, buffer-one, buffer-all, cancel-other, terminate-other, allow-all", s)
+	}
+	v.set = true
+	return nil
+}
+
+func (v *{{$prefix}}OverlapValue) String() string {
+	if v == nil || !v.set {
+		return ""
+	}
+	return {{Fmt "Sprintf"}}("%v", v.v)
+}
+
+func (v *{{$prefix}}OverlapValue) Type() string { return "overlap" }
+
+{{- range $svc.DistinctCLIEnums}}
+{{- $enumShort := enumShortName .GoType}}
+
+// {{$prefix}}Enum{{$enumShort}}Value wraps a {{.GoType}} enum for use as a
+// pflag.Value. Set is case-insensitive and validates against the declared
+// names.
+type {{$prefix}}Enum{{$enumShort}}Value struct {
+	v   int32
+	set bool
+}
+
+func (v *{{$prefix}}Enum{{$enumShort}}Value) Set(s string) error {
+	switch {{Strings "ToUpper"}}({{Strings "ReplaceAll"}}(s, "-", "_")) {
+{{- $enum := .}}
+{{- range $i, $name := .Values}}
+	case {{Quote $name}}:
+		v.v = {{index $enum.Numbers $i}}
+{{- end}}
+	default:
+		return {{Fmt "Errorf"}}("invalid value %q for enum {{$enumShort}}; want one of: {{range $i, $n := .Values}}{{if $i}}, {{end}}{{$n}}{{end}}", s)
+	}
+	v.set = true
+	return nil
+}
+
+func (v *{{$prefix}}Enum{{$enumShort}}Value) String() string {
+	if v == nil || !v.set {
+		return ""
+	}
+	return {{Fmt "Sprintf"}}("%d", v.v)
+}
+
+func (v *{{$prefix}}Enum{{$enumShort}}Value) Type() string { return "{{$enumShort}}" }
+{{- end}}
+
+// {{$prefix}}JSONValue is a pflag.Value that captures a raw JSON string
+// at parse time; the destination proto message is unmarshaled at RunE
+// time so leaving the flag unset is not an error.
+type {{$prefix}}JSONValue struct {
+	raw string
+	set bool
+}
+
+func (v *{{$prefix}}JSONValue) Set(s string) error {
+	v.raw = s
+	v.set = true
+	return nil
+}
+
+func (v *{{$prefix}}JSONValue) String() string {
+	if v == nil {
+		return ""
+	}
+	return v.raw
+}
+
+func (v *{{$prefix}}JSONValue) Type() string { return "json" }
+
+// {{$prefix}}PrintJSON marshals m via protojson with indent and writes it
+// to w followed by a newline.
+func {{$prefix}}PrintJSON(w {{IO "Writer"}}, m {{Proto "Message"}}) error {
+	opts := {{Protojson "MarshalOptions"}}{Multiline: true, Indent: "  "}
+	out, err := opts.Marshal(m)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(append(out, '\n'))
+	return err
+}
+
+// {{$prefix}}OneofLong renders the mutually-exclusive oneof groups as a
+// trailing block appended to a command's Long description.
+func {{$prefix}}OneofLong(groups [][]string) string {
+	if len(groups) == 0 {
+		return ""
+	}
+	var b {{Strings "Builder"}}
+	b.WriteString("\n\nMutually exclusive flag groups:\n")
+	for _, g := range groups {
+		b.WriteString("  ")
+		for i, name := range g {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString("--")
+			b.WriteString(name)
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// {{$prefix}}SetField walks a proto field path from the root message,
+// allocating intermediate message pointers as needed, and assigns value
+// to the leaf field.
+func {{$prefix}}SetField(root {{Proto "Message"}}, path []string, value interface{}) error {
+	cur := {{Reflect "ValueOf"}}(root)
+	if cur.Kind() != {{Reflect "Ptr"}} || cur.IsNil() {
+		return {{Errors "New"}}("SetField: root must be a non-nil pointer")
+	}
+	cur = cur.Elem()
+	for i, seg := range path {
+		fieldName := {{$prefix}}GoFieldName(seg)
+		f := cur.FieldByName(fieldName)
+		if !f.IsValid() {
+			return {{Fmt "Errorf"}}("SetField: no field %q on %s", fieldName, cur.Type())
+		}
+		if i == len(path)-1 {
+			return {{$prefix}}AssignField(f, value)
+		}
+		if f.Kind() == {{Reflect "Ptr"}} {
+			if f.IsNil() {
+				f.Set({{Reflect "New"}}(f.Type().Elem()))
+			}
+			cur = f.Elem()
+		} else {
+			cur = f
+		}
+	}
+	return nil
+}
+
+// {{$prefix}}AssignField assigns value to dst, handling pointer-to-scalar
+// (proto3 optional / wrapper) destinations and numeric conversion for
+// enum fields. When dst is a pointer to a WKT wrapper message (one with
+// a single exported `Value` field carrying the scalar payload), the
+// source scalar is written into that field rather than onto the struct
+// whole.
+func {{$prefix}}AssignField(dst {{Reflect "Value"}}, value interface{}) error {
+	v := {{Reflect "ValueOf"}}(value)
+	if dst.Kind() == {{Reflect "Ptr"}} {
+		if v.Kind() == {{Reflect "Ptr"}} {
+			if v.Type().AssignableTo(dst.Type()) {
+				dst.Set(v)
+				return nil
+			}
+		}
+		p := {{Reflect "New"}}(dst.Type().Elem())
+		pv := p.Elem()
+		if v.Type().AssignableTo(pv.Type()) {
+			pv.Set(v)
+			dst.Set(p)
+			return nil
+		}
+		if v.Type().ConvertibleTo(pv.Type()) {
+			pv.Set(v.Convert(pv.Type()))
+			dst.Set(p)
+			return nil
+		}
+		// WKT wrapper: struct has a single exported Value field whose
+		// type matches (or is convertible from) the source.
+		if pv.Kind() == {{Reflect "Struct"}} {
+			if inner := pv.FieldByName("Value"); inner.IsValid() && inner.CanSet() {
+				if v.Type().AssignableTo(inner.Type()) {
+					inner.Set(v)
+					dst.Set(p)
+					return nil
+				}
+				if v.Type().ConvertibleTo(inner.Type()) {
+					inner.Set(v.Convert(inner.Type()))
+					dst.Set(p)
+					return nil
+				}
+			}
+		}
+		return {{Fmt "Errorf"}}("cannot assign %s to *%s", v.Type(), pv.Type())
+	}
+	if v.Type().AssignableTo(dst.Type()) {
+		dst.Set(v)
+		return nil
+	}
+	if v.Type().ConvertibleTo(dst.Type()) {
+		dst.Set(v.Convert(dst.Type()))
+		return nil
+	}
+	return {{Fmt "Errorf"}}("cannot assign %s to %s", v.Type(), dst.Type())
+}
+
+// {{$prefix}}UnmarshalJSONInto locates the leaf message field addressed
+// by path, allocates a fresh message of its element type (or element of
+// the slice for repeated fields), and protojson-unmarshals raw into it.
+// For repeated-message fields the raw input must be a JSON array;
+// individual elements are unmarshaled one-by-one into the slice.
+func {{$prefix}}UnmarshalJSONInto(root {{Proto "Message"}}, path []string, raw string) error {
+	cur := {{Reflect "ValueOf"}}(root)
+	if cur.Kind() != {{Reflect "Ptr"}} || cur.IsNil() {
+		return {{Errors "New"}}("UnmarshalJSONInto: root must be a non-nil pointer")
+	}
+	cur = cur.Elem()
+	for i, seg := range path {
+		fieldName := {{$prefix}}GoFieldName(seg)
+		f := cur.FieldByName(fieldName)
+		if !f.IsValid() {
+			return {{Fmt "Errorf"}}("UnmarshalJSONInto: no field %q on %s", fieldName, cur.Type())
+		}
+		if i == len(path)-1 {
+			return {{$prefix}}UnmarshalLeaf(f, raw)
+		}
+		if f.Kind() == {{Reflect "Ptr"}} {
+			if f.IsNil() {
+				f.Set({{Reflect "New"}}(f.Type().Elem()))
+			}
+			cur = f.Elem()
+			continue
+		}
+		cur = f
+	}
+	return nil
+}
+
+// {{$prefix}}UnmarshalLeaf handles the terminal JSON-escape assignment
+// for three shapes: a pointer to a proto message, a slice of pointers to
+// proto messages, and a map whose element is a proto message.
+func {{$prefix}}UnmarshalLeaf(dst {{Reflect "Value"}}, raw string) error {
+	unmarshalOne := func(target {{Reflect "Value"}}) error {
+		m, ok := target.Interface().({{Proto "Message"}})
+		if !ok {
+			return {{Fmt "Errorf"}}("JSON target %s is not a proto.Message", target.Type())
+		}
+		return {{Protojson "Unmarshal"}}([]byte(raw), m)
+	}
+	switch dst.Kind() {
+	case {{Reflect "Ptr"}}:
+		if dst.IsNil() {
+			dst.Set({{Reflect "New"}}(dst.Type().Elem()))
+		}
+		return unmarshalOne(dst)
+	case {{Reflect "Slice"}}:
+		elemType := dst.Type().Elem()
+		// Parse the incoming raw JSON array via encoding/json into
+		// json.RawMessage elements; unmarshal each element with protojson
+		// into a fresh instance of the slice's element type.
+		var arr []{{EncodingJSON "RawMessage"}}
+		if err := {{EncodingJSON "Unmarshal"}}([]byte(raw), &arr); err != nil {
+			return {{Fmt "Errorf"}}("invalid JSON array: %w", err)
+		}
+		slice := {{Reflect "MakeSlice"}}(dst.Type(), 0, len(arr))
+		for _, elemRaw := range arr {
+			if elemType.Kind() == {{Reflect "Ptr"}} {
+				p := {{Reflect "New"}}(elemType.Elem())
+				m, ok := p.Interface().({{Proto "Message"}})
+				if !ok {
+					return {{Fmt "Errorf"}}("slice element %s is not a proto.Message", elemType)
+				}
+				if err := {{Protojson "Unmarshal"}}([]byte(elemRaw), m); err != nil {
+					return err
+				}
+				slice = {{Reflect "Append"}}(slice, p)
+			} else {
+				v := {{Reflect "New"}}(elemType).Elem()
+				if err := {{EncodingJSON "Unmarshal"}}([]byte(elemRaw), v.Addr().Interface()); err != nil {
+					return err
+				}
+				slice = {{Reflect "Append"}}(slice, v)
+			}
+		}
+		dst.Set(slice)
+		return nil
+	case {{Reflect "Map"}}:
+		// For maps we fall back to encoding/json; a map<string, proto> is
+		// unmarshaled via a temporary map[string]json.RawMessage and each
+		// value is protojson-unmarshaled into an allocated element.
+		keyType := dst.Type().Key()
+		elemType := dst.Type().Elem()
+		if keyType.Kind() != {{Reflect "String"}} {
+			return {{Fmt "Errorf"}}("map with non-string key %s cannot be JSON-loaded", keyType)
+		}
+		var tmp map[string]{{EncodingJSON "RawMessage"}}
+		if err := {{EncodingJSON "Unmarshal"}}([]byte(raw), &tmp); err != nil {
+			return {{Fmt "Errorf"}}("invalid JSON object: %w", err)
+		}
+		out := {{Reflect "MakeMapWithSize"}}(dst.Type(), len(tmp))
+		for k, elemRaw := range tmp {
+			if elemType.Kind() == {{Reflect "Ptr"}} {
+				p := {{Reflect "New"}}(elemType.Elem())
+				m, ok := p.Interface().({{Proto "Message"}})
+				if !ok {
+					return {{Fmt "Errorf"}}("map value %s is not a proto.Message", elemType)
+				}
+				if err := {{Protojson "Unmarshal"}}([]byte(elemRaw), m); err != nil {
+					return err
+				}
+				out.SetMapIndex({{Reflect "ValueOf"}}(k), p)
+			} else {
+				v := {{Reflect "New"}}(elemType).Elem()
+				if err := {{EncodingJSON "Unmarshal"}}([]byte(elemRaw), v.Addr().Interface()); err != nil {
+					return err
+				}
+				out.SetMapIndex({{Reflect "ValueOf"}}(k), v)
+			}
+		}
+		dst.Set(out)
+		return nil
+	default:
+		// Scalar JSON target (e.g. a cyclic scalar) — fall back to
+		// encoding/json into an addressable copy, then assign.
+		v := {{Reflect "New"}}(dst.Type()).Elem()
+		if err := {{EncodingJSON "Unmarshal"}}([]byte(raw), v.Addr().Interface()); err != nil {
+			return err
+		}
+		dst.Set(v)
+		return nil
+	}
+}
+
+// {{$prefix}}DurationProto converts a time.Duration into a
+// *durationpb.Duration for assignment into a proto message field.
+func {{$prefix}}DurationProto(d {{Time "Duration"}}) *{{Durationpb "Duration"}} {
+	return {{Durationpb "New"}}(d)
+}
+
+// {{$prefix}}FieldMaskProto wraps a list of path strings in a
+// *fieldmaskpb.FieldMask. A nil/empty input yields an empty mask.
+func {{$prefix}}FieldMaskProto(paths []string) *{{Fieldmaskpb "FieldMask"}} {
+	return &{{Fieldmaskpb "FieldMask"}}{Paths: paths}
+}
+
+// {{$prefix}}GoFieldName mirrors protoc-gen-go's snake_case -> UpperCamel
+// conversion for reflective struct-field lookup.
+func {{$prefix}}GoFieldName(snake string) string {
+	if snake == "" {
+		return ""
+	}
+	upperNext := true
+	out := make([]rune, 0, len(snake))
+	for _, r := range snake {
+		if r == '_' {
+			upperNext = true
+			continue
+		}
+		if upperNext {
+			if r >= 'a' && r <= 'z' {
+				r -= 'a' - 'A'
+			}
+			upperNext = false
+		}
+		out = append(out, r)
+	}
+	return string(out)
+}

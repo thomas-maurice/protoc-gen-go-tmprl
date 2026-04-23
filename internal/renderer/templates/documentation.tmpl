@@ -232,3 +232,147 @@ Output: [{{FullName .Output.Desc.FullName}}](#{{MakeAnchor "message" (FullName .
 | Temporal registered method name | `{{.RegisteredName}}` |
 
 {{- end}}
+
+{{- if .GenerateCLI }}
+
+<a id="{{MakeAnchor "cli" .PackageName .Name}}"></a>
+## CLI
+
+This service is opted into CLI generation (`generate_cli = true`). The
+generated entry point `New{{.GoName}}CLI(client.Client) *cobra.Command`
+returns a root subcommand that the caller plugs under its own Cobra root.
+
+The root command is `{{.ServiceKebabName}}` and groups the following
+subcommands:
+
+```
+{{.ServiceKebabName}}
+|-- workflow
+|   |-- start     <workflow>
+|   |-- execute   <workflow>
+|   |-- signal    <workflow> <signal>
+|   |-- query     <workflow> <query>
+|   |-- cancel
+|   |-- terminate
+|   `-- describe
+`-- schedule
+    |-- create    <workflow>
+    |-- pause
+    |-- unpause
+    |-- delete
+    `-- describe
+```
+
+### Workflow commands
+{{- range .Workflows}}
+{{- if .InputFlagPlan}}
+
+#### `{{$.ServiceKebabName}} workflow start {{.GoName | kebab}}` / `execute {{.GoName | kebab}}` / `schedule create {{.GoName | kebab}}`
+
+Input flags (derived from `{{FullName .Input.Desc.FullName}}`):
+{{- if .InputFlagPlan.Flags}}
+
+| Flag | Kind | Description |
+| --- | --- | --- |
+{{- range .InputFlagPlan.Flags}}
+| `--{{.CLIName}}` | {{.Kind}} | {{cliHelpString .}} |
+{{- end}}
+{{- else}}
+
+_(no input flags)_
+{{- end}}
+{{- if .InputFlagPlan.OneofGroups}}
+
+Mutually exclusive flag groups:
+{{- range .InputFlagPlan.OneofGroups}}
+- {{range $i, $n := .}}{{if $i}}, {{end}}`--{{$n}}`{{end}}
+{{- end}}
+{{- end}}
+
+{{- $wf := . }}
+{{- range .Options.Signals}}
+{{- $sig := index $.SignalsMap . }}
+{{- if $sig }}
+
+##### `{{$.ServiceKebabName}} workflow signal {{$wf.GoName | kebab}} {{$sig.GoName | kebab}}`
+
+Targeting flags: `--workflow-id` (required), `--run-id` (optional).
+{{- if $sig.InputFlagPlan }}
+{{- if $sig.InputFlagPlan.Flags }}
+
+Signal payload flags (derived from `{{FullName $sig.Input.Desc.FullName}}`):
+
+| Flag | Kind | Description |
+| --- | --- | --- |
+{{- range $sig.InputFlagPlan.Flags }}
+| `--{{.CLIName}}` | {{.Kind}} | {{cliHelpString .}} |
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- range .Options.Queries }}
+{{- $q := index $.QueriesMap . }}
+{{- if $q }}
+
+##### `{{$.ServiceKebabName}} workflow query {{$wf.GoName | kebab}} {{$q.GoName | kebab}}`
+
+Targeting flags: `--workflow-id` (required), `--run-id` (optional).
+{{- if $q.InputFlagPlan }}
+{{- if $q.InputFlagPlan.Flags }}
+
+Query payload flags (derived from `{{FullName $q.Input.Desc.FullName}}`):
+
+| Flag | Kind | Description |
+| --- | --- | --- |
+{{- range $q.InputFlagPlan.Flags }}
+| `--{{.CLIName}}` | {{.Kind}} | {{cliHelpString .}} |
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+### Cross-workflow commands
+
+These act on a running workflow by ID. They do not take workflow-input flags.
+
+| Command | Required flags | Optional flags |
+| --- | --- | --- |
+| `{{.ServiceKebabName}} workflow cancel` | `--workflow-id` | `--run-id` |
+| `{{.ServiceKebabName}} workflow terminate` | `--workflow-id` | `--run-id`, `--reason` |
+| `{{.ServiceKebabName}} workflow describe` | `--workflow-id` | `--run-id` |
+
+### Schedule commands
+
+`schedule create <workflow>` accepts the workflow's input flags (see above)
+plus the schedule flags below.
+
+| Flag | Kind | Description |
+| --- | --- | --- |
+| `--schedule-id` | String | Schedule identifier (required). |
+| `--schedule-cron` | StringSlice | Cron expression. Repeatable for multiple cron rules. |
+| `--schedule-interval` | DurationSlice | Interval spec. Repeatable, e.g. `5m`, `1h`. |
+| `--schedule-start-at` | Timestamp | RFC3339. Do not fire before this time. |
+| `--schedule-end-at` | Timestamp | RFC3339. Stop firing after this time. |
+| `--schedule-timezone` | String | IANA timezone name, e.g. `Europe/Paris`. |
+| `--schedule-jitter` | Duration | Max random offset applied to each firing. |
+| `--schedule-paused` | Bool | Start the schedule in paused state. |
+| `--schedule-note` | String | Free-text note attached to the schedule state. |
+| `--schedule-overlap` | Enum | `skip` \| `buffer-one` \| `buffer-all` \| `cancel-other` \| `terminate-other` \| `allow-all`. |
+| `--schedule-catchup-window` | Duration | Max catch-up window. |
+| `--schedule-task-queue` | String | Override task queue for this schedule's runs. |
+
+Schedule lifecycle commands (keyed by schedule ID, no workflow input):
+
+| Command | Required flags | Optional flags |
+| --- | --- | --- |
+| `{{.ServiceKebabName}} schedule pause` | `--schedule-id` | `--note` |
+| `{{.ServiceKebabName}} schedule unpause` | `--schedule-id` | `--note` |
+| `{{.ServiceKebabName}} schedule delete` | `--schedule-id` | _(none)_ |
+| `{{.ServiceKebabName}} schedule describe` | `--schedule-id` | _(none)_ |
+
+{{- end }}
