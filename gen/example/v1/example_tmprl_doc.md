@@ -3,7 +3,7 @@
 <a id="service_example_v1_DieRoll"></a>
 ## example.v1.DieRoll
 Service DieRoll is an example implementation of a service
-It doesn't do much
+ It doesn't do much
 
  But it is there, chilling.
 
@@ -17,6 +17,7 @@ It doesn't do much
      fmt.Println("You can also put markdown in there, how cool is that ?")
  }
  ```
+
 ### Table of contents
 
    * [example.v1.DieRoll default settings](#svcoptions_example_v1_DieRoll)
@@ -42,8 +43,8 @@ It doesn't do much
 ### Default workflow options
 | Option | Value |
 | --- | --- |
-| Workflow execution timeout | 24h0m0s |
-| Workflow run timeout | 2h0m0s |
+| Workflow execution timeout | 0s |
+| Workflow run timeout | 0s |
 
 ### Workflows
 <a id="method_example_v1_DieRoll_ParentWorkflow"></a>
@@ -58,11 +59,11 @@ Output: [example.v1.ParentWorkflowReply](#message_example_v1_ParentWorkflowReply
 | Setting | Value |
 | ----------- | ----------------------- |
 | Temporal registered method name | `example.v1.DieRoll.ParentWorkflow` |
-
+| Workflow execution timeout | 24h0m0s |
+| Workflow run timeout | 2h0m0s |
 
 Signals:
  * [example.v1.DieRoll.Continue](#method_example_v1_DieRoll_Continue)
-
 <a id="method_example_v1_DieRoll_ChildWorkflow"></a>
 #### example.v1.DieRoll.ChildWorkflow
 
@@ -75,8 +76,8 @@ Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 | Setting | Value |
 | ----------- | ----------------------- |
 | Temporal registered method name | `example.v1.DieRoll.ChildWorkflow` |
-
-
+| Workflow execution timeout | 24h0m0s |
+| Workflow run timeout | 2h0m0s |
 <a id="method_example_v1_DieRoll_ThrowDies"></a>
 #### example.v1.DieRoll.ThrowDies
 Throws dies a few times and return the result
@@ -89,11 +90,11 @@ Output: [example.v1.ThrowDiesResponse](#message_example_v1_ThrowDiesResponse)
 | Setting | Value |
 | ----------- | ----------------------- |
 | Temporal registered method name | `example.v1.DieRoll.ThrowDies` |
-
+| Workflow execution timeout | 24h0m0s |
+| Workflow run timeout | 2h0m0s |
 
 Signals:
  * [example.v1.DieRoll.Continue](#method_example_v1_DieRoll_Continue)
-
 <a id="method_example_v1_DieRoll_ThrowUntilValue"></a>
 #### example.v1.DieRoll.ThrowUntilValue
 
@@ -106,7 +107,8 @@ Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 | Setting | Value |
 | ----------- | ----------------------- |
 | Temporal registered method name | `example.v1.DieRoll.ThrowUntilValue` |
-
+| Workflow execution timeout | 24h0m0s |
+| Workflow run timeout | 2h0m0s |
 
 Queries:
  * [example.v1.DieRoll.GetThrowsStatus](#method_example_v1_DieRoll_GetThrowsStatus)
@@ -136,9 +138,7 @@ Retry policy:
 | Backoff coefficient | 1.500000 |
 | Maximum attempts | 10 |
 | Maximum interval | 10s |
-| Non retryable error types | [FATAL] |
-
-
+| Non retryable error types | `FATAL`, `NOT_FOUND` |
 <a id="method_example_v1_DieRoll_Ping"></a>
 #### example.v1.DieRoll.Ping
 Just a simple ping
@@ -153,11 +153,12 @@ Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 | Setting | Value |
 | ----------- | ----------------------- |
 | Temporal registered method name | `ping.Ping` |
+| Schedule to close timeout | 24h0m0s |
+| Heartbeat timeout | 1m0s |
 
 ### Queries
 <a id="method_example_v1_DieRoll_GetThrowsStatus"></a>
 #### example.v1.DieRoll.GetThrowsStatus
-Query the state of a workflow
 Query the state of the workflow
 
 Input: [google.protobuf.Empty](#message_google_protobuf_Empty)
@@ -172,13 +173,11 @@ Output: [example.v1.ThrowStatusResponse](#message_example_v1_ThrowStatusResponse
 ### Signals
 <a id="method_example_v1_DieRoll_Continue"></a>
 #### example.v1.DieRoll.Continue
-Signals can be defined with whatever return type you want as they
- do not expect an answer
 Instruct the workflow to proceed
 
 Input: [example.v1.ContinueSignalRequest](#message_example_v1_ContinueSignalRequest)
 
-Output: [example.v1.ContinueSignalRequest](#message_example_v1_ContinueSignalRequest)
+Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 
 
 | Setting | Value |
@@ -193,12 +192,14 @@ Instructs the workflow to continue or stop
 | --- | --- | --- | --- | --- |
 | Continue | bool | Optional | ✅ | <pre></pre> |
 
+
 <a id="message_example_v1_GetStatusResponse"></a>
 ## example.v1.GetStatusResponse
 Returns the progress
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Progress | int64 | Optional | ✅ | <pre></pre> |
+
 
 <a id="message_example_v1_ThrowDieResponse"></a>
 ## example.v1.ThrowDieResponse
@@ -207,12 +208,14 @@ Returns the value that was rolled
 | --- | --- | --- | --- | --- |
 | Result | int32 | Optional | ✅ | <pre></pre> |
 
+
 <a id="message_example_v1_ThrowDiesResponse"></a>
 ## example.v1.ThrowDiesResponse
 Returns the values of a series of rolls
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Results | int32 | Repeated | ✅ | <pre>Results of the throws</pre> |
+
 
 <a id="message_example_v1_ThrowDiesRequest"></a>
 ## example.v1.ThrowDiesRequest
@@ -223,12 +226,14 @@ Triggers a series of die rolls
 | Loop | bool | Optional | ✅ | <pre>Loop ?</pre> |
 | ResultStatus | string | Optional | 🗿 | <pre>A deprecated field</pre> |
 
+
 <a id="message_example_v1_ThrowUntilValueRequest"></a>
 ## example.v1.ThrowUntilValueRequest
 Requests  to roll a die until a certain value is pulled
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Value | int32 | Optional | ✅ | <pre>Target value</pre> |
+
 
 <a id="message_example_v1_ThrowStatusResponse"></a>
 ## example.v1.ThrowStatusResponse
@@ -237,12 +242,14 @@ Response to a die roll request
 | --- | --- | --- | --- | --- |
 | Throws | int32 | Optional | ✅ | <pre>Number of throws</pre> |
 
+
 <a id="message_example_v1_ParentWorkflowReply"></a>
 ## example.v1.ParentWorkflowReply
 
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Status | enum | Optional | ✅ | <pre>Status of the workflow</pre> |
+
 
 
 

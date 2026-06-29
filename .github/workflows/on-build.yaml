@@ -17,5 +17,15 @@ jobs:
         with:
           go-version: 1.23
           cache: true
-      - name: "Run go tests"
-        run: go test -v ./...
+      - uses: bufbuild/buf-action@v1
+        with:
+          setup_only: true
+      - name: "Run unit tests with race detection and coverage"
+        run: make test-unit
+      - name: "Build plugins and add to PATH"
+        run: |
+          make build
+          go build -o bin/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
+          echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
+      - name: "Regenerate examples and verify they compile"
+        run: make gen verify-examples

@@ -14,7 +14,6 @@ enum Status {
 }
 
 // Service DieRoll is an example implementation of a service
-
 // It doesn't do much
 //
 // But it is there, chilling.
@@ -51,7 +50,10 @@ service DieRoll {
         backoff_coefficient: 1.5
         maximum_interval: 10
         maximum_attempts: 10
-        non_retryable_error_types: ["FATAL"]
+        non_retryable_error_types: [
+          "FATAL",
+          "NOT_FOUND"
+        ]
       }
     };
   }
@@ -64,6 +66,8 @@ service DieRoll {
       // Specify a name for the activity. This is not required as
       // the generator will name it automatically <package>.<service>.<rpc>
       name: "ping.Ping"
+      // Specify a heartbeat timeout if need be
+      heartbeat_timeout: 60
     };
   }
 
@@ -95,7 +99,7 @@ service DieRoll {
   // do not expect an answer
 
   // Instruct the workflow to proceed
-  rpc Continue(ContinueSignalRequest) returns (ContinueSignalRequest) {
+  rpc Continue(ContinueSignalRequest) returns (google.protobuf.Empty) {
     option (temporal.v1.signal) = {};
   }
 

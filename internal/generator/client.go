@@ -116,27 +116,29 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 				g.Add(jen.Error())
 			}).
 				BlockFunc(func(g *jen.Group) {
-					g.Add(jen.Id("wOptions").Op(":=").Id(getTemporalClientObject(gf, "StartWorkflowOptions")).BlockFunc(func(g *jen.Group) {
-						g.Add(jen.Id("TaskQueue").Op(":").Id("c").Dot("taskQueue").Op(","))
-					}))
+					g.Add(jen.Id("wOptions").Op(":=").Id(getTemporalClientObject(gf, "StartWorkflowOptions")).Block())
 					g.Add(jen.If(jen.Len(jen.Id("options")).Op(">").Lit(0).Block(
 						jen.Id("wOptions").Op("=").Id("options").Index(jen.Lit(0)),
 					)))
-
+					g.Add(jen.If(jen.Id("wOptions").Dot("TaskQueue").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
+						g.Add(jen.Id("wOptions").Dot("TaskQueue").Op("=").Id("c").Dot("taskQueue"))
+					}))
 					g.Add(jen.If(jen.Id("wOptions").Dot("TaskQueue").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
 						g.Add(jen.Id("wOptions").Dot("TaskQueue").Op("=").Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName)))
 					}))
 
-					g.Add(
-						jen.If(jen.Id("wOptions").Dot("ID").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
-							g.Add(jen.Id("wOptions").Dot("ID").Op("=").Id(getFmtObject(gf, "Sprintf")).CallFunc(func(g *jen.Group) {
-								g.Add(jen.Lit("%s/%s"))
-								g.Add(jen.Lit(methName))
-								g.Add(jen.Id(getUUIDObject(gf, "NewString")).Parens(jen.Null()))
-							}))
-						},
-						),
-					)
+					if config.GenWorkflowPrefix {
+						g.Add(
+							jen.If(jen.Id("wOptions").Dot("ID").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
+								g.Add(jen.Id("wOptions").Dot("ID").Op("=").Id(getFmtObject(gf, "Sprintf")).CallFunc(func(g *jen.Group) {
+									g.Add(jen.Lit("%s/%s"))
+									g.Add(jen.Lit(methName))
+									g.Add(jen.Id(getUUIDObject(gf, "NewString")).Parens(jen.Null()))
+								}))
+							},
+							),
+						)
+					}
 
 					if workflowOptions != nil {
 						if workflowOptions.WorkflowExecutionTimeout != nil {
@@ -184,8 +186,8 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 									}
 									if workflowOptions.RetryPolicy.NonRetryableErrorTypes != nil {
 										g.Add(jen.Id("NonRetryableErrorTypes").Op(":").Index(jen.Null()).String().Block(jen.ListFunc(func(g *jen.Group) {
-											for i := 0; i < len(workflowOptions.RetryPolicy.NonRetryableErrorTypes); i++ {
-												g.Add(jen.Lit(workflowOptions.RetryPolicy.NonRetryableErrorTypes[i]).Op(","))
+											for _, errType := range activityOptions.RetryPolicy.NonRetryableErrorTypes {
+												g.Lit(errType)
 											}
 										})).Op(","))
 									}
@@ -281,12 +283,14 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 				g.Add(jen.Error())
 			}).
 				BlockFunc(func(g *jen.Group) {
-					g.Add(jen.Id("wOptions").Op(":=").Id(getTemporalWorkflowObject(gf, "ChildWorkflowOptions")).BlockFunc(func(g *jen.Group) {
-						g.Add(jen.Id("TaskQueue").Op(":").Id("c").Dot("taskQueue").Op(","))
-					}))
+					g.Add(jen.Id("wOptions").Op(":=").Id(getTemporalWorkflowObject(gf, "ChildWorkflowOptions")).Block())
 					g.Add(jen.If(jen.Len(jen.Id("options")).Op(">").Lit(0).Block(
 						jen.Id("wOptions").Op("=").Id("options").Index(jen.Lit(0)),
 					)))
+
+					g.Add(jen.If(jen.Id("wOptions").Dot("TaskQueue").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
+						g.Add(jen.Id("wOptions").Dot("TaskQueue").Op("=").Id("c").Dot("taskQueue"))
+					}))
 
 					g.Add(jen.If(jen.Id("wOptions").Dot("TaskQueue").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
 						g.Add(jen.Id("wOptions").Dot("TaskQueue").Op("=").Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName)))
@@ -364,8 +368,8 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 									}
 									if workflowOptions.RetryPolicy.NonRetryableErrorTypes != nil {
 										g.Add(jen.Id("NonRetryableErrorTypes").Op(":").Index(jen.Null()).String().Block(jen.ListFunc(func(g *jen.Group) {
-											for i := 0; i < len(workflowOptions.RetryPolicy.NonRetryableErrorTypes); i++ {
-												g.Add(jen.Lit(workflowOptions.RetryPolicy.NonRetryableErrorTypes[i]).Op(","))
+											for _, errType := range activityOptions.RetryPolicy.NonRetryableErrorTypes {
+												g.Lit(errType)
 											}
 										})).Op(","))
 									}
@@ -439,6 +443,10 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 						jen.Id("aOptions").Op("=").Id("options").Index(jen.Lit(0)),
 					)))
 
+					g.Add(jen.If(jen.Id("aOptions").Dot("TaskQueue").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
+						g.Add(jen.Id("aOptions").Dot("TaskQueue").Op("=").Id("c").Dot("taskQueue"))
+					}))
+
 					g.Add(
 						jen.If(jen.Id("aOptions").Dot("TaskQueue").Op("==").Lit("")).BlockFunc(func(g *jen.Group) {
 							g.Add(jen.Id("aOptions").Dot("TaskQueue").Op("=").Id(fmt.Sprintf("Default%sTaskQueueName", service.GoName)))
@@ -477,6 +485,14 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 							}))
 						}
 
+						if activityOptions.HeartbeatTimeout != nil {
+							g.Add(jen.If(jen.Id("aOptions").Dot("HeartbeatTimeout").Op("==").Lit(0)).BlockFunc(func(g *jen.Group) {
+								g.Add(jen.Id("aOptions").Dot("HeartbeatTimeout").Op("=").Id(getTimeObject(gf, "Duration")).CallFunc(func(g *jen.Group) {
+									g.Add(jen.Lit(*activityOptions.HeartbeatTimeout))
+								}).Op("*").Id(getTimeObject(gf, "Second")))
+							}))
+						}
+
 						if activityOptions.RetryPolicy != nil {
 							g.Add(jen.If(jen.Id("aOptions").Dot("RetryPolicy").Op("==").Nil())).BlockFunc(func(g *jen.Group) {
 								g.Add(jen.Id("aOptions").Dot("RetryPolicy").Op("=").Op("&").Id(getTemporalObject(gf, "RetryPolicy")).BlockFunc(func(g *jen.Group) {
@@ -497,9 +513,9 @@ func Client(gf *protogen.GeneratedFile, service *protogen.Service, config *Confi
 										g.Add(jen.Id("MaximumAttempts").Op(":").Lit(*activityOptions.RetryPolicy.MaximumAttempts).Op(","))
 									}
 									if activityOptions.RetryPolicy.NonRetryableErrorTypes != nil {
-										g.Add(jen.Id("NonRetryableErrorTypes").Op(":").Index(jen.Null()).String().Block(jen.ListFunc(func(g *jen.Group) {
-											for i := 0; i < len(activityOptions.RetryPolicy.NonRetryableErrorTypes); i++ {
-												g.Add(jen.Lit(activityOptions.RetryPolicy.NonRetryableErrorTypes[i]).Op(","))
+										g.Add(jen.Id("NonRetryableErrorTypes").Op(":").Index(jen.Null()).String().Values(jen.ListFunc(func(g *jen.Group) {
+											for _, errType := range activityOptions.RetryPolicy.NonRetryableErrorTypes {
+												g.Lit(errType)
 											}
 										})).Op(","))
 									}

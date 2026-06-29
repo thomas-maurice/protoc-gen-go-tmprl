@@ -57,6 +57,9 @@ service HelloWorld  {
 }
 ```
 
+> [!WARNING]
+> Make sure your package name is not `temporal.*`, since it will clash with the imports from this package and generate broken code.
+
 ### Default workflow & activity setups
 
 You can setup a service level (here a service refers to a worker) default for activities and workflows respectively in the `default_activity_options` and `default_workflow_options` fields of the
@@ -95,6 +98,139 @@ Similarly for the workflows
         };
     }
 ```
+
+### Workflow Schedules
+
+Every workflow in a service gets a generated set of schedule-management helpers — there is no proto annotation required to opt in. Scheduling cadence is a runtime concern, not part of the workflow's schema, so callers pass their own `client.ScheduleOptions` (with a `Spec` of their choice: `CronExpressions`, `Intervals`, `Calendars`, etc.) when they create or upsert a schedule. The generator only fills in the service's default task queue if the caller left it empty.
+
+```protobuf
+    // Throws dies a few times and return the result
+    rpc ThrowDies(ThrowDiesRequest) returns (ThrowDiesResponse) {
+        option (temporal.v1.workflow) = {
+            signals: ["Continue"]
+        };
+    }
+```
+
+The generator creates the following schedule methods for every workflow in the service:
+
+```golang
+// CreateScheduleThrowDies creates a schedule for ThrowDies. The caller supplies the cadence via
+// options[0].Spec (CronExpressions / Intervals / Calendars). Non-zero fields from options[0] win
+// over generator defaults; if TaskQueue is left empty the service's default task queue is used.
+func (c *DieRollClient) CreateScheduleThrowDies(
+    ctx context.Context,
+    scheduleID string,
+    req *ThrowDiesRequest,
+    options ...client.ScheduleOptions,
+) (client.ScheduleHandle, error)
+
+// GetScheduleThrowDies gets a handle to an existing schedule for ThrowDies.
+func (c *DieRollClient) GetScheduleThrowDies(
+    ctx context.Context,
+    scheduleID string,
+) client.ScheduleHandle
+
+// DeleteScheduleThrowDies deletes an existing schedule for ThrowDies.
+// Returns the underlying client error if the schedule does not exist or the delete fails.
+func (c *DieRollClient) DeleteScheduleThrowDies(
+    ctx context.Context,
+    scheduleID string,
+) error
+
+// ListScheduleThrowDies lists all schedules in the namespace whose action is the ThrowDies
+// workflow type. pageSize is forwarded to the Temporal ScheduleClient.List call.
+func (c *DieRollClient) ListScheduleThrowDies(
+    ctx context.Context,
+    pageSize int,
+) ([]client.ScheduleListEntry, error)
+
+// UpsertScheduleThrowDies creates the schedule if it does not exist, otherwise performs an
+// in-place update (Spec, Action, Overlap, CatchupWindow, PauseOnFailure, TypedSearchAttributes).
+// A user-supplied Paused flag is deliberately not honoured on the update path: a bool can't
+// distinguish "leave it alone" from "unpause", so run-state transitions are expressed through
+// PauseScheduleThrowDies / UnpauseScheduleThrowDies instead.
+func (c *DieRollClient) UpsertScheduleThrowDies(
+    ctx context.Context,
+    scheduleID string,
+    req *ThrowDiesRequest,
+    options ...client.ScheduleOptions,
+) (client.ScheduleHandle, error)
+
+// PauseScheduleThrowDies pauses a running schedule. The note is recorded on the schedule's
+// audit trail. Describe is called first and the Pause RPC is skipped when the schedule is
+// already paused, so this is safe to call on every reconcile tick.
+func (c *DieRollClient) PauseScheduleThrowDies(
+    ctx context.Context,
+    scheduleID string,
+    note string,
+) error
+
+// UnpauseScheduleThrowDies resumes a paused schedule. Describe is called first and the
+// Unpause RPC is skipped when the schedule is already running.
+func (c *DieRollClient) UnpauseScheduleThrowDies(
+    ctx context.Context,
+    scheduleID string,
+    note string,
+) error
+```
+
+Example usage:
+
+```golang
+// Create a schedule. The caller owns the cadence: supply a Spec.
+scheduleHandle, err := dieRollClient.CreateScheduleThrowDies(
+    ctx,
+    "throw-dies-schedule",
+    &ThrowDiesRequest{Results: 3, Loop: false},
+    client.ScheduleOptions{
+        Spec: client.ScheduleSpec{
+            CronExpressions: []string{"* * * * *"},
+        },
+    },
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Get existing schedule handle
+scheduleHandle = dieRollClient.GetScheduleThrowDies(ctx, "throw-dies-schedule")
+
+// Use the schedule handle to pause, unpause, describe, etc.
+err = scheduleHandle.Pause(ctx, client.SchedulePauseOptions{
+    Note: "Pausing for maintenance",
+})
+
+// Idempotent create-or-update. Safe to call on redeploys; the Paused flag is intentionally
+// ignored on the update path.
+_, err = dieRollClient.UpsertScheduleThrowDies(
+    ctx,
+    "throw-dies-schedule",
+    &ThrowDiesRequest{Results: 5},
+    client.ScheduleOptions{
+        Spec: client.ScheduleSpec{CronExpressions: []string{"* * * * *"}},
+    },
+)
+
+// Enumerate every schedule whose action is this workflow type.
+entries, err := dieRollClient.ListScheduleThrowDies(ctx, 100)
+
+// Tear a schedule down.
+err = dieRollClient.DeleteScheduleThrowDies(ctx, "throw-dies-schedule")
+
+// Toggle run state. Each of these is a read-then-write: a Describe round-trip
+// is always paid, but the Pause/Unpause RPC is skipped when the schedule is
+// already in the target state.
+err = dieRollClient.PauseScheduleThrowDies(ctx, "throw-dies-schedule", "maintenance window")
+err = dieRollClient.UnpauseScheduleThrowDies(ctx, "throw-dies-schedule", "maintenance over")
+```
+
+**Features:**
+- **Type-safe:** Generated methods use workflow-specific request types
+- **Option merging:** Runtime `client.ScheduleOptions` are merged field-by-field onto generator defaults (non-zero fields win); the merge logic is factored into a per-service `mergeScheduleOptions<Service>` helper in the generated file
+- **Workflow configuration:** Automatically applies workflow timeouts and retry policies to scheduled executions
+- **Unconditional generation:** Every workflow gets the schedule surface — cadence is a runtime concern, not part of the schema
+- **Full CRUD surface:** `Create`, `Get`, `List`, `Upsert`, `Delete`, `Pause`, and `Unpause` are all generated per workflow
 
 ### The workflow objects
 
@@ -234,6 +370,13 @@ The generated code exposes a lot of primitives such as (non exhaustive list):
 * `client.ExecuteChildXSync`: Executes a workflow from a workflow and blocks until the result is returned
 * `client.ExecuteActivityX`: Executes an activity and returns a future
 * `client.ExecuteActivityXSync`: Executes an activity and blocks until the result is returned
+* `client.CreateScheduleX`: Creates a Temporal schedule for a workflow (caller supplies the Spec)
+* `client.GetScheduleX`: Gets a handle to an existing schedule
+* `client.DeleteScheduleX`: Deletes an existing schedule
+* `client.ListScheduleX`: Lists every schedule whose action is workflow `X`
+* `client.UpsertScheduleX`: Creates or updates a schedule idempotently (caller supplies the Spec)
+* `client.PauseScheduleX`: Pauses a schedule if it's running; no-op if already paused
+* `client.UnpauseScheduleX`: Resumes a paused schedule; no-op if already running
 * `client.GetX`: Gets an instance of a workflow
 * `workflow.Cancel`: Cancels a workflow
 * `workflow.Teminate`: Terminates a workflow
@@ -261,17 +404,103 @@ plugins:
 
 
 ## Hacking on it
-### Install `buf`
 
-You need to install [buf](https://buf.build) to get started, it's a more pleasant experience when
-generating protobufs.
+### Requirements
+
+- [buf](https://buf.build) - Protocol buffer generation and management
+- [direnv](https://direnv.net/) - Optional, loads env variables to add `bin` directory to `PATH`
+- Go 1.21 or higher
 
 ### Build
 
-You need [direnv](https://direnv.net/) to load some env variables into your shell. This is required to add the `bin` directory to the `PATH`
+All build artifacts are placed in the `bin/` directory to keep the repository clean.
 
+```bash
+# Build the plugin only
+make build
+# Output: bin/protoc-gen-go-tmprl
 
+# Run all tests, build, regenerate examples, and verify (recommended)
+make
+# Output: bin/protoc-gen-go-tmprl, bin/example-worker, bin/example-client
+
+# Run only unit tests with race detection and coverage
+make test-unit
+
+# Run all tests
+make test
+
+# Generate example code after changes
+make gen
+
+# Verify generated examples compile and build executables
+make verify-examples
+# Output: bin/example-worker, bin/example-client
+
+# Clean all build artifacts
+make clean
+# Removes: bin/
 ```
-$ make build
-$ make
+
+**Build Artifacts:**
+- `bin/protoc-gen-go-tmprl` - The protoc plugin binary
+- `bin/example-worker` - Example worker application
+- `bin/example-client` - Example client application
+
+**Note:** The default `make` command automatically:
+1. Runs unit tests with race detection
+2. Generates temporal protobuf definitions
+3. Builds the plugin binary into `bin/`
+4. Regenerates example code
+5. Builds and verifies all examples compile successfully into `bin/`
+
+This ensures that any code changes don't break the generated output, and all artifacts are contained in the `bin/` directory.
+
+### Architecture
+
+The codebase follows a clean architecture pattern with clear separation of concerns:
+
+- **internal/model/** - Domain models representing Temporal services, workflows, activities, signals, and queries
+  - Built from protobuf definitions with recursive parent/child relationships
+  - Handles options merging (method-level overrides service-level defaults)
+
+- **internal/tmpl/** - Template helper functions for code generation
+  - Type conversions, timeouts, retry policies
+  - Naming conventions for workflows and objects
+
+- **internal/renderer/** - Template execution engine
+  - Uses Go's `text/template` package
+  - Embeds template files for easy distribution
+  - Renders constants, interfaces, clients, workers, and workflow objects
+
+- **main.go** - Protoc plugin entry point
+  - Parses protobuf service definitions
+  - Delegates to domain models and renderer
+
+### Code Generation Flow
+
+1. Protoc invokes the plugin with protobuf descriptors
+2. Plugin creates domain model objects from service definitions
+3. Domain models merge service-level and method-level options
+4. Renderer executes templates with domain model data
+5. Generated Go code is written to output files
+
+### Testing
+
+```bash
+# Run all tests with coverage
+go test -race -cover ./internal/...
+
+# Run specific package tests
+go test ./internal/model/
+go test ./internal/tmpl/
+go test ./internal/renderer/
 ```
+
+### Contributing
+
+When contributing, ensure:
+- All tests pass (`make` runs full build and test suite)
+- Code follows existing patterns and conventions
+- Unit tests are added for new functionality
+- Generated example code still compiles and works
