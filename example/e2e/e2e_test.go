@@ -300,3 +300,302 @@ func TestScheduleCRUD(t *testing.T) {
 	}
 	t.Log("pause was idempotent (second call no-ops), unpause and delete clean: the full generated schedule lifecycle works against a real server")
 }
+
+
+// cancelInventory requests cancellation and waits for the workflow to
+// actually END, gracefully returning its final state. Regression guard: an
+// earlier TrackInventory used a blocking signal receive that never observed
+// cancellation, so Cancel left the workflow running forever and this
+// "cleanup" silently leaked executions.
+func cancelInventory(ctx context.Context, t *testing.T, inv *examplev1.OrdersTrackInventory) {
+	t.Helper()
+	if err := inv.Cancel(ctx); err != nil {
+		t.Fatalf("could not cancel the inventory workflow: %v", err)
+	}
+	waitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	final, err := inv.Result(waitCtx)
+	if err != nil {
+		t.Fatalf("inventory workflow did not end gracefully after cancel: %v", err)
+	}
+	t.Logf("inventory ended gracefully after cancel: final stock %d at generation %d", final.Stock, final.Generation)
+}
+
+// TestBlockedUpdateSurvivesContinueAsNew: the entity-workflow rollover story.
+// A Reserve update parks on an empty TrackInventory workflow. The Restock
+// that satisfies it is ALSO the one that triggers the continue-as-new
+// rollover -- and because the workflow drains its handlers
+// (workflow.AllHandlersFinished) before rolling over, the parked caller gets
+// its answer from the old run, then the state (post-reservation stock)
+// carries into the new run. From the caller's perspective the rollover is
+// invisible.
+func TestBlockedUpdateSurvivesContinueAsNew(t *testing.T) {
+	ctx := context.Background()
+
+	future, err := ordersClient.ExecuteWorkflowTrackInventory(ctx, &examplev1.TrackInventoryRequest{
+		Sku:                         "die-d20",
+		InitialStock:                0,
+		RestocksBeforeContinueAsNew: 1,
+	})
+	if err != nil {
+		t.Fatalf("could not start workflow: %v", err)
+	}
+	t.Logf("inventory %s started empty; it will roll over with continue-as-new after every restock", future.GetID())
+
+	// Reserve 3 items from an EMPTY inventory: the update handler parks on
+	// workflow.Await(stock >= 3) and this client call blocks with it.
+	type reserveResult struct {
+		resp *examplev1.ReserveResponse
+		err  error
+	}
+	resultCh := make(chan reserveResult, 1)
+	go func() {
+		updCtx, cancelUpd := context.WithTimeout(ctx, 90*time.Second)
+		defer cancelUpd()
+		resp, err := ordersClient.UpdateReserve(updCtx, future.GetID(), "", &examplev1.ReserveRequest{Quantity: 3})
+		resultCh <- reserveResult{resp, err}
+	}()
+
+	// Give the update time to be accepted and parked before restocking.
+	time.Sleep(2 * time.Second)
+	select {
+	case r := <-resultCh:
+		t.Fatalf("reserve should still be blocked on empty stock, got resp=%v err=%v", r.resp, r.err)
+	default:
+	}
+	t.Log("Reserve(3) is parked: the caller is blocked, the workflow is idle, nobody is polling anything")
+
+	// This restock satisfies the parked reservation AND triggers the rollover.
+	err = ordersClient.SendSignalRestock(ctx, future.GetID(), "", &examplev1.RestockRequest{Quantity: 5})
+	if err != nil {
+		t.Fatalf("could not send restock signal: %v", err)
+	}
+
+	r := <-resultCh
+	if r.err != nil {
+		t.Fatalf("blocked reserve failed: %v", r.err)
+	}
+	if r.resp.RemainingStock != 2 {
+		t.Errorf("remaining stock = %d, want 2 (5 restocked - 3 reserved)", r.resp.RemainingStock)
+	}
+	if r.resp.Generation != 1 {
+		t.Errorf("generation = %d, want 1: the OLD run must answer before rolling over", r.resp.Generation)
+	}
+	t.Logf("parked caller got its answer (remaining=%d) from generation %d, BEFORE the rollover: that is the handler drain at work", r.resp.RemainingStock, r.resp.Generation)
+
+	// The workflow chain lives on: poll the query (by workflow ID, latest
+	// run) until the new generation is up, with the reserved stock carried.
+	inv := ordersClient.GetTrackInventory(ctx, future.GetID(), "")
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		st, err := inv.QueryGetStock(ctx, &emptypb.Empty{})
+		if err == nil && st.Generation == 2 {
+			if st.Stock != 2 {
+				t.Errorf("new generation stock = %d, want 2 carried over", st.Stock)
+			}
+			t.Logf("continue-as-new done: generation %d is running with stock %d carried over from the old run", st.Generation, st.Stock)
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("new generation never came up (last: %v, err=%v)", st, err)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	cancelInventory(ctx, t, inv)
+}
+
+// TestBlockedUpdateAbortedWithoutHandlerDrain: the anti-pattern, pinned so
+// the failure mode is documented. Note the nuance (the server taught us this
+// one): a parked update that the rollover-triggering event SATISFIES still
+// completes, drain or no drain, because the dispatcher finishes runnable
+// coroutines before shipping the continue-as-new. The update that dies is
+// one that is STILL UNSATISFIABLE when the run ends -- here Reserve(10) with
+// only 5 in stock. With skip_handler_drain the workflow rolls over anyway:
+// the parked Reserve belonged to the old run and is aborted, its caller gets
+// an error, and the new run's stock proves the reservation never happened.
+// (With the drain, the rollover would instead WAIT until some restock makes
+// the reservation satisfiable -- no caller is ever abandoned.)
+func TestBlockedUpdateAbortedWithoutHandlerDrain(t *testing.T) {
+	ctx := context.Background()
+
+	future, err := ordersClient.ExecuteWorkflowTrackInventory(ctx, &examplev1.TrackInventoryRequest{
+		Sku:                         "die-d6",
+		InitialStock:                0,
+		RestocksBeforeContinueAsNew: 1,
+		SkipHandlerDrain:            true,
+	})
+	if err != nil {
+		t.Fatalf("could not start workflow: %v", err)
+	}
+
+	type reserveResult struct {
+		resp *examplev1.ReserveResponse
+		err  error
+	}
+	resultCh := make(chan reserveResult, 1)
+	go func() {
+		updCtx, cancelUpd := context.WithTimeout(ctx, 90*time.Second)
+		defer cancelUpd()
+		resp, err := ordersClient.UpdateReserve(updCtx, future.GetID(), "", &examplev1.ReserveRequest{Quantity: 10})
+		resultCh <- reserveResult{resp, err}
+	}()
+	time.Sleep(2 * time.Second)
+
+	// 5 < 10: the reservation stays unsatisfiable, and the rollover happens
+	// anyway because the drain is skipped. The parked update is left behind.
+	if err := ordersClient.SendSignalRestock(ctx, future.GetID(), "", &examplev1.RestockRequest{Quantity: 5}); err != nil {
+		t.Fatalf("could not send restock signal: %v", err)
+	}
+
+	r := <-resultCh
+	if r.err == nil {
+		t.Fatalf("expected the parked update to be aborted by continue-as-new, got resp=%v", r.resp)
+	}
+	t.Logf("parked Reserve(10) got an error instead of an answer: %v", r.err)
+
+	// The new run is up but the reservation never happened: full stock.
+	inv := ordersClient.GetTrackInventory(ctx, future.GetID(), "")
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		st, err := inv.QueryGetStock(ctx, &emptypb.Empty{})
+		if err == nil && st.Generation == 2 {
+			if st.Stock != 5 {
+				t.Errorf("new generation stock = %d, want 5: the aborted reservation must NOT have been applied", st.Stock)
+			}
+			t.Logf("generation %d carries stock %d: the 10-item reservation was lost with the old run -- this is why you drain handlers before continue-as-new", st.Generation, st.Stock)
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("new generation never came up (last: %v, err=%v)", st, err)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	cancelInventory(ctx, t, inv)
+}
+
+// TestNoRestockLostAcrossContinueAsNew: regression for a reproduced
+// data-loss bug. Two Restock signals arrive back-to-back around a rollover:
+// the first triggers continue-as-new, and the second used to sit unread in
+// the closing run's signal channel. Signals recorded in a closed run's
+// history do NOT carry over to its continue-as-new successor, so that stock
+// was silently lost (8/8 reproductions before the fix). The workflow now
+// sweeps its signal channel right before rolling over, on both the drain and
+// the skip_handler_drain paths.
+func TestNoRestockLostAcrossContinueAsNew(t *testing.T) {
+	ctx := context.Background()
+
+	future, err := ordersClient.ExecuteWorkflowTrackInventory(ctx, &examplev1.TrackInventoryRequest{
+		Sku:                         "die-d12",
+		InitialStock:                0,
+		RestocksBeforeContinueAsNew: 1,
+	})
+	if err != nil {
+		t.Fatalf("could not start workflow: %v", err)
+	}
+	time.Sleep(300 * time.Millisecond)
+
+	// Back-to-back: the first restock triggers the rollover, the second must
+	// not be lost whether it lands before or after the boundary.
+	if err := ordersClient.SendSignalRestock(ctx, future.GetID(), "", &examplev1.RestockRequest{Quantity: 5}); err != nil {
+		t.Fatalf("could not send first restock: %v", err)
+	}
+	if err := ordersClient.SendSignalRestock(ctx, future.GetID(), "", &examplev1.RestockRequest{Quantity: 7}); err != nil {
+		t.Fatalf("could not send second restock: %v", err)
+	}
+
+	inv := ordersClient.GetTrackInventory(ctx, future.GetID(), "")
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		st, err := inv.QueryGetStock(ctx, &emptypb.Empty{})
+		if err == nil && st.Stock == 12 {
+			t.Logf("no stock lost across the rollover: %d units accounted for at generation %d", st.Stock, st.Generation)
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("stock never reached 12, a restock was lost across continue-as-new (last: %v, err=%v)", st, err)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	cancelInventory(ctx, t, inv)
+}
+
+// TestSkipDrainNeverDoubleCounts: regression for a reproduced data-corruption
+// bug. An earlier fix ran the pre-rollover signal sweep on the
+// skip_handler_drain path too; with Reserve(10) parked and Restock(5)+
+// Restock(7) straddling the rollover, the sweep made the reservation
+// satisfiable AFTER the continue-as-new arguments were snapshotted -- the
+// caller was told "reserved, 2 remaining" while the successor started with
+// all 12 units. The invariant pinned here is race-proof: the caller must
+// NEVER receive success while the successor's stock does not reflect the
+// decrement. On the fixed code the parked update is always aborted on this
+// path (stock never reaches 10 in the closing run).
+func TestSkipDrainNeverDoubleCounts(t *testing.T) {
+	ctx := context.Background()
+
+	future, err := ordersClient.ExecuteWorkflowTrackInventory(ctx, &examplev1.TrackInventoryRequest{
+		Sku:                         "die-d4",
+		InitialStock:                0,
+		RestocksBeforeContinueAsNew: 1,
+		SkipHandlerDrain:            true,
+	})
+	if err != nil {
+		t.Fatalf("could not start workflow: %v", err)
+	}
+
+	type reserveResult struct {
+		resp *examplev1.ReserveResponse
+		err  error
+	}
+	resultCh := make(chan reserveResult, 1)
+	go func() {
+		updCtx, cancelUpd := context.WithTimeout(ctx, 90*time.Second)
+		defer cancelUpd()
+		resp, err := ordersClient.UpdateReserve(updCtx, future.GetID(), "", &examplev1.ReserveRequest{Quantity: 10})
+		resultCh <- reserveResult{resp, err}
+	}()
+	time.Sleep(2 * time.Second)
+
+	// Back-to-back: the first triggers the rollover, the second may land on
+	// either side of it. Neither ordering may produce a double-count.
+	if err := ordersClient.SendSignalRestock(ctx, future.GetID(), "", &examplev1.RestockRequest{Quantity: 5}); err != nil {
+		t.Fatalf("could not send first restock: %v", err)
+	}
+	if err := ordersClient.SendSignalRestock(ctx, future.GetID(), "", &examplev1.RestockRequest{Quantity: 7}); err != nil {
+		t.Fatalf("could not send second restock: %v", err)
+	}
+
+	r := <-resultCh
+
+	// Let the chain settle, then read the successor's state.
+	inv := ordersClient.GetTrackInventory(ctx, future.GetID(), "")
+	var st *examplev1.GetStockResponse
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		var qErr error
+		st, qErr = inv.QueryGetStock(ctx, &emptypb.Empty{})
+		if qErr == nil && st.Generation >= 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("successor generation never came up (last: %v, err=%v)", st, qErr)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	if r.err != nil {
+		t.Logf("parked update was aborted by the rollover (the anti-pattern's documented failure): %v", r.err)
+		t.Logf("successor state: stock %d at generation %d -- the reservation was never applied", st.Stock, st.Generation)
+	} else {
+		// If the update somehow succeeded, the successor's stock MUST
+		// reflect the decrement -- anything else is the double-count.
+		t.Logf("update succeeded with remaining=%d; successor stock=%d", r.resp.RemainingStock, st.Stock)
+		if st.Stock != r.resp.RemainingStock {
+			t.Fatalf("DOUBLE-COUNT: caller told remaining=%d but successor starts with %d", r.resp.RemainingStock, st.Stock)
+		}
+	}
+
+	cancelInventory(ctx, t, inv)
+}

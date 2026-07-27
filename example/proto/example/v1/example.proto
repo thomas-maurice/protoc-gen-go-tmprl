@@ -75,6 +75,20 @@ service Orders {
     option (temporal.v1.workflow) = {};
   }
 
+  // TrackInventory is a long-lived "entity" workflow tracking the stock of
+  // one SKU. It rolls over with continue-as-new after a number of restocks,
+  // which makes it the demo for how BLOCKED updates interact with
+  // continue-as-new: the workflow drains its update handlers (see
+  // workflow.AllHandlersFinished) before rolling over, so a Reserve update
+  // parked on "not enough stock" is answered before the run ends
+  rpc TrackInventory(TrackInventoryRequest) returns (GetStockResponse) {
+    option (temporal.v1.workflow) = {
+      signals: ["Restock"]
+      queries: ["GetStock"]
+      updates: ["Reserve"]
+    };
+  }
+
   // ChargePayment captures the money. The retry policy retries transient
   // payment provider hiccups with exponential backoff, but gives up
   // immediately when the card is declined: "CardDeclined" is listed in
@@ -131,6 +145,25 @@ service Orders {
   // answers, and a validator rejects garbage before it ever reaches the
   // workflow history
   rpc ChangeShippingAddress(ChangeShippingAddressRequest) returns (ChangeShippingAddressResponse) {
+    option (temporal.v1.update) = {};
+  }
+
+  // Restock adds stock to a running TrackInventory workflow. Fire and forget
+  rpc Restock(RestockRequest) returns (google.protobuf.Empty) {
+    option (temporal.v1.signal) = {};
+  }
+
+  // GetStock reads the current stock of a running (or finished)
+  // TrackInventory workflow
+  rpc GetStock(google.protobuf.Empty) returns (GetStockResponse) {
+    option (temporal.v1.query) = {};
+  }
+
+  // Reserve takes stock out of a TrackInventory workflow. This is a BLOCKING
+  // update: if there is not enough stock the handler parks on workflow.Await
+  // until a Restock signal makes the quantity available, and only then
+  // answers the caller. This is the lease/semaphore pattern
+  rpc Reserve(ReserveRequest) returns (ReserveResponse) {
     option (temporal.v1.update) = {};
   }
 }
@@ -252,4 +285,50 @@ message DispatchCourierResponse {
 message DailySalesReportResponse {
   // A very serious business report
   string report = 1;
+}
+
+// Input of the TrackInventory entity workflow
+message TrackInventoryRequest {
+  // Which SKU this inventory tracks
+  string sku = 1;
+  // Stock at the start of this run. On continue-as-new the workflow carries
+  // the current stock over through this field
+  int32 initial_stock = 2;
+  // Incremented on every continue-as-new rollover; leave unset when starting.
+  // Exposed through GetStock so you can observe the rollovers happening
+  int32 generation = 3;
+  // Roll over with continue-as-new after this many Restock signals.
+  // 0 disables rollovers
+  int32 restocks_before_continue_as_new = 4;
+  // DO NOT SET, demo of the anti-pattern: skip draining update handlers
+  // before continue-as-new. A Reserve update blocked at rollover time is
+  // then aborted and its caller gets an error instead of an answer
+  bool skip_handler_drain = 5;
+}
+
+// Adds stock
+message RestockRequest {
+  int32 quantity = 1;
+}
+
+// Takes stock, blocking until enough is available
+message ReserveRequest {
+  // How many items to reserve, must be > 0
+  int32 quantity = 1;
+}
+
+// Answer to a successful reservation
+message ReserveResponse {
+  // Stock left after the reservation
+  int32 remaining_stock = 1;
+  // Which run answered: if the update had to wait across a rollover this is
+  // higher than the generation it was sent to
+  int32 generation = 2;
+}
+
+// Current state of a TrackInventory workflow
+message GetStockResponse {
+  int32 stock = 1;
+  // Continue-as-new rollovers so far, starts at 1
+  int32 generation = 2;
 }

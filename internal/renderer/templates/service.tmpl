@@ -1127,9 +1127,13 @@ func HandleQuery{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, queryFunc func(r
 ============================================================================ */}}
 {{- range .Updates}}
 
-// Update{{.GoName}} sends the {{.GoName}} update to a workflow and waits for it to
-// complete, returning the typed result. WaitForStage defaults to
-// WorkflowUpdateStageCompleted; pass options to override it or to set an UpdateID
+// Update{{.GoName}} sends the {{.GoName}} update to a workflow and ALWAYS blocks until
+// the handler returned, yielding the typed result: the update handle is waited on
+// regardless of WaitForStage, so this helper cannot be used fire-and-forget.
+// Options are mainly useful for setting an UpdateID (idempotency) or
+// FirstExecutionRunID; WaitForStage defaults to WorkflowUpdateStageCompleted when
+// unspecified, and overriding it only changes how much is guaranteed to have
+// happened before the underlying UpdateWorkflow call returns internally
 {{- if .Comment}}
 //
 {{commentBlock "" .Comment}}

@@ -38,6 +38,9 @@ const (
 	// WorkflowDailySalesReportName is the registered name for workflow DailySalesReport.
 	WorkflowDailySalesReportName = "example.v1.Orders.DailySalesReport"
 
+	// WorkflowTrackInventoryName is the registered name for workflow TrackInventory.
+	WorkflowTrackInventoryName = "example.v1.Orders.TrackInventory"
+
 	// ActivityChargePaymentName is the registered name for activity ChargePayment.
 	ActivityChargePaymentName = "example.v1.Orders.ChargePayment"
 
@@ -50,11 +53,20 @@ const (
 	// SignalCancelOrderName is the registered name for signal CancelOrder.
 	SignalCancelOrderName = "example.v1.Orders.CancelOrder"
 
+	// SignalRestockName is the registered name for signal Restock.
+	SignalRestockName = "example.v1.Orders.Restock"
+
 	// QueryGetOrderStatusName is the registered name for query GetOrderStatus.
 	QueryGetOrderStatusName = "example.v1.Orders.GetOrderStatus"
 
+	// QueryGetStockName is the registered name for query GetStock.
+	QueryGetStockName = "example.v1.Orders.GetStock"
+
 	// UpdateChangeShippingAddressName is the registered name for update ChangeShippingAddress.
 	UpdateChangeShippingAddressName = "example.v1.Orders.ChangeShippingAddress"
+
+	// UpdateReserveName is the registered name for update Reserve.
+	UpdateReserveName = "example.v1.Orders.Reserve"
 )
 
 // OrdersService Interface that must be implemented to register workflows and activities
@@ -81,6 +93,13 @@ type OrdersService interface {
 	// DailySalesReport DailySalesReport is a fast workflow meant to be driven by a Temporal
 	// schedule -- see the schedule part of the client walkthrough
 	DailySalesReport(ctx workflow.Context, req *emptypb.Empty) (*DailySalesReportResponse, error)
+	// TrackInventory TrackInventory is a long-lived "entity" workflow tracking the stock of
+	// one SKU. It rolls over with continue-as-new after a number of restocks,
+	// which makes it the demo for how BLOCKED updates interact with
+	// continue-as-new: the workflow drains its update handlers (see
+	// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+	// parked on "not enough stock" is answered before the run ends
+	TrackInventory(ctx workflow.Context, req *TrackInventoryRequest) (*GetStockResponse, error)
 	// ChargePayment ChargePayment captures the money. The retry policy retries transient
 	// payment provider hiccups with exponential backoff, but gives up
 	// immediately when the card is declined: "CardDeclined" is listed in
@@ -108,6 +127,9 @@ func (UnimplementedOrdersService) ShipOrder(ctx workflow.Context, req *ShipOrder
 }
 func (UnimplementedOrdersService) DailySalesReport(ctx workflow.Context, req *emptypb.Empty) (*DailySalesReportResponse, error) {
 	panic("DailySalesReport not implemented")
+}
+func (UnimplementedOrdersService) TrackInventory(ctx workflow.Context, req *TrackInventoryRequest) (*GetStockResponse, error) {
+	panic("TrackInventory not implemented")
 }
 func (UnimplementedOrdersService) ChargePayment(ctx context.Context, req *ChargePaymentRequest) (*ChargePaymentResponse, error) {
 	panic("ChargePayment not implemented")
@@ -1035,6 +1057,345 @@ func (c *OrdersClient) UpsertScheduleDailySalesReport(ctx context.Context, sched
 	return handle, nil
 }
 
+// ExecuteWorkflowTrackInventory executes the workflow and returns a future to it
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) ExecuteWorkflowTrackInventory(ctx context.Context, req *TrackInventoryRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
+	wOptions := client.StartWorkflowOptions{}
+	if len(options) > 0 {
+		wOptions = options[0]
+	}
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
+	}
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = DefaultOrdersTaskQueueName
+	}
+	if wOptions.ID == "" {
+		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowTrackInventoryName, uuid.NewString())
+	}
+
+	// Apply timeout options
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = time.Duration(3600) * time.Second
+	}
+
+	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowTrackInventoryName, req)
+}
+
+// ExecuteWorkflowTrackInventorySync executes the workflow and returns the result when finished
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) ExecuteWorkflowTrackInventorySync(ctx context.Context, req *TrackInventoryRequest, options ...client.StartWorkflowOptions) (*GetStockResponse, error) {
+	future, err := c.ExecuteWorkflowTrackInventory(ctx, req, options...)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *GetStockResponse
+	err = future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// GetWorkflowTrackInventoryResult gets the result of a given workflow
+func (c *OrdersClient) GetWorkflowTrackInventoryResult(ctx context.Context, workflowId string, runId string) (*GetStockResponse, error) {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
+	var resp *GetStockResponse
+	err := future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ExecuteChildTrackInventory executes the workflow as a child workflow and returns a future to it
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) ExecuteChildTrackInventory(ctx workflow.Context, req *TrackInventoryRequest, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
+	wOptions := workflow.ChildWorkflowOptions{}
+	if len(options) > 0 {
+		wOptions = options[0]
+	}
+
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = c.taskQueue
+	}
+
+	if wOptions.TaskQueue == "" {
+		wOptions.TaskQueue = DefaultOrdersTaskQueueName
+	}
+	if wOptions.WorkflowID == "" {
+		var id string
+		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
+			return fmt.Sprintf("%s/%s", WorkflowTrackInventoryName, uuid.NewString())
+		})
+
+		err := genId.Get(&id)
+		if err != nil {
+			return nil, err
+		}
+
+		wOptions.WorkflowID = id
+	}
+
+	// Apply timeout options
+	if wOptions.WorkflowExecutionTimeout == 0 {
+		wOptions.WorkflowExecutionTimeout = time.Duration(3600) * time.Second
+	}
+
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowTrackInventoryName, req), nil
+}
+
+// ExecuteChildTrackInventorySync executes the workflow as a child workflow and returns the result when finished
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) ExecuteChildTrackInventorySync(ctx workflow.Context, req *TrackInventoryRequest, options ...workflow.ChildWorkflowOptions) (*GetStockResponse, error) {
+	future, err := c.ExecuteChildTrackInventory(ctx, req, options...)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *GetStockResponse
+	err = future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// CreateScheduleTrackInventory creates a schedule for TrackInventory
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) CreateScheduleTrackInventory(ctx context.Context, scheduleID string, req *TrackInventoryRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+	scheduleOptions := client.ScheduleOptions{
+		ID: scheduleID,
+		Action: &client.ScheduleWorkflowAction{
+			ID:                       scheduleID,
+			Workflow:                 WorkflowTrackInventoryName,
+			Args:                     []interface{}{req},
+			TaskQueue:                c.taskQueue,
+			WorkflowExecutionTimeout: time.Duration(3600) * time.Second,
+		},
+	}
+
+	if len(options) > 0 {
+		mergeScheduleOptionsOrders(&scheduleOptions, options[0], true)
+	}
+	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
+
+	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
+}
+
+// GetScheduleTrackInventory gets a handle to an existing schedule for TrackInventory
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) GetScheduleTrackInventory(ctx context.Context, scheduleID string) client.ScheduleHandle {
+	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+}
+
+// DeleteScheduleTrackInventory deletes a schedule for TrackInventory
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) DeleteScheduleTrackInventory(ctx context.Context, scheduleID string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	return handle.Delete(ctx)
+}
+
+// PauseScheduleTrackInventory pauses a running schedule for TrackInventory. The note is
+// recorded by Temporal on the schedule's audit trail (visible via Describe). If
+// the schedule is already paused this is a no-op: we Describe first and skip the
+// Pause API call when .Schedule.State.Paused is already true, so it's safe to
+// call on every reconcile/bootstrap path without spamming the server.
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) PauseScheduleTrackInventory(ctx context.Context, scheduleID string, note string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return err
+	}
+	if desc.Schedule.State != nil && desc.Schedule.State.Paused {
+		return nil
+	}
+	return handle.Pause(ctx, client.SchedulePauseOptions{Note: note})
+}
+
+// UnpauseScheduleTrackInventory resumes a paused schedule for TrackInventory. Like
+// PauseScheduleTrackInventory, this is a read-then-write: we Describe first and
+// return nil if the schedule is already running, so idempotent bootstrap code
+// doesn't pay an extra Unpause round-trip per reconcile tick.
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) UnpauseScheduleTrackInventory(ctx context.Context, scheduleID string, note string) error {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return err
+	}
+	if desc.Schedule.State == nil || !desc.Schedule.State.Paused {
+		return nil
+	}
+	return handle.Unpause(ctx, client.ScheduleUnpauseOptions{Note: note})
+}
+
+// ListScheduleTrackInventory lists all schedules for TrackInventory workflow
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) ListScheduleTrackInventory(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
+	var schedules []client.ScheduleListEntry
+
+	iter, err := c.client.ScheduleClient().List(ctx, client.ScheduleListOptions{
+		PageSize: pageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for iter.HasNext() {
+		entry, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		// Filter by workflow type
+		if entry.WorkflowType.Name == WorkflowTrackInventoryName {
+			schedules = append(schedules, *entry)
+		}
+	}
+
+	return schedules, nil
+}
+
+// UpsertScheduleTrackInventory creates or updates a schedule for TrackInventory
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) UpsertScheduleTrackInventory(ctx context.Context, scheduleID string, req *TrackInventoryRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+
+	// Try to describe the schedule to see if it exists
+	_, err := handle.Describe(ctx)
+	if err != nil {
+		// Schedule doesn't exist, create it
+		return c.CreateScheduleTrackInventory(ctx, scheduleID, req, options...)
+	}
+
+	// Schedule exists, update it
+	scheduleOptions := client.ScheduleOptions{
+		ID: scheduleID,
+		Action: &client.ScheduleWorkflowAction{
+			ID:                       scheduleID,
+			Workflow:                 WorkflowTrackInventoryName,
+			Args:                     []interface{}{req},
+			TaskQueue:                c.taskQueue,
+			WorkflowExecutionTimeout: time.Duration(3600) * time.Second,
+		},
+	}
+
+	if len(options) > 0 {
+		// Upsert never flips Paused on a running schedule; everything else merges
+		// identically to CreateSchedule.
+		mergeScheduleOptionsOrders(&scheduleOptions, options[0], false)
+	}
+	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
+
+	// Update the schedule
+	err = handle.Update(ctx, client.ScheduleUpdateOptions{
+		DoUpdate: func(input client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
+			schedule := input.Description.Schedule
+			schedule.Spec = &scheduleOptions.Spec
+			schedule.Action = scheduleOptions.Action
+			if scheduleOptions.Overlap != 0 {
+				schedule.Policy = &client.SchedulePolicies{
+					Overlap: scheduleOptions.Overlap,
+				}
+			}
+			if scheduleOptions.CatchupWindow != 0 {
+				if schedule.Policy == nil {
+					schedule.Policy = &client.SchedulePolicies{}
+				}
+				schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
+			}
+			if scheduleOptions.PauseOnFailure {
+				if schedule.Policy == nil {
+					schedule.Policy = &client.SchedulePolicies{}
+				}
+				schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+			}
+			return &client.ScheduleUpdate{
+				Schedule:              &schedule,
+				TypedSearchAttributes: &scheduleOptions.TypedSearchAttributes,
+			}, nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return handle, nil
+}
+
 // mergeScheduleOptionsOrders merges user-supplied schedule options into the
 // base struct built by the generated CreateSchedule/UpsertSchedule methods. Only
 // non-zero fields on the user struct overwrite the base, so callers can pass a
@@ -1339,6 +1700,10 @@ func (w *OrdersWorker) Register() {
 	// Registers workflow DailySalesReport
 	w.worker.RegisterWorkflowWithOptions(w.svc.DailySalesReport, workflow.RegisterOptions{
 		Name: WorkflowDailySalesReportName,
+	})
+	// Registers workflow TrackInventory
+	w.worker.RegisterWorkflowWithOptions(w.svc.TrackInventory, workflow.RegisterOptions{
+		Name: WorkflowTrackInventoryName,
 	})
 }
 
@@ -1805,6 +2170,191 @@ func (w *ChildOrdersDailySalesReportExecution) SignalChildWorkflow(ctx workflow.
 	return w.future.SignalChildWorkflow(ctx, sigName, data)
 }
 
+// OrdersTrackInventory is a struct that wraps a workflow
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+type OrdersTrackInventory struct {
+	client     client.Client
+	future     client.WorkflowRun
+	workflowId string
+	runId      string
+}
+
+// GetTrackInventory gets an instance of a given workflow
+func (c *OrdersClient) GetTrackInventory(ctx context.Context, workflowId string, runId string) *OrdersTrackInventory {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
+	return &OrdersTrackInventory{
+		client:     c.client,
+		future:     future,
+		workflowId: workflowId,
+		runId:      runId,
+	}
+}
+
+// GetTrackInventoryFromRun gets an instance of a given workflow from a future
+func (c *OrdersClient) GetTrackInventoryFromRun(future client.WorkflowRun) *OrdersTrackInventory {
+	return &OrdersTrackInventory{
+		workflowId: future.GetID(),
+		runId:      future.GetRunID(),
+		client:     c.client,
+		future:     future,
+	}
+}
+
+// Cancel cancels a given workflow
+func (w *OrdersTrackInventory) Cancel(ctx context.Context) error {
+	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
+}
+
+// GetID Returns the workflow ID
+func (w *OrdersTrackInventory) GetID() string {
+	return w.future.GetID()
+}
+
+// GetRunID Returns the run ID
+func (w *OrdersTrackInventory) GetRunID() string {
+	return w.future.GetRunID()
+}
+
+// Terminate terminates a given workflow
+func (w *OrdersTrackInventory) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
+}
+
+// Result gets the result of a given workflow with its native type
+func (w *OrdersTrackInventory) Result(ctx context.Context) (*GetStockResponse, error) {
+	var resp *GetStockResponse
+
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ResultWithOptions gets the result of a given workflow with its native type
+func (w *OrdersTrackInventory) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*GetStockResponse, error) {
+	var resp *GetStockResponse
+
+	err := w.future.GetWithOptions(ctx, &resp, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *OrdersTrackInventory) Get(ctx context.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// GetWithOptions gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *OrdersTrackInventory) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+	return w.future.GetWithOptions(ctx, valuePtr, options)
+}
+
+// SignalRestock sends the Restock signal to the workflow
+func (w *OrdersTrackInventory) SignalRestock(ctx context.Context, req *RestockRequest) error {
+	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), SignalRestockName, req)
+}
+
+// QueryGetStock queries the workflow with GetStock
+func (w *OrdersTrackInventory) QueryGetStock(ctx context.Context, req *emptypb.Empty) (*GetStockResponse, error) {
+	future, err := w.client.QueryWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), QueryGetStockName, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *GetStockResponse
+	err = future.Get(&resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// UpdateReserve sends the Reserve update to the workflow and waits for it to complete
+func (w *OrdersTrackInventory) UpdateReserve(ctx context.Context, req *ReserveRequest) (*ReserveResponse, error) {
+	handle, err := w.client.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
+		WorkflowID:   w.future.GetID(),
+		RunID:        w.future.GetRunID(),
+		UpdateName:   UpdateReserveName,
+		Args:         []interface{}{req},
+		WaitForStage: client.WorkflowUpdateStageCompleted,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *ReserveResponse
+	err = handle.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ChildOrdersTrackInventoryExecution is a struct that wraps a workflow execution (called from another workflow)
+type ChildOrdersTrackInventoryExecution struct {
+	client client.Client
+	future workflow.ChildWorkflowFuture
+}
+
+// GetChildOrdersTrackInventoryExecution gets an instance of a given workflow from a future
+func (c *OrdersClient) GetChildOrdersTrackInventoryExecution(future workflow.ChildWorkflowFuture) *ChildOrdersTrackInventoryExecution {
+	return &ChildOrdersTrackInventoryExecution{
+		client: c.client,
+		future: future,
+	}
+}
+
+// Result gets the result of a given workflow with its native type
+func (w *ChildOrdersTrackInventoryExecution) Result(ctx workflow.Context) (*GetStockResponse, error) {
+	var resp *GetStockResponse
+
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
+func (w *ChildOrdersTrackInventoryExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildOrdersTrackInventoryExecution) GetChildWorkflowExecution() workflow.Future {
+	return w.future
+}
+
+// IsReady Wraps the IsReady method from the future
+func (w *ChildOrdersTrackInventoryExecution) IsReady() bool {
+	return w.future.IsReady()
+}
+
+// SignalChildWorkflow Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+func (w *ChildOrdersTrackInventoryExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
+	return w.future.SignalChildWorkflow(ctx, sigName, data)
+}
+
+// SignalRestock sends the Restock signal to the workflow
+func (w *ChildOrdersTrackInventoryExecution) SignalRestock(ctx workflow.Context, req *RestockRequest) error {
+	return w.future.SignalChildWorkflow(ctx, SignalRestockName, req).Get(ctx, nil)
+}
+
 // SendSignalCancelOrder sends the CancelOrder signal to a workflow
 //
 // CancelOrder asks a running ProcessOrder workflow to stop. Signals are
@@ -1833,6 +2383,31 @@ func ReceiveSignalCancelOrder(ctx workflow.Context) (*CancelOrderRequest, bool) 
 func ReceiveSignalCancelOrderAsync(ctx workflow.Context) (*CancelOrderRequest, bool) {
 	var result *CancelOrderRequest
 	ok := workflow.GetSignalChannel(ctx, SignalCancelOrderName).ReceiveAsync(&result)
+	return result, ok
+}
+
+// SendSignalRestock sends the Restock signal to a workflow
+//
+// Restock adds stock to a running TrackInventory workflow. Fire and forget
+func (c *OrdersClient) SendSignalRestock(ctx context.Context, workflowID string, runID string, req *RestockRequest) error {
+	return c.client.SignalWorkflow(ctx, workflowID, runID, SignalRestockName, req)
+}
+
+// ReceiveSignalRestock waits for the Restock signal
+//
+// Restock adds stock to a running TrackInventory workflow. Fire and forget
+func ReceiveSignalRestock(ctx workflow.Context) (*RestockRequest, bool) {
+	var result *RestockRequest
+	ok := workflow.GetSignalChannel(ctx, SignalRestockName).Receive(ctx, &result)
+	return result, ok
+}
+
+// ReceiveSignalRestockAsync receives the Restock signal asynchronously. It doesn't wait if there is no signal in the queue
+//
+// Restock adds stock to a running TrackInventory workflow. Fire and forget
+func ReceiveSignalRestockAsync(ctx workflow.Context) (*RestockRequest, bool) {
+	var result *RestockRequest
+	ok := workflow.GetSignalChannel(ctx, SignalRestockName).ReceiveAsync(&result)
 	return result, ok
 }
 
@@ -1865,9 +2440,40 @@ func HandleQueryGetOrderStatus(ctx workflow.Context, queryFunc func(req *emptypb
 	return workflow.SetQueryHandler(ctx, QueryGetOrderStatusName, queryFunc)
 }
 
-// UpdateChangeShippingAddress sends the ChangeShippingAddress update to a workflow and waits for it to
-// complete, returning the typed result. WaitForStage defaults to
-// WorkflowUpdateStageCompleted; pass options to override it or to set an UpdateID
+// QueryGetStock sends the GetStock query to a workflow
+//
+// GetStock reads the current stock of a running (or finished)
+// TrackInventory workflow
+func (c *OrdersClient) QueryGetStock(ctx context.Context, workflowID string, runID string, req *emptypb.Empty) (*GetStockResponse, error) {
+	future, err := c.client.QueryWorkflow(ctx, workflowID, runID, QueryGetStockName, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *GetStockResponse
+	err = future.Get(&resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// HandleQueryGetStock sets up the GetStock query and responds accordingly, returns an error if it failed
+//
+// GetStock reads the current stock of a running (or finished)
+// TrackInventory workflow
+func HandleQueryGetStock(ctx workflow.Context, queryFunc func(req *emptypb.Empty) (*GetStockResponse, error)) error {
+	return workflow.SetQueryHandler(ctx, QueryGetStockName, queryFunc)
+}
+
+// UpdateChangeShippingAddress sends the ChangeShippingAddress update to a workflow and ALWAYS blocks until
+// the handler returned, yielding the typed result: the update handle is waited on
+// regardless of WaitForStage, so this helper cannot be used fire-and-forget.
+// Options are mainly useful for setting an UpdateID (idempotency) or
+// FirstExecutionRunID; WaitForStage defaults to WorkflowUpdateStageCompleted when
+// unspecified, and overriding it only changes how much is guaranteed to have
+// happened before the underlying UpdateWorkflow call returns internally
 //
 // ChangeShippingAddress is an update: a synchronous request/response
 // against the running workflow. The caller blocks until the handler
@@ -1920,6 +2526,69 @@ func HandleUpdateChangeShippingAddress(ctx workflow.Context, updateFunc func(ctx
 // workflow history
 func HandleUpdateChangeShippingAddressWithValidator(ctx workflow.Context, updateFunc func(ctx workflow.Context, req *ChangeShippingAddressRequest) (*ChangeShippingAddressResponse, error), validatorFunc func(ctx workflow.Context, req *ChangeShippingAddressRequest) error) error {
 	return workflow.SetUpdateHandlerWithOptions(ctx, UpdateChangeShippingAddressName, updateFunc, workflow.UpdateHandlerOptions{
+		Validator: validatorFunc,
+	})
+}
+
+// UpdateReserve sends the Reserve update to a workflow and ALWAYS blocks until
+// the handler returned, yielding the typed result: the update handle is waited on
+// regardless of WaitForStage, so this helper cannot be used fire-and-forget.
+// Options are mainly useful for setting an UpdateID (idempotency) or
+// FirstExecutionRunID; WaitForStage defaults to WorkflowUpdateStageCompleted when
+// unspecified, and overriding it only changes how much is guaranteed to have
+// happened before the underlying UpdateWorkflow call returns internally
+//
+// Reserve takes stock out of a TrackInventory workflow. This is a BLOCKING
+// update: if there is not enough stock the handler parks on workflow.Await
+// until a Restock signal makes the quantity available, and only then
+// answers the caller. This is the lease/semaphore pattern
+func (c *OrdersClient) UpdateReserve(ctx context.Context, workflowID string, runID string, req *ReserveRequest, options ...client.UpdateWorkflowOptions) (*ReserveResponse, error) {
+	uOptions := client.UpdateWorkflowOptions{}
+	if len(options) > 0 {
+		uOptions = options[0]
+	}
+	uOptions.WorkflowID = workflowID
+	uOptions.RunID = runID
+	uOptions.UpdateName = UpdateReserveName
+	uOptions.Args = []interface{}{req}
+	if uOptions.WaitForStage == client.WorkflowUpdateStageUnspecified {
+		uOptions.WaitForStage = client.WorkflowUpdateStageCompleted
+	}
+
+	handle, err := c.client.UpdateWorkflow(ctx, uOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *ReserveResponse
+	err = handle.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// HandleUpdateReserve sets up the Reserve update handler, returns an error if it failed
+//
+// Reserve takes stock out of a TrackInventory workflow. This is a BLOCKING
+// update: if there is not enough stock the handler parks on workflow.Await
+// until a Restock signal makes the quantity available, and only then
+// answers the caller. This is the lease/semaphore pattern
+func HandleUpdateReserve(ctx workflow.Context, updateFunc func(ctx workflow.Context, req *ReserveRequest) (*ReserveResponse, error)) error {
+	return workflow.SetUpdateHandler(ctx, UpdateReserveName, updateFunc)
+}
+
+// HandleUpdateReserveWithValidator sets up the Reserve update handler with a
+// validator. The validator runs before the update is admitted to history; if it
+// returns a non-nil error the update is rejected and never recorded
+//
+// Reserve takes stock out of a TrackInventory workflow. This is a BLOCKING
+// update: if there is not enough stock the handler parks on workflow.Await
+// until a Restock signal makes the quantity available, and only then
+// answers the caller. This is the lease/semaphore pattern
+func HandleUpdateReserveWithValidator(ctx workflow.Context, updateFunc func(ctx workflow.Context, req *ReserveRequest) (*ReserveResponse, error), validatorFunc func(ctx workflow.Context, req *ReserveRequest) error) error {
+	return workflow.SetUpdateHandlerWithOptions(ctx, UpdateReserveName, updateFunc, workflow.UpdateHandlerOptions{
 		Validator: validatorFunc,
 	})
 }

@@ -102,6 +102,12 @@ services:
     depends_on:
       temporal:
         condition: service_healthy
+      # Also gate on the namespace job: it makes the UI meaningful, and it
+      # keeps `docker compose up --wait` happy about the job's exit(0) --
+      # compose only tolerates exited containers that are
+      # completed-successfully dependencies of another service.
+      temporal-create-namespace:
+        condition: service_completed_successfully
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000

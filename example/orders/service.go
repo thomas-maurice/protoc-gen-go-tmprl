@@ -263,3 +263,156 @@ func (s *Service) DailySalesReport(ctx workflow.Context, _ *emptypb.Empty) (*exa
 		Report: fmt.Sprintf("sales report generated at %s: business is booming", workflow.Now(ctx).Format(time.RFC3339)),
 	}, nil
 }
+
+// TrackInventory is a long-lived entity workflow tracking the stock of one
+// SKU. It demonstrates two things:
+//
+//   - a BLOCKING update: Reserve parks on workflow.Await until a Restock
+//     signal makes enough stock available, then answers its caller (the
+//     lease/semaphore pattern);
+//   - how blocked updates interact with continue-as-new: before rolling
+//     over, the workflow drains its handlers with workflow.AllHandlersFinished
+//     so a parked Reserve is answered by THIS run first. Skipping that drain
+//     (skip_handler_drain, the anti-pattern) aborts the parked update and its
+//     caller gets an error instead of an answer.
+func (s *Service) TrackInventory(ctx workflow.Context, req *examplev1.TrackInventoryRequest) (*examplev1.GetStockResponse, error) {
+	logger := workflow.GetLogger(ctx)
+
+	stock := req.InitialStock
+	generation := req.Generation
+	if generation == 0 {
+		generation = 1
+	}
+
+	// Query handler: observe stock and rollover generation from outside.
+	err := examplev1.HandleQueryGetStock(ctx, func(_ *emptypb.Empty) (*examplev1.GetStockResponse, error) {
+		return &examplev1.GetStockResponse{Stock: stock, Generation: generation}, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Update handler: the blocking one. If there is not enough stock the
+	// handler coroutine suspends on Await; the rest of the workflow keeps
+	// running, and the moment a Restock pushes the stock high enough the
+	// condition flips, the reservation is taken and the caller unblocks.
+	err = examplev1.HandleUpdateReserveWithValidator(ctx,
+		func(ctx workflow.Context, u *examplev1.ReserveRequest) (*examplev1.ReserveResponse, error) {
+			if err := workflow.Await(ctx, func() bool { return stock >= u.Quantity }); err != nil {
+				return nil, err
+			}
+			stock -= u.Quantity
+			logger.Info("reservation filled", "quantity", u.Quantity, "remaining", stock)
+			return &examplev1.ReserveResponse{RemainingStock: stock, Generation: generation}, nil
+		},
+		func(ctx workflow.Context, u *examplev1.ReserveRequest) error {
+			if u.Quantity <= 0 {
+				return fmt.Errorf("quantity must be positive")
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Main loop: absorb restocks until it is time to roll over. The receive
+	// must be cancellation-aware: signal channels are never closed, so a bare
+	// blocking ReceiveSignalRestock would NEVER return on workflow
+	// cancellation (its ok=false branch is unreachable) and Cancel would
+	// leave this workflow running forever. Await, by contrast, errors out
+	// when the workflow is cancelled.
+	restockCh := workflow.GetSignalChannel(ctx, examplev1.SignalRestockName)
+	restocksThisRun := int32(0)
+	for req.RestocksBeforeContinueAsNew <= 0 || restocksThisRun < req.RestocksBeforeContinueAsNew {
+		if err := workflow.Await(ctx, func() bool { return restockCh.Len() > 0 }); err != nil {
+			// Cancelled: end gracefully, reporting the final state.
+			return &examplev1.GetStockResponse{Stock: stock, Generation: generation}, nil
+		}
+		sig, ok := examplev1.ReceiveSignalRestockAsync(ctx)
+		if !ok {
+			continue
+		}
+		stock += sig.Quantity
+		restocksThisRun++
+		logger.Info("restocked", "quantity", sig.Quantity, "stock", stock)
+	}
+
+	// Rollover time. A workflow ID is really a CHAIN of runs, and
+	// continue-as-new ends the current run and starts a fresh one that knows
+	// ONLY what we pass in the request below -- empty history, no memories.
+	// An in-flight update is a conversation with the CURRENT run: its request
+	// sits in this run's history and its handler is a parked coroutine in
+	// this run's memory. Neither is copied to the next run. So if we roll
+	// over while a Reserve is still parked in Await, that conversation dies
+	// with the run and its caller gets an error instead of an answer.
+	//
+	// The fix is to drain first: AllHandlersFinished blocks the rollover
+	// until every in-flight handler has returned. Usually that costs
+	// nothing: the restock that triggered this rollover is the same event
+	// that unparks a waiting Reserve, so draining just lets the reservation
+	// finish before the run ends. The skip_handler_drain flag exists so the
+	// walkthrough can demonstrate exactly what goes wrong without it.
+	//
+	// CRITICAL drain subtlety: while waiting for handlers we MUST keep
+	// consuming the events that can unblock them. A Reserve parked on "not
+	// enough stock" can only finish if restocks keep being absorbed; a naive
+	// bare Await(AllHandlersFinished) here would deadlock the run (handler
+	// waits for stock, stock waits for the signal loop, signal loop already
+	// exited) until a timeout or Temporal's history limits kill it.
+	if !req.SkipHandlerDrain {
+		for {
+			// Absorb any queued restock FIRST, so parked reservations can be
+			// satisfied and no signal sits unread when the run ends.
+			if sig, ok := examplev1.ReceiveSignalRestockAsync(ctx); ok {
+				stock += sig.Quantity
+				logger.Info("restocked while draining handlers", "quantity", sig.Quantity, "stock", stock)
+				continue
+			}
+			if workflow.AllHandlersFinished(ctx) {
+				break
+			}
+			err := workflow.Await(ctx, func() bool {
+				return workflow.AllHandlersFinished(ctx) || restockCh.Len() > 0
+			})
+			if err != nil {
+				// Cancelled mid-drain: end gracefully. Parked handlers see
+				// the cancellation through their own Await errors.
+				return &examplev1.GetStockResponse{Stock: stock, Generation: generation}, nil
+			}
+		}
+
+		// Final sweep, ONLY on the drained path: a Restock still queued in
+		// the signal channel here would be silently LOST across the rollover
+		// -- signals recorded in this run's history do not carry over to the
+		// continue-as-new successor. (Reproduced before this sweep existed:
+		// two back-to-back restocks straddling a rollover dropped the second
+		// one, deterministically.) Sweeping is only safe because the drain
+		// above guaranteed no handler is in flight: sweeping while a Reserve
+		// is still parked can make it satisfiable AFTER the continue-as-new
+		// arguments below were snapshotted, and the dispatcher would then
+		// complete the handler in the closing task -- telling the caller
+		// "reserved" while the successor starts with the un-decremented
+		// stock. That double-count was reproduced 4/4 when this sweep ran on
+		// the skip_handler_drain path too; the anti-pattern path therefore
+		// keeps BOTH of its failure modes: abandoned updates AND dropped
+		// queued signals.
+		for {
+			sig, ok := examplev1.ReceiveSignalRestockAsync(ctx)
+			if !ok {
+				break
+			}
+			stock += sig.Quantity
+			logger.Info("restocked in pre-rollover sweep", "quantity", sig.Quantity, "stock", stock)
+		}
+	}
+
+	logger.Info("rolling over with continue-as-new", "stock", stock, "next_generation", generation+1)
+	return nil, workflow.NewContinueAsNewError(ctx, examplev1.WorkflowTrackInventoryName, &examplev1.TrackInventoryRequest{
+		Sku:                         req.Sku,
+		InitialStock:                stock,
+		Generation:                  generation + 1,
+		RestocksBeforeContinueAsNew: req.RestocksBeforeContinueAsNew,
+		SkipHandlerDrain:            req.SkipHandlerDrain,
+	})
+}

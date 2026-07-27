@@ -21,16 +21,20 @@ Service Orders is a small e-commerce style fulfillment service used as a
    * [example.v1.Orders.ProcessOrder](#method_example_v1_Orders_ProcessOrder)
    * [example.v1.Orders.ShipOrder](#method_example_v1_Orders_ShipOrder)
    * [example.v1.Orders.DailySalesReport](#method_example_v1_Orders_DailySalesReport)
+   * [example.v1.Orders.TrackInventory](#method_example_v1_Orders_TrackInventory)
  * Activities
    * [example.v1.Orders.ChargePayment](#method_example_v1_Orders_ChargePayment)
    * [example.v1.Orders.PackItems](#method_example_v1_Orders_PackItems)
    * [example.v1.Orders.DispatchCourier](#method_example_v1_Orders_DispatchCourier)
  * Signals
    * [example.v1.Orders.CancelOrder](#method_example_v1_Orders_CancelOrder)
+   * [example.v1.Orders.Restock](#method_example_v1_Orders_Restock)
  * Queries
    * [example.v1.Orders.GetOrderStatus](#method_example_v1_Orders_GetOrderStatus)
+   * [example.v1.Orders.GetStock](#method_example_v1_Orders_GetStock)
  * Updates
    * [example.v1.Orders.ChangeShippingAddress](#method_example_v1_Orders_ChangeShippingAddress)
+   * [example.v1.Orders.Reserve](#method_example_v1_Orders_Reserve)
 
 <a id="svcoptions_example_v1_Orders"></a>
 ### Service options
@@ -102,6 +106,33 @@ Output: [example.v1.DailySalesReportResponse](#message_example_v1_DailySalesRepo
 | ----------- | ----------------------- |
 | Temporal registered method name | `example.v1.Orders.DailySalesReport` |
 | Workflow execution timeout | 1h0m0s |
+<a id="method_example_v1_Orders_TrackInventory"></a>
+#### example.v1.Orders.TrackInventory
+TrackInventory is a long-lived "entity" workflow tracking the stock of
+ one SKU. It rolls over with continue-as-new after a number of restocks,
+ which makes it the demo for how BLOCKED updates interact with
+ continue-as-new: the workflow drains its update handlers (see
+ workflow.AllHandlersFinished) before rolling over, so a Reserve update
+ parked on "not enough stock" is answered before the run ends
+
+Input: [example.v1.TrackInventoryRequest](#message_example_v1_TrackInventoryRequest)
+
+Output: [example.v1.GetStockResponse](#message_example_v1_GetStockResponse)
+
+
+| Setting | Value |
+| ----------- | ----------------------- |
+| Temporal registered method name | `example.v1.Orders.TrackInventory` |
+| Workflow execution timeout | 1h0m0s |
+
+Signals:
+ * [example.v1.Orders.Restock](#method_example_v1_Orders_Restock)
+
+Queries:
+ * [example.v1.Orders.GetStock](#method_example_v1_Orders_GetStock)
+
+Updates:
+ * [example.v1.Orders.Reserve](#method_example_v1_Orders_Reserve)
 
 ### Activities
 <a id="method_example_v1_Orders_ChargePayment"></a>
@@ -181,6 +212,19 @@ Output: [example.v1.GetOrderStatusResponse](#message_example_v1_GetOrderStatusRe
 | Setting | Value |
 | ----------- | ----------------------- |
 | Temporal registered method name | `example.v1.Orders.GetOrderStatus` |
+<a id="method_example_v1_Orders_GetStock"></a>
+#### example.v1.Orders.GetStock
+GetStock reads the current stock of a running (or finished)
+ TrackInventory workflow
+
+Input: [google.protobuf.Empty](#message_google_protobuf_Empty)
+
+Output: [example.v1.GetStockResponse](#message_example_v1_GetStockResponse)
+
+
+| Setting | Value |
+| ----------- | ----------------------- |
+| Temporal registered method name | `example.v1.Orders.GetStock` |
 
 ### Signals
 <a id="method_example_v1_Orders_CancelOrder"></a>
@@ -197,6 +241,18 @@ Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
 | Setting | Value |
 | ----------- | ----------------------- |
 | Temporal registered method name | `example.v1.Orders.CancelOrder` |
+<a id="method_example_v1_Orders_Restock"></a>
+#### example.v1.Orders.Restock
+Restock adds stock to a running TrackInventory workflow. Fire and forget
+
+Input: [example.v1.RestockRequest](#message_example_v1_RestockRequest)
+
+Output: [google.protobuf.Empty](#message_google_protobuf_Empty)
+
+
+| Setting | Value |
+| ----------- | ----------------------- |
+| Temporal registered method name | `example.v1.Orders.Restock` |
 
 ### Updates
 <a id="method_example_v1_Orders_ChangeShippingAddress"></a>
@@ -214,6 +270,21 @@ Output: [example.v1.ChangeShippingAddressResponse](#message_example_v1_ChangeShi
 | Setting | Value |
 | ----------- | ----------------------- |
 | Temporal registered method name | `example.v1.Orders.ChangeShippingAddress` |
+<a id="method_example_v1_Orders_Reserve"></a>
+#### example.v1.Orders.Reserve
+Reserve takes stock out of a TrackInventory workflow. This is a BLOCKING
+ update: if there is not enough stock the handler parks on workflow.Await
+ until a Restock signal makes the quantity available, and only then
+ answers the caller. This is the lease/semaphore pattern
+
+Input: [example.v1.ReserveRequest](#message_example_v1_ReserveRequest)
+
+Output: [example.v1.ReserveResponse](#message_example_v1_ReserveResponse)
+
+
+| Setting | Value |
+| ----------- | ----------------------- |
+| Temporal registered method name | `example.v1.Orders.Reserve` |
 
 # Messages
 <a id="message_example_v1_OrderItem"></a>
@@ -362,6 +433,58 @@ Output of the scheduled reporting workflow
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Report | string | Optional | ✅ | <pre>A very serious business report</pre> |
+
+
+<a id="message_example_v1_TrackInventoryRequest"></a>
+## example.v1.TrackInventoryRequest
+Input of the TrackInventory entity workflow
+| Field name | Type | Cardinality | Deprecated ? | Description |
+| --- | --- | --- | --- | --- |
+| Sku | string | Optional | ✅ | <pre>Which SKU this inventory tracks</pre> |
+| InitialStock | int32 | Optional | ✅ | <pre>Stock at the start of this run. On continue-as-new the workflow carries
+ the current stock over through this field</pre> |
+| Generation | int32 | Optional | ✅ | <pre>Incremented on every continue-as-new rollover; leave unset when starting.
+ Exposed through GetStock so you can observe the rollovers happening</pre> |
+| RestocksBeforeContinueAsNew | int32 | Optional | ✅ | <pre>Roll over with continue-as-new after this many Restock signals.
+ 0 disables rollovers</pre> |
+| SkipHandlerDrain | bool | Optional | ✅ | <pre>DO NOT SET, demo of the anti-pattern: skip draining update handlers
+ before continue-as-new. A Reserve update blocked at rollover time is
+ then aborted and its caller gets an error instead of an answer</pre> |
+
+
+<a id="message_example_v1_RestockRequest"></a>
+## example.v1.RestockRequest
+Adds stock
+| Field name | Type | Cardinality | Deprecated ? | Description |
+| --- | --- | --- | --- | --- |
+| Quantity | int32 | Optional | ✅ | <pre></pre> |
+
+
+<a id="message_example_v1_ReserveRequest"></a>
+## example.v1.ReserveRequest
+Takes stock, blocking until enough is available
+| Field name | Type | Cardinality | Deprecated ? | Description |
+| --- | --- | --- | --- | --- |
+| Quantity | int32 | Optional | ✅ | <pre>How many items to reserve, must be > 0</pre> |
+
+
+<a id="message_example_v1_ReserveResponse"></a>
+## example.v1.ReserveResponse
+Answer to a successful reservation
+| Field name | Type | Cardinality | Deprecated ? | Description |
+| --- | --- | --- | --- | --- |
+| RemainingStock | int32 | Optional | ✅ | <pre>Stock left after the reservation</pre> |
+| Generation | int32 | Optional | ✅ | <pre>Which run answered: if the update had to wait across a rollover this is
+ higher than the generation it was sent to</pre> |
+
+
+<a id="message_example_v1_GetStockResponse"></a>
+## example.v1.GetStockResponse
+Current state of a TrackInventory workflow
+| Field name | Type | Cardinality | Deprecated ? | Description |
+| --- | --- | --- | --- | --- |
+| Stock | int32 | Optional | ✅ | <pre></pre> |
+| Generation | int32 | Optional | ✅ | <pre>Continue-as-new rollovers so far, starts at 1</pre> |
 
 
 

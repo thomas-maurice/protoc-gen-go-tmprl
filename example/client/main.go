@@ -13,6 +13,7 @@
 //	step 4: transient activity failures and retry policies
 //	step 5: non-retryable failures (how errors surface to the caller)
 //	step 6: schedules
+//	step 7: blocking updates and continue-as-new (the entity pattern)
 //
 // The workflow executions are also visible in the temporal UI, by default on
 // http://localhost:8080
@@ -336,6 +337,84 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("schedule deleted")
+
+	// -----------------------------------------------------------------------
+	step(7, "blocking updates and continue-as-new: the entity pattern")
+	// -----------------------------------------------------------------------
+
+	// TrackInventory is a long-lived entity workflow: it absorbs Restock
+	// signals and rolls over with continue-as-new after each one. Reserve is
+	// a BLOCKING update: with an empty inventory the handler parks inside the
+	// workflow until stock arrives, and so does our call.
+	invFuture, err := orders.ExecuteWorkflowTrackInventory(ctx, &examplev1.TrackInventoryRequest{
+		Sku:                         "die-d20",
+		InitialStock:                0,
+		RestocksBeforeContinueAsNew: 1,
+	})
+	if err != nil {
+		logger.Error("could not start inventory workflow", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("inventory workflow started with zero stock", "workflow_id", invFuture.GetID())
+
+	type reserveOutcome struct {
+		resp *examplev1.ReserveResponse
+		err  error
+	}
+	reserveCh := make(chan reserveOutcome, 1)
+	go func() {
+		resp, err := orders.UpdateReserve(ctx, invFuture.GetID(), "", &examplev1.ReserveRequest{Quantity: 3})
+		reserveCh <- reserveOutcome{resp, err}
+	}()
+	logger.Info("sent Reserve(3): the update handler is now parked on workflow.Await(stock >= 3), and so are we")
+
+	time.Sleep(2 * time.Second)
+	select {
+	case <-reserveCh:
+		logger.Error("the reservation should still be blocked")
+		os.Exit(1)
+	default:
+		logger.Info("still blocked, as expected: no stock yet")
+	}
+
+	// This restock satisfies the parked reservation AND triggers the
+	// continue-as-new rollover. The workflow drains its update handlers
+	// before rolling over, so the parked caller is answered first.
+	if err := orders.SendSignalRestock(ctx, invFuture.GetID(), "", &examplev1.RestockRequest{Quantity: 5}); err != nil {
+		logger.Error("could not send restock signal", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("sent Restock(5)")
+
+	outcome := <-reserveCh
+	if outcome.err != nil {
+		logger.Error("reservation failed", "error", outcome.err)
+		os.Exit(1)
+	}
+	logger.Info("blocked update answered",
+		"remaining_stock", outcome.resp.RemainingStock,
+		"answered_by_generation", outcome.resp.Generation,
+	)
+
+	// The workflow has since rolled over: same workflow ID, brand-new run,
+	// carrying only what the old run passed along (the remaining stock).
+	inventory := orders.GetTrackInventory(ctx, invFuture.GetID(), "")
+	for {
+		st, err := inventory.QueryGetStock(ctx, &emptypb.Empty{})
+		if err == nil && st.Generation >= 2 {
+			logger.Info("continue-as-new rolled the entity over",
+				"generation", st.Generation,
+				"carried_stock", st.Stock,
+			)
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if err := inventory.Cancel(ctx); err != nil {
+		logger.Error("could not clean up the inventory workflow", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("inventory workflow cleaned up; see both runs of it in the UI, the update completes in the FIRST one")
 
 	fmt.Println()
 	logger.Info("walkthrough complete, check the executions in the temporal UI", "url", "http://localhost:8080")

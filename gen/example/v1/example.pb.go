@@ -946,6 +946,294 @@ func (x *DailySalesReportResponse) GetReport() string {
 	return ""
 }
 
+// Input of the TrackInventory entity workflow
+type TrackInventoryRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which SKU this inventory tracks
+	Sku string `protobuf:"bytes,1,opt,name=sku,proto3" json:"sku,omitempty"`
+	// Stock at the start of this run. On continue-as-new the workflow carries
+	// the current stock over through this field
+	InitialStock int32 `protobuf:"varint,2,opt,name=initial_stock,json=initialStock,proto3" json:"initial_stock,omitempty"`
+	// Incremented on every continue-as-new rollover; leave unset when starting.
+	// Exposed through GetStock so you can observe the rollovers happening
+	Generation int32 `protobuf:"varint,3,opt,name=generation,proto3" json:"generation,omitempty"`
+	// Roll over with continue-as-new after this many Restock signals.
+	// 0 disables rollovers
+	RestocksBeforeContinueAsNew int32 `protobuf:"varint,4,opt,name=restocks_before_continue_as_new,json=restocksBeforeContinueAsNew,proto3" json:"restocks_before_continue_as_new,omitempty"`
+	// DO NOT SET, demo of the anti-pattern: skip draining update handlers
+	// before continue-as-new. A Reserve update blocked at rollover time is
+	// then aborted and its caller gets an error instead of an answer
+	SkipHandlerDrain bool `protobuf:"varint,5,opt,name=skip_handler_drain,json=skipHandlerDrain,proto3" json:"skip_handler_drain,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *TrackInventoryRequest) Reset() {
+	*x = TrackInventoryRequest{}
+	mi := &file_example_v1_example_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TrackInventoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TrackInventoryRequest) ProtoMessage() {}
+
+func (x *TrackInventoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_example_v1_example_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TrackInventoryRequest.ProtoReflect.Descriptor instead.
+func (*TrackInventoryRequest) Descriptor() ([]byte, []int) {
+	return file_example_v1_example_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *TrackInventoryRequest) GetSku() string {
+	if x != nil {
+		return x.Sku
+	}
+	return ""
+}
+
+func (x *TrackInventoryRequest) GetInitialStock() int32 {
+	if x != nil {
+		return x.InitialStock
+	}
+	return 0
+}
+
+func (x *TrackInventoryRequest) GetGeneration() int32 {
+	if x != nil {
+		return x.Generation
+	}
+	return 0
+}
+
+func (x *TrackInventoryRequest) GetRestocksBeforeContinueAsNew() int32 {
+	if x != nil {
+		return x.RestocksBeforeContinueAsNew
+	}
+	return 0
+}
+
+func (x *TrackInventoryRequest) GetSkipHandlerDrain() bool {
+	if x != nil {
+		return x.SkipHandlerDrain
+	}
+	return false
+}
+
+// Adds stock
+type RestockRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Quantity      int32                  `protobuf:"varint,1,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestockRequest) Reset() {
+	*x = RestockRequest{}
+	mi := &file_example_v1_example_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestockRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestockRequest) ProtoMessage() {}
+
+func (x *RestockRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_example_v1_example_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestockRequest.ProtoReflect.Descriptor instead.
+func (*RestockRequest) Descriptor() ([]byte, []int) {
+	return file_example_v1_example_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *RestockRequest) GetQuantity() int32 {
+	if x != nil {
+		return x.Quantity
+	}
+	return 0
+}
+
+// Takes stock, blocking until enough is available
+type ReserveRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// How many items to reserve, must be > 0
+	Quantity      int32 `protobuf:"varint,1,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReserveRequest) Reset() {
+	*x = ReserveRequest{}
+	mi := &file_example_v1_example_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReserveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReserveRequest) ProtoMessage() {}
+
+func (x *ReserveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_example_v1_example_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReserveRequest.ProtoReflect.Descriptor instead.
+func (*ReserveRequest) Descriptor() ([]byte, []int) {
+	return file_example_v1_example_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ReserveRequest) GetQuantity() int32 {
+	if x != nil {
+		return x.Quantity
+	}
+	return 0
+}
+
+// Answer to a successful reservation
+type ReserveResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Stock left after the reservation
+	RemainingStock int32 `protobuf:"varint,1,opt,name=remaining_stock,json=remainingStock,proto3" json:"remaining_stock,omitempty"`
+	// Which run answered: if the update had to wait across a rollover this is
+	// higher than the generation it was sent to
+	Generation    int32 `protobuf:"varint,2,opt,name=generation,proto3" json:"generation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReserveResponse) Reset() {
+	*x = ReserveResponse{}
+	mi := &file_example_v1_example_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReserveResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReserveResponse) ProtoMessage() {}
+
+func (x *ReserveResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_example_v1_example_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReserveResponse.ProtoReflect.Descriptor instead.
+func (*ReserveResponse) Descriptor() ([]byte, []int) {
+	return file_example_v1_example_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ReserveResponse) GetRemainingStock() int32 {
+	if x != nil {
+		return x.RemainingStock
+	}
+	return 0
+}
+
+func (x *ReserveResponse) GetGeneration() int32 {
+	if x != nil {
+		return x.Generation
+	}
+	return 0
+}
+
+// Current state of a TrackInventory workflow
+type GetStockResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Stock int32                  `protobuf:"varint,1,opt,name=stock,proto3" json:"stock,omitempty"`
+	// Continue-as-new rollovers so far, starts at 1
+	Generation    int32 `protobuf:"varint,2,opt,name=generation,proto3" json:"generation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetStockResponse) Reset() {
+	*x = GetStockResponse{}
+	mi := &file_example_v1_example_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStockResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStockResponse) ProtoMessage() {}
+
+func (x *GetStockResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_example_v1_example_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStockResponse.ProtoReflect.Descriptor instead.
+func (*GetStockResponse) Descriptor() ([]byte, []int) {
+	return file_example_v1_example_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *GetStockResponse) GetStock() int32 {
+	if x != nil {
+		return x.Stock
+	}
+	return 0
+}
+
+func (x *GetStockResponse) GetGeneration() int32 {
+	if x != nil {
+		return x.Generation
+	}
+	return 0
+}
+
 var File_example_v1_example_proto protoreflect.FileDescriptor
 
 const file_example_v1_example_proto_rawDesc = "" +
@@ -999,18 +1287,41 @@ const file_example_v1_example_proto_rawDesc = "" +
 	"\x17DispatchCourierResponse\x12'\n" +
 	"\x0ftracking_number\x18\x01 \x01(\tR\x0etrackingNumber\"2\n" +
 	"\x18DailySalesReportResponse\x12\x16\n" +
-	"\x06report\x18\x01 \x01(\tR\x06report*\xab\x01\n" +
+	"\x06report\x18\x01 \x01(\tR\x06report\"\xe2\x01\n" +
+	"\x15TrackInventoryRequest\x12\x10\n" +
+	"\x03sku\x18\x01 \x01(\tR\x03sku\x12#\n" +
+	"\rinitial_stock\x18\x02 \x01(\x05R\finitialStock\x12\x1e\n" +
+	"\n" +
+	"generation\x18\x03 \x01(\x05R\n" +
+	"generation\x12D\n" +
+	"\x1frestocks_before_continue_as_new\x18\x04 \x01(\x05R\x1brestocksBeforeContinueAsNew\x12,\n" +
+	"\x12skip_handler_drain\x18\x05 \x01(\bR\x10skipHandlerDrain\",\n" +
+	"\x0eRestockRequest\x12\x1a\n" +
+	"\bquantity\x18\x01 \x01(\x05R\bquantity\",\n" +
+	"\x0eReserveRequest\x12\x1a\n" +
+	"\bquantity\x18\x01 \x01(\x05R\bquantity\"Z\n" +
+	"\x0fReserveResponse\x12'\n" +
+	"\x0fremaining_stock\x18\x01 \x01(\x05R\x0eremainingStock\x12\x1e\n" +
+	"\n" +
+	"generation\x18\x02 \x01(\x05R\n" +
+	"generation\"H\n" +
+	"\x10GetStockResponse\x12\x14\n" +
+	"\x05stock\x18\x01 \x01(\x05R\x05stock\x12\x1e\n" +
+	"\n" +
+	"generation\x18\x02 \x01(\x05R\n" +
+	"generation*\xab\x01\n" +
 	"\vOrderStatus\x12\x1c\n" +
 	"\x18ORDER_STATUS_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14ORDER_STATUS_PENDING\x10\x01\x12\x15\n" +
 	"\x11ORDER_STATUS_PAID\x10\x02\x12\x17\n" +
 	"\x13ORDER_STATUS_PACKED\x10\x03\x12\x18\n" +
 	"\x14ORDER_STATUS_SHIPPED\x10\x04\x12\x1a\n" +
-	"\x16ORDER_STATUS_CANCELLED\x10\x052\xae\a\n" +
+	"\x16ORDER_STATUS_CANCELLED\x10\x052\xfa\t\n" +
 	"\x06Orders\x12\x8b\x01\n" +
 	"\fProcessOrder\x12\x1f.example.v1.ProcessOrderRequest\x1a .example.v1.ProcessOrderResponse\"8\x8a\xb5\x1842\vCancelOrder:\x0eGetOrderStatusB\x15ChangeShippingAddress\x12N\n" +
 	"\tShipOrder\x12\x1c.example.v1.ShipOrderRequest\x1a\x1d.example.v1.ShipOrderResponse\"\x04\x8a\xb5\x18\x00\x12V\n" +
-	"\x10DailySalesReport\x12\x16.google.protobuf.Empty\x1a$.example.v1.DailySalesReportResponse\"\x04\x8a\xb5\x18\x00\x12w\n" +
+	"\x10DailySalesReport\x12\x16.google.protobuf.Empty\x1a$.example.v1.DailySalesReportResponse\"\x04\x8a\xb5\x18\x00\x12s\n" +
+	"\x0eTrackInventory\x12!.example.v1.TrackInventoryRequest\x1a\x1c.example.v1.GetStockResponse\" \x8a\xb5\x18\x1c2\aRestock:\bGetStockB\aReserve\x12w\n" +
 	"\rChargePayment\x12 .example.v1.ChargePaymentRequest\x1a!.example.v1.ChargePaymentResponse\"!\x82\xb5\x18\x1d\x18\n" +
 	"*\x19\b\x01\x15\x00\x00\x00@\x18\n" +
 	" \x05*\fCardDeclined\x12R\n" +
@@ -1020,7 +1331,10 @@ const file_example_v1_example_proto_rawDesc = "" +
 	"\x10courier.Dispatch\x12K\n" +
 	"\vCancelOrder\x12\x1e.example.v1.CancelOrderRequest\x1a\x16.google.protobuf.Empty\"\x04\x92\xb5\x18\x00\x12R\n" +
 	"\x0eGetOrderStatus\x12\x16.google.protobuf.Empty\x1a\".example.v1.GetOrderStatusResponse\"\x04\x9a\xb5\x18\x00\x12r\n" +
-	"\x15ChangeShippingAddress\x12(.example.v1.ChangeShippingAddressRequest\x1a).example.v1.ChangeShippingAddressResponse\"\x04\xa2\xb5\x18\x00\x1a\x18\x92\xb5\x18\x14\n" +
+	"\x15ChangeShippingAddress\x12(.example.v1.ChangeShippingAddressRequest\x1a).example.v1.ChangeShippingAddressResponse\"\x04\xa2\xb5\x18\x00\x12C\n" +
+	"\aRestock\x12\x1a.example.v1.RestockRequest\x1a\x16.google.protobuf.Empty\"\x04\x92\xb5\x18\x00\x12F\n" +
+	"\bGetStock\x12\x16.google.protobuf.Empty\x1a\x1c.example.v1.GetStockResponse\"\x04\x9a\xb5\x18\x00\x12H\n" +
+	"\aReserve\x12\x1a.example.v1.ReserveRequest\x1a\x1b.example.v1.ReserveResponse\"\x04\xa2\xb5\x18\x00\x1a\x18\x92\xb5\x18\x14\n" +
 	"\x06orders\x12\x03\x10\x90\x1c\x1a\x05\x10\xac\x02\x18\x1eB\xaf\x01\n" +
 	"\x0ecom.example.v1B\fExampleProtoP\x01ZFgithub.com/thomas-maurice/protoc-gen-go-tmprl/gen/example/v1;examplev1\xa2\x02\x03EXX\xaa\x02\n" +
 	"Example.V1\xca\x02\n" +
@@ -1039,7 +1353,7 @@ func file_example_v1_example_proto_rawDescGZIP() []byte {
 }
 
 var file_example_v1_example_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_example_v1_example_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_example_v1_example_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_example_v1_example_proto_goTypes = []any{
 	(OrderStatus)(0),                      // 0: example.v1.OrderStatus
 	(*OrderItem)(nil),                     // 1: example.v1.OrderItem
@@ -1058,7 +1372,12 @@ var file_example_v1_example_proto_goTypes = []any{
 	(*DispatchCourierRequest)(nil),        // 14: example.v1.DispatchCourierRequest
 	(*DispatchCourierResponse)(nil),       // 15: example.v1.DispatchCourierResponse
 	(*DailySalesReportResponse)(nil),      // 16: example.v1.DailySalesReportResponse
-	(*emptypb.Empty)(nil),                 // 17: google.protobuf.Empty
+	(*TrackInventoryRequest)(nil),         // 17: example.v1.TrackInventoryRequest
+	(*RestockRequest)(nil),                // 18: example.v1.RestockRequest
+	(*ReserveRequest)(nil),                // 19: example.v1.ReserveRequest
+	(*ReserveResponse)(nil),               // 20: example.v1.ReserveResponse
+	(*GetStockResponse)(nil),              // 21: example.v1.GetStockResponse
+	(*emptypb.Empty)(nil),                 // 22: google.protobuf.Empty
 }
 var file_example_v1_example_proto_depIdxs = []int32{
 	1,  // 0: example.v1.ProcessOrderRequest.items:type_name -> example.v1.OrderItem
@@ -1067,24 +1386,32 @@ var file_example_v1_example_proto_depIdxs = []int32{
 	1,  // 3: example.v1.PackItemsRequest.items:type_name -> example.v1.OrderItem
 	2,  // 4: example.v1.Orders.ProcessOrder:input_type -> example.v1.ProcessOrderRequest
 	12, // 5: example.v1.Orders.ShipOrder:input_type -> example.v1.ShipOrderRequest
-	17, // 6: example.v1.Orders.DailySalesReport:input_type -> google.protobuf.Empty
-	8,  // 7: example.v1.Orders.ChargePayment:input_type -> example.v1.ChargePaymentRequest
-	10, // 8: example.v1.Orders.PackItems:input_type -> example.v1.PackItemsRequest
-	14, // 9: example.v1.Orders.DispatchCourier:input_type -> example.v1.DispatchCourierRequest
-	4,  // 10: example.v1.Orders.CancelOrder:input_type -> example.v1.CancelOrderRequest
-	17, // 11: example.v1.Orders.GetOrderStatus:input_type -> google.protobuf.Empty
-	6,  // 12: example.v1.Orders.ChangeShippingAddress:input_type -> example.v1.ChangeShippingAddressRequest
-	3,  // 13: example.v1.Orders.ProcessOrder:output_type -> example.v1.ProcessOrderResponse
-	13, // 14: example.v1.Orders.ShipOrder:output_type -> example.v1.ShipOrderResponse
-	16, // 15: example.v1.Orders.DailySalesReport:output_type -> example.v1.DailySalesReportResponse
-	9,  // 16: example.v1.Orders.ChargePayment:output_type -> example.v1.ChargePaymentResponse
-	11, // 17: example.v1.Orders.PackItems:output_type -> example.v1.PackItemsResponse
-	15, // 18: example.v1.Orders.DispatchCourier:output_type -> example.v1.DispatchCourierResponse
-	17, // 19: example.v1.Orders.CancelOrder:output_type -> google.protobuf.Empty
-	5,  // 20: example.v1.Orders.GetOrderStatus:output_type -> example.v1.GetOrderStatusResponse
-	7,  // 21: example.v1.Orders.ChangeShippingAddress:output_type -> example.v1.ChangeShippingAddressResponse
-	13, // [13:22] is the sub-list for method output_type
-	4,  // [4:13] is the sub-list for method input_type
+	22, // 6: example.v1.Orders.DailySalesReport:input_type -> google.protobuf.Empty
+	17, // 7: example.v1.Orders.TrackInventory:input_type -> example.v1.TrackInventoryRequest
+	8,  // 8: example.v1.Orders.ChargePayment:input_type -> example.v1.ChargePaymentRequest
+	10, // 9: example.v1.Orders.PackItems:input_type -> example.v1.PackItemsRequest
+	14, // 10: example.v1.Orders.DispatchCourier:input_type -> example.v1.DispatchCourierRequest
+	4,  // 11: example.v1.Orders.CancelOrder:input_type -> example.v1.CancelOrderRequest
+	22, // 12: example.v1.Orders.GetOrderStatus:input_type -> google.protobuf.Empty
+	6,  // 13: example.v1.Orders.ChangeShippingAddress:input_type -> example.v1.ChangeShippingAddressRequest
+	18, // 14: example.v1.Orders.Restock:input_type -> example.v1.RestockRequest
+	22, // 15: example.v1.Orders.GetStock:input_type -> google.protobuf.Empty
+	19, // 16: example.v1.Orders.Reserve:input_type -> example.v1.ReserveRequest
+	3,  // 17: example.v1.Orders.ProcessOrder:output_type -> example.v1.ProcessOrderResponse
+	13, // 18: example.v1.Orders.ShipOrder:output_type -> example.v1.ShipOrderResponse
+	16, // 19: example.v1.Orders.DailySalesReport:output_type -> example.v1.DailySalesReportResponse
+	21, // 20: example.v1.Orders.TrackInventory:output_type -> example.v1.GetStockResponse
+	9,  // 21: example.v1.Orders.ChargePayment:output_type -> example.v1.ChargePaymentResponse
+	11, // 22: example.v1.Orders.PackItems:output_type -> example.v1.PackItemsResponse
+	15, // 23: example.v1.Orders.DispatchCourier:output_type -> example.v1.DispatchCourierResponse
+	22, // 24: example.v1.Orders.CancelOrder:output_type -> google.protobuf.Empty
+	5,  // 25: example.v1.Orders.GetOrderStatus:output_type -> example.v1.GetOrderStatusResponse
+	7,  // 26: example.v1.Orders.ChangeShippingAddress:output_type -> example.v1.ChangeShippingAddressResponse
+	22, // 27: example.v1.Orders.Restock:output_type -> google.protobuf.Empty
+	21, // 28: example.v1.Orders.GetStock:output_type -> example.v1.GetStockResponse
+	20, // 29: example.v1.Orders.Reserve:output_type -> example.v1.ReserveResponse
+	17, // [17:30] is the sub-list for method output_type
+	4,  // [4:17] is the sub-list for method input_type
 	4,  // [4:4] is the sub-list for extension type_name
 	4,  // [4:4] is the sub-list for extension extendee
 	0,  // [0:4] is the sub-list for field type_name
@@ -1101,7 +1428,7 @@ func file_example_v1_example_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_example_v1_example_proto_rawDesc), len(file_example_v1_example_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   16,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

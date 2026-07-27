@@ -43,6 +43,7 @@ has a natural place in it:
 | Query | `(temporal.v1.query)` on `GetOrderStatus` | client step 1 |
 | Update (+ validator) | `(temporal.v1.update)` on `ChangeShippingAddress` | client steps 1 and 2 |
 | Schedules | generated for every workflow, no annotation | client step 6 |
+| Blocking updates + continue-as-new | `(temporal.v1.update)` on `Reserve`, entity workflow `TrackInventory` | client step 7, e2e |
 
 ## Running it
 
@@ -103,6 +104,28 @@ The client narrates six steps:
 6. **Schedules.** Upserts a schedule running `DailySalesReport` every minute,
    lists, pauses and unpauses it (both idempotent), then deletes it. Comment
    out the delete in the client if you want to watch it fire.
+7. **Blocking updates and continue-as-new.** `TrackInventory` is a long-lived
+   entity workflow that rolls over with continue-as-new after every restock.
+   The client sends `Reserve(3)` to an empty inventory: the update handler
+   parks on `workflow.Await(stock >= 3)` inside the workflow, and the client
+   call blocks with it — no polling anywhere, the workflow is simply idle.
+   A `Restock(5)` signal then satisfies the reservation AND triggers the
+   rollover; because the workflow drains its handlers
+   (`workflow.AllHandlersFinished`) before continuing-as-new, the parked
+   caller gets its answer (remaining stock 2) from the old run first, and the
+   new run starts with that stock carried over. Same workflow ID, two runs,
+   and the caller never noticed.
+
+   Two hard-earned caveats are baked into the workflow (both were found by
+   adversarial testing, both are pinned by regression tests): the drain must
+   keep consuming the signals that can unblock its handlers (a bare
+   `Await(AllHandlersFinished)` deadlocks the run), and the workflow must
+   sweep its signal channel right before rolling over — signals still queued
+   when a run ends do NOT carry over to the continue-as-new successor and are
+   silently lost. Also note the drain's trade-off: it converts "abandoned
+   update" into "rollover waits, possibly forever" — a real handler should
+   bound its own wait with `workflow.AwaitWithTimeout` and fail the update
+   cleanly when it expires.
 
 Everything is also visible in the Temporal UI at
 [http://localhost:8080](http://localhost:8080) — the child `ShipOrder`
@@ -155,6 +178,37 @@ as a story. What each one demonstrates:
 - **`TestScheduleCRUD`** — the whole generated schedule lifecycle against a
   real server: upsert, list (polling, because listings go through the
   eventually-consistent visibility store), idempotent pause/unpause, delete.
+- **`TestBlockedUpdateSurvivesContinueAsNew`** — a workflow ID is really a
+  chain of runs, and continue-as-new ends one run to start the next with only
+  the input it is handed. An in-flight update is a conversation with ONE run.
+  This test parks `Reserve(3)` on an empty inventory, then sends the
+  `Restock(5)` that both satisfies it and triggers the rollover: the parked
+  caller is answered by the OLD run (that is the handler drain), and the new
+  run comes up with the post-reservation stock carried over. The caller never
+  notices a rollover happened.
+- **`TestBlockedUpdateAbortedWithoutHandlerDrain`** — the failure mode the
+  drain prevents, pinned deliberately. `Reserve(10)` stays unsatisfiable when
+  `Restock(5)` triggers the rollover, and the workflow (configured with the
+  `skip_handler_drain` anti-pattern flag) rolls over anyway: the parked
+  update dies with the old run and its caller gets
+  `AcceptedUpdateCompletedWorkflow` instead of an answer, while the new run's
+  stock proves the reservation never happened. Nuance the server taught us:
+  an update the triggering event CAN satisfy completes even without the
+  drain — the dispatcher finishes runnable handlers before shipping the
+  rollover; only still-parked handlers are abandoned. The anti-pattern path
+  also drops queued signals (it deliberately gets no pre-rollover sweep —
+  see the next test for why).
+- **`TestSkipDrainNeverDoubleCounts`** — pins a subtle ordering rule found by
+  adversarial testing: once the workflow has built its continue-as-new
+  arguments, it can no longer observe handler effects. Sweeping queued
+  signals while a `Reserve` is still parked can make that reservation
+  satisfiable *after* the carried-over stock was snapshotted: the dispatcher
+  completes the handler in the closing task, the caller is told "reserved",
+  and the successor starts with the un-decremented stock — units exist
+  twice. The invariant asserted here is race-proof: a caller must never
+  receive success unless the successor's stock reflects the decrement.
+  Hence the rule the workflow now follows: sweep only after the drain proved
+  no handler is in flight; on the skip path, don't sweep at all.
 
 ## Poking at it
 
