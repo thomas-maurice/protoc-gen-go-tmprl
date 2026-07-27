@@ -24,18 +24,18 @@ func newBase() client.ScheduleOptions {
 		},
 		Action: &client.ScheduleWorkflowAction{
 			ID:        "generator-built-id",
-			Workflow:  WorkflowThrowDiesName,
+			Workflow:  WorkflowProcessOrderName,
 			TaskQueue: "generator-tq",
 		},
 	}
 }
 
-// TestMergeScheduleOptionsDieRoll_EmptyUserLeavesBaseUntouched: verifies that
+// TestMergeScheduleOptionsOrders_EmptyUserLeavesBaseUntouched: verifies that
 // passing a zero-valued user ScheduleOptions is a no-op so callers that don't
 // supply options get pure generator defaults.
-func TestMergeScheduleOptionsDieRoll_EmptyUserLeavesBaseUntouched(t *testing.T) {
+func TestMergeScheduleOptionsOrders_EmptyUserLeavesBaseUntouched(t *testing.T) {
 	base := newBase()
-	mergeScheduleOptionsDieRoll(&base, client.ScheduleOptions{}, true)
+	mergeScheduleOptionsOrders(&base, client.ScheduleOptions{}, true)
 
 	if base.Spec.TimeZoneName != "Europe/Paris" {
 		t.Errorf("TimeZoneName was clobbered: got %q", base.Spec.TimeZoneName)
@@ -55,9 +55,9 @@ func TestMergeScheduleOptionsDieRoll_EmptyUserLeavesBaseUntouched(t *testing.T) 
 	}
 }
 
-// TestMergeScheduleOptionsDieRoll_SpecFields: verifies each field on Spec is
+// TestMergeScheduleOptionsOrders_SpecFields: verifies each field on Spec is
 // merged when set on the user struct and left alone when zero.
-func TestMergeScheduleOptionsDieRoll_SpecFields(t *testing.T) {
+func TestMergeScheduleOptionsOrders_SpecFields(t *testing.T) {
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
 
@@ -75,7 +75,7 @@ func TestMergeScheduleOptionsDieRoll_SpecFields(t *testing.T) {
 		},
 	}
 
-	mergeScheduleOptionsDieRoll(&base, user, true)
+	mergeScheduleOptionsOrders(&base, user, true)
 
 	if got := base.Spec.CronExpressions; len(got) != 1 || got[0] != "*/5 * * * *" {
 		t.Errorf("CronExpressions not merged: %v", got)
@@ -103,12 +103,12 @@ func TestMergeScheduleOptionsDieRoll_SpecFields(t *testing.T) {
 	}
 }
 
-// TestMergeScheduleOptionsDieRoll_TopLevelFields: verifies non-Spec fields
+// TestMergeScheduleOptionsOrders_TopLevelFields: verifies non-Spec fields
 // (Note, Overlap, CatchupWindow, PauseOnFailure, Action) merge correctly.
-func TestMergeScheduleOptionsDieRoll_TopLevelFields(t *testing.T) {
+func TestMergeScheduleOptionsOrders_TopLevelFields(t *testing.T) {
 	userAction := &client.ScheduleWorkflowAction{
 		ID:        "user-action-id",
-		Workflow:  WorkflowThrowDiesName,
+		Workflow:  WorkflowProcessOrderName,
 		TaskQueue: "user-tq",
 	}
 
@@ -121,7 +121,7 @@ func TestMergeScheduleOptionsDieRoll_TopLevelFields(t *testing.T) {
 		Action:         userAction,
 	}
 
-	mergeScheduleOptionsDieRoll(&base, user, true)
+	mergeScheduleOptionsOrders(&base, user, true)
 
 	if base.Note != "hello" {
 		t.Errorf("Note = %q, want hello", base.Note)
@@ -140,15 +140,15 @@ func TestMergeScheduleOptionsDieRoll_TopLevelFields(t *testing.T) {
 	}
 }
 
-// TestMergeScheduleOptionsDieRoll_PausedGatedByApplyPaused: the applyPaused
+// TestMergeScheduleOptionsOrders_PausedGatedByApplyPaused: the applyPaused
 // flag is the only behavioural difference between the Create and Upsert call
 // sites. Create passes true (user can create a schedule in the paused state);
 // Upsert passes false so that a partial options struct never silently pauses
 // an already-running schedule.
-func TestMergeScheduleOptionsDieRoll_PausedGatedByApplyPaused(t *testing.T) {
+func TestMergeScheduleOptionsOrders_PausedGatedByApplyPaused(t *testing.T) {
 	t.Run("applyPaused=true honours user Paused", func(t *testing.T) {
 		base := newBase()
-		mergeScheduleOptionsDieRoll(&base, client.ScheduleOptions{Paused: true}, true)
+		mergeScheduleOptionsOrders(&base, client.ScheduleOptions{Paused: true}, true)
 		if !base.Paused {
 			t.Error("Paused should be true when applyPaused is true")
 		}
@@ -156,7 +156,7 @@ func TestMergeScheduleOptionsDieRoll_PausedGatedByApplyPaused(t *testing.T) {
 
 	t.Run("applyPaused=false ignores user Paused", func(t *testing.T) {
 		base := newBase()
-		mergeScheduleOptionsDieRoll(&base, client.ScheduleOptions{Paused: true}, false)
+		mergeScheduleOptionsOrders(&base, client.ScheduleOptions{Paused: true}, false)
 		if base.Paused {
 			t.Error("Paused should stay false when applyPaused is false")
 		}
@@ -165,24 +165,24 @@ func TestMergeScheduleOptionsDieRoll_PausedGatedByApplyPaused(t *testing.T) {
 	t.Run("applyPaused=true does not force Paused when user left it false", func(t *testing.T) {
 		base := newBase()
 		base.Paused = false
-		mergeScheduleOptionsDieRoll(&base, client.ScheduleOptions{Paused: false}, true)
+		mergeScheduleOptionsOrders(&base, client.ScheduleOptions{Paused: false}, true)
 		if base.Paused {
 			t.Error("Paused should remain false when user did not set it")
 		}
 	})
 }
 
-// TestMergeScheduleOptionsDieRoll_TypedSearchAttributes: verifies the typed
+// TestMergeScheduleOptionsOrders_TypedSearchAttributes: verifies the typed
 // search attributes collection is replaced wholesale when the user provides a
 // non-empty one and left alone when empty.
-func TestMergeScheduleOptionsDieRoll_TypedSearchAttributes(t *testing.T) {
+func TestMergeScheduleOptionsOrders_TypedSearchAttributes(t *testing.T) {
 	key := temporal.NewSearchAttributeKeyString("CustomKey")
 
 	base := newBase()
 	user := client.ScheduleOptions{
 		TypedSearchAttributes: temporal.NewSearchAttributes(key.ValueSet("user-value")),
 	}
-	mergeScheduleOptionsDieRoll(&base, user, false)
+	mergeScheduleOptionsOrders(&base, user, false)
 
 	got, ok := base.TypedSearchAttributes.GetString(key)
 	if !ok || got != "user-value" {
@@ -192,22 +192,22 @@ func TestMergeScheduleOptionsDieRoll_TypedSearchAttributes(t *testing.T) {
 	// Empty user attrs must NOT wipe the base's attrs.
 	base2 := newBase()
 	base2.TypedSearchAttributes = temporal.NewSearchAttributes(key.ValueSet("base-value"))
-	mergeScheduleOptionsDieRoll(&base2, client.ScheduleOptions{}, false)
+	mergeScheduleOptionsOrders(&base2, client.ScheduleOptions{}, false)
 	got2, ok2 := base2.TypedSearchAttributes.GetString(key)
 	if !ok2 || got2 != "base-value" {
 		t.Errorf("empty user attrs clobbered base attrs, got=%q ok=%v", got2, ok2)
 	}
 }
 
-// TestApplyScheduleDefaultsDieRoll_FillsTaskQueueWhenEmpty: the service's
+// TestApplyScheduleDefaultsOrders_FillsTaskQueueWhenEmpty: the service's
 // default task queue is applied only when the ScheduleWorkflowAction has an
 // empty TaskQueue; a user-supplied one always wins.
-func TestApplyScheduleDefaultsDieRoll_FillsTaskQueueWhenEmpty(t *testing.T) {
+func TestApplyScheduleDefaultsOrders_FillsTaskQueueWhenEmpty(t *testing.T) {
 	t.Run("empty task queue gets default", func(t *testing.T) {
 		opts := client.ScheduleOptions{
 			Action: &client.ScheduleWorkflowAction{},
 		}
-		applyScheduleDefaultsDieRoll(&opts, "default-tq")
+		applyScheduleDefaultsOrders(&opts, "default-tq")
 		action := opts.Action.(*client.ScheduleWorkflowAction)
 		if action.TaskQueue != "default-tq" {
 			t.Errorf("TaskQueue = %q, want default-tq", action.TaskQueue)
@@ -218,7 +218,7 @@ func TestApplyScheduleDefaultsDieRoll_FillsTaskQueueWhenEmpty(t *testing.T) {
 		opts := client.ScheduleOptions{
 			Action: &client.ScheduleWorkflowAction{TaskQueue: "user-tq"},
 		}
-		applyScheduleDefaultsDieRoll(&opts, "default-tq")
+		applyScheduleDefaultsOrders(&opts, "default-tq")
 		action := opts.Action.(*client.ScheduleWorkflowAction)
 		if action.TaskQueue != "user-tq" {
 			t.Errorf("TaskQueue = %q, want user-tq (user override must win)", action.TaskQueue)
@@ -229,7 +229,7 @@ func TestApplyScheduleDefaultsDieRoll_FillsTaskQueueWhenEmpty(t *testing.T) {
 		// Pass a nil Action; the type assertion fails and the helper must
 		// not panic.
 		opts := client.ScheduleOptions{}
-		applyScheduleDefaultsDieRoll(&opts, "default-tq")
+		applyScheduleDefaultsOrders(&opts, "default-tq")
 		if opts.Action != nil {
 			t.Errorf("Action = %v, want nil (no synthesis)", opts.Action)
 		}
@@ -246,12 +246,12 @@ func TestScheduleHelpers_CreateAndUpsertSemantics(t *testing.T) {
 	}
 
 	createBase := newBase()
-	mergeScheduleOptionsDieRoll(&createBase, user, true)
-	applyScheduleDefaultsDieRoll(&createBase, "default-tq")
+	mergeScheduleOptionsOrders(&createBase, user, true)
+	applyScheduleDefaultsOrders(&createBase, "default-tq")
 
 	upsertBase := newBase()
-	mergeScheduleOptionsDieRoll(&upsertBase, user, false)
-	applyScheduleDefaultsDieRoll(&upsertBase, "default-tq")
+	mergeScheduleOptionsOrders(&upsertBase, user, false)
+	applyScheduleDefaultsOrders(&upsertBase, "default-tq")
 
 	if !createBase.Paused {
 		t.Error("Create flow should honour Paused=true from user")

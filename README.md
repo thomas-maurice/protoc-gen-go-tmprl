@@ -8,6 +8,9 @@ You will find a reference proto [here](https://github.com/thomas-maurice/protoc-
 and it corresponding generated code [there](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/gen/example/v1/example_tmprl.pb.go)
 for reference purposes.
 
+For a runnable, narrated tour of everything the plugin generates (workflows, activities, signals,
+queries, updates, failure handling, schedules), see [the example walkthrough](example/README.md).
+
 ## How to use it
 
 You need to include [temporal.v1](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/proto/temporal/v1/temporal.proto) in your project. Note that this protobuf package is also published on
@@ -26,13 +29,13 @@ option go_package = "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/example/v
 import "temporal/v1/temporal.proto";
 import "google/protobuf/empty.proto";
 
-service HelloWorld  {
+service Orders  {
     option (temporal.v1.service) = {
         // this is not mandatory but will serve as a sane default
-        task_queue: "hello_world"
+        task_queue: "orders"
     };
-    // Just a simple ping
-    rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    // ChargePayment captures the money for an order
+    rpc ChargePayment(ChargePaymentRequest) returns (ChargePaymentResponse) {
         option (temporal.v1.activity) = {
             // you don't have to but you can also define default activity
             // options that will be applied every time the activity
@@ -40,8 +43,8 @@ service HelloWorld  {
         };
     }
 
-    // Say hello to multiple people
-    rpc SayMultipleHello(MultipleHelloRequest) returns (MultipleHelloResponse) {
+    // ProcessOrder drives an order from payment to shipping
+    rpc ProcessOrder(ProcessOrderRequest) returns (ProcessOrderResponse) {
         option (temporal.v1.workflow) = {
             // Similarily to the activity options you can define workflows
             // options such as retry policies and so on so you don't
@@ -98,71 +101,69 @@ Similarly for the workflows
 Every workflow in a service gets a generated set of schedule-management helpers — there is no proto annotation required to opt in. Scheduling cadence is a runtime concern, not part of the workflow's schema, so callers pass their own `client.ScheduleOptions` (with a `Spec` of their choice: `CronExpressions`, `Intervals`, `Calendars`, etc.) when they create or upsert a schedule. The generator only fills in the service's default task queue if the caller left it empty.
 
 ```protobuf
-    // Throws dies a few times and return the result
-    rpc ThrowDies(ThrowDiesRequest) returns (ThrowDiesResponse) {
-        option (temporal.v1.workflow) = {
-            signals: ["Continue"]
-        };
+    // A fast workflow meant to be driven by a Temporal schedule
+    rpc DailySalesReport(google.protobuf.Empty) returns (DailySalesReportResponse) {
+        option (temporal.v1.workflow) = {};
     }
 ```
 
 The generator creates the following schedule methods for every workflow in the service:
 
 ```golang
-// CreateScheduleThrowDies creates a schedule for ThrowDies. The caller supplies the cadence via
+// CreateScheduleDailySalesReport creates a schedule for DailySalesReport. The caller supplies the cadence via
 // options[0].Spec (CronExpressions / Intervals / Calendars). Non-zero fields from options[0] win
 // over generator defaults; if TaskQueue is left empty the service's default task queue is used.
-func (c *DieRollClient) CreateScheduleThrowDies(
+func (c *OrdersClient) CreateScheduleDailySalesReport(
     ctx context.Context,
     scheduleID string,
-    req *ThrowDiesRequest,
+    req *emptypb.Empty,
     options ...client.ScheduleOptions,
 ) (client.ScheduleHandle, error)
 
-// GetScheduleThrowDies gets a handle to an existing schedule for ThrowDies.
-func (c *DieRollClient) GetScheduleThrowDies(
+// GetScheduleDailySalesReport gets a handle to an existing schedule for DailySalesReport.
+func (c *OrdersClient) GetScheduleDailySalesReport(
     ctx context.Context,
     scheduleID string,
 ) client.ScheduleHandle
 
-// DeleteScheduleThrowDies deletes an existing schedule for ThrowDies.
+// DeleteScheduleDailySalesReport deletes an existing schedule for DailySalesReport.
 // Returns the underlying client error if the schedule does not exist or the delete fails.
-func (c *DieRollClient) DeleteScheduleThrowDies(
+func (c *OrdersClient) DeleteScheduleDailySalesReport(
     ctx context.Context,
     scheduleID string,
 ) error
 
-// ListScheduleThrowDies lists all schedules in the namespace whose action is the ThrowDies
+// ListScheduleDailySalesReport lists all schedules in the namespace whose action is the DailySalesReport
 // workflow type. pageSize is forwarded to the Temporal ScheduleClient.List call.
-func (c *DieRollClient) ListScheduleThrowDies(
+func (c *OrdersClient) ListScheduleDailySalesReport(
     ctx context.Context,
     pageSize int,
 ) ([]client.ScheduleListEntry, error)
 
-// UpsertScheduleThrowDies creates the schedule if it does not exist, otherwise performs an
+// UpsertScheduleDailySalesReport creates the schedule if it does not exist, otherwise performs an
 // in-place update (Spec, Action, Overlap, CatchupWindow, PauseOnFailure, TypedSearchAttributes).
 // A user-supplied Paused flag is deliberately not honoured on the update path: a bool can't
 // distinguish "leave it alone" from "unpause", so run-state transitions are expressed through
-// PauseScheduleThrowDies / UnpauseScheduleThrowDies instead.
-func (c *DieRollClient) UpsertScheduleThrowDies(
+// PauseScheduleDailySalesReport / UnpauseScheduleDailySalesReport instead.
+func (c *OrdersClient) UpsertScheduleDailySalesReport(
     ctx context.Context,
     scheduleID string,
-    req *ThrowDiesRequest,
+    req *emptypb.Empty,
     options ...client.ScheduleOptions,
 ) (client.ScheduleHandle, error)
 
-// PauseScheduleThrowDies pauses a running schedule. The note is recorded on the schedule's
+// PauseScheduleDailySalesReport pauses a running schedule. The note is recorded on the schedule's
 // audit trail. Describe is called first and the Pause RPC is skipped when the schedule is
 // already paused, so this is safe to call on every reconcile tick.
-func (c *DieRollClient) PauseScheduleThrowDies(
+func (c *OrdersClient) PauseScheduleDailySalesReport(
     ctx context.Context,
     scheduleID string,
     note string,
 ) error
 
-// UnpauseScheduleThrowDies resumes a paused schedule. Describe is called first and the
+// UnpauseScheduleDailySalesReport resumes a paused schedule. Describe is called first and the
 // Unpause RPC is skipped when the schedule is already running.
-func (c *DieRollClient) UnpauseScheduleThrowDies(
+func (c *OrdersClient) UnpauseScheduleDailySalesReport(
     ctx context.Context,
     scheduleID string,
     note string,
@@ -173,10 +174,10 @@ Example usage:
 
 ```golang
 // Create a schedule. The caller owns the cadence: supply a Spec.
-scheduleHandle, err := dieRollClient.CreateScheduleThrowDies(
+scheduleHandle, err := ordersClient.CreateScheduleDailySalesReport(
     ctx,
-    "throw-dies-schedule",
-    &ThrowDiesRequest{Results: 3, Loop: false},
+    "daily-sales-report",
+    &emptypb.Empty{},
     client.ScheduleOptions{
         Spec: client.ScheduleSpec{
             CronExpressions: []string{"* * * * *"},
@@ -188,7 +189,7 @@ if err != nil {
 }
 
 // Get existing schedule handle
-scheduleHandle = dieRollClient.GetScheduleThrowDies(ctx, "throw-dies-schedule")
+scheduleHandle = ordersClient.GetScheduleDailySalesReport(ctx, "daily-sales-report")
 
 // Use the schedule handle to pause, unpause, describe, etc.
 err = scheduleHandle.Pause(ctx, client.SchedulePauseOptions{
@@ -197,26 +198,26 @@ err = scheduleHandle.Pause(ctx, client.SchedulePauseOptions{
 
 // Idempotent create-or-update. Safe to call on redeploys; the Paused flag is intentionally
 // ignored on the update path.
-_, err = dieRollClient.UpsertScheduleThrowDies(
+_, err = ordersClient.UpsertScheduleDailySalesReport(
     ctx,
-    "throw-dies-schedule",
-    &ThrowDiesRequest{Results: 5},
+    "daily-sales-report",
+    &emptypb.Empty{},
     client.ScheduleOptions{
         Spec: client.ScheduleSpec{CronExpressions: []string{"* * * * *"}},
     },
 )
 
 // Enumerate every schedule whose action is this workflow type.
-entries, err := dieRollClient.ListScheduleThrowDies(ctx, 100)
+entries, err := ordersClient.ListScheduleDailySalesReport(ctx, 100)
 
 // Tear a schedule down.
-err = dieRollClient.DeleteScheduleThrowDies(ctx, "throw-dies-schedule")
+err = ordersClient.DeleteScheduleDailySalesReport(ctx, "daily-sales-report")
 
 // Toggle run state. Each of these is a read-then-write: a Describe round-trip
 // is always paid, but the Pause/Unpause RPC is skipped when the schedule is
 // already in the target state.
-err = dieRollClient.PauseScheduleThrowDies(ctx, "throw-dies-schedule", "maintenance window")
-err = dieRollClient.UnpauseScheduleThrowDies(ctx, "throw-dies-schedule", "maintenance over")
+err = ordersClient.PauseScheduleDailySalesReport(ctx, "daily-sales-report", "maintenance window")
+err = ordersClient.UnpauseScheduleDailySalesReport(ctx, "daily-sales-report", "maintenance over")
 ```
 
 **Features:**
@@ -232,8 +233,8 @@ Each workflow will get assigned a dedicated object in the generated code. All th
 interface from the Temporal SDK. They contain a few methods that can be useful for you. Let's take as an example the following
 protobuf:
 ```protobuf
-    // Say hello to multiple people
-    rpc SayMultipleHello(MultipleHelloRequest) returns (MultipleHelloResponse) {
+    // ProcessOrder drives an order from payment to shipping
+    rpc ProcessOrder(ProcessOrderRequest) returns (ProcessOrderResponse) {
         option (temporal.v1.workflow) = {};
     }
 ```
@@ -242,54 +243,57 @@ The following methods will be generated for the workflow object:
 
 ```golang
 // Cancel cancels a given workflow
-func (w *HelloWorldSayMultipleHello) Cancel(ctx context.Context) error
+func (w *OrdersProcessOrder) Cancel(ctx context.Context) error
 // Returns the workflow ID
-func (w *HelloWorldSayMultipleHello) GetID() string
+func (w *OrdersProcessOrder) GetID() string
 // Returns the run ID
-func (w *HelloWorldSayMultipleHello) GetRunID() string
+func (w *OrdersProcessOrder) GetRunID() string
 // Terminates terminates a given workflow
-func (w *HelloWorldSayMultipleHello) Terminate(ctx context.Context, reason string, details ...interface{})
+func (w *OrdersProcessOrder) Terminate(ctx context.Context, reason string, details ...interface{})
 // Get gets the result of a given workflow with its native type
-func (w *HelloWorldSayMultipleHello) Result(ctx context.Context) (*MultipleHelloResponse, error)
+func (w *OrdersProcessOrder) Result(ctx context.Context) (*ProcessOrderResponse, error)
 // ResultWithOptions gets the result of a given workflow with its native type
-func (w *HelloWorldSayMultipleHello) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*MultipleHelloResponse, error)
+func (w *OrdersProcessOrder) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*ProcessOrderResponse, error)
 // Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *HelloWorldSayMultipleHello) Get(ctx context.Context, valuePtr interface{}) error
+func (w *OrdersProcessOrder) Get(ctx context.Context, valuePtr interface{}) error
 // Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *HelloWorldSayMultipleHello) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error
+func (w *OrdersProcessOrder) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error
 ```
 
-You can retrieve this `HelloWorldSayMultipleHello` object from the client using one of these two methods:
+You can retrieve this `OrdersProcessOrder` object from the client using one of these two methods:
 ```golang
-func (c *HelloWorldClient) GetSayMultipleHello(ctx context.Context, workflowId string, runId string) *HelloWorldSayMultipleHello
-func (c *HelloWorldClient) GetSayMultipleHelloFromRun(future client.WorkflowRun) *HelloWorldSayMultipleHello
+func (c *OrdersClient) GetProcessOrder(ctx context.Context, workflowId string, runId string) *OrdersProcessOrder
+func (c *OrdersClient) GetProcessOrderFromRun(future client.WorkflowRun) *OrdersProcessOrder
 ```
 
-#### Workflow object signal and queries
-Additionally, if you have defined signal and queries in your workflow options like in the following protobuf
+#### Workflow object signal, queries and updates
+Additionally, if you have defined signal, queries and updates in your workflow options like in the following protobuf
 ```protobuf
-    rpc SayMultipleHello(MultipleHelloRequest) returns (MultipleHelloResponse) {
+    rpc ProcessOrder(ProcessOrderRequest) returns (ProcessOrderResponse) {
         option (temporal.v1.workflow) = {
-            signals: ["Continue"]
-            queries: ["GetStatus"]
+            signals: ["CancelOrder"]
+            queries: ["GetOrderStatus"]
+            updates: ["ChangeShippingAddress"]
         };
     }
 ```
 
-Then you will have access to the two following methods:
+Then you will have access to the following methods:
 
 ```golang
-// SignalContinue sends the Continue signal to the workflow
-func (w *HelloWorldSayMultipleHello) SignalContinue(ctx context.Context, req *ContinueSignalRequest) error
-// QueryGetStatus queries the workflow with GetStatus
-func (w *HelloWorldSayMultipleHello) QueryGetStatus(ctx context.Context, req *GetStatusRequest) (*GetStatusResponse, error)
+// SignalCancelOrder sends the CancelOrder signal to the workflow
+func (w *OrdersProcessOrder) SignalCancelOrder(ctx context.Context, req *CancelOrderRequest) error
+// QueryGetOrderStatus queries the workflow with GetOrderStatus
+func (w *OrdersProcessOrder) QueryGetOrderStatus(ctx context.Context, req *emptypb.Empty) (*GetOrderStatusResponse, error)
+// UpdateChangeShippingAddress sends the ChangeShippingAddress update to the workflow and waits for it to complete
+func (w *OrdersProcessOrder) UpdateChangeShippingAddress(ctx context.Context, req *ChangeShippingAddressRequest) (*ChangeShippingAddressResponse, error)
 ```
 
 :warning: The name you pass to the protobuf must match the name of the generated go name for the signal, i.e. `some_func` would
 become `SomeFunc`
 
-:warning: The methods you set as signals and queries MUST be defined inside the service whose workflow uses them. You cannot use
-the signals/queries defined in `Service2` for `Service1`, you can reuse types, not methods.
+:warning: The methods you set as signals, queries and updates MUST be defined inside the service whose workflow uses them. You cannot use
+the signals/queries/updates defined in `Service2` for `Service1`, you can reuse types, not methods.
 
 ### Signals and queries
 
@@ -297,7 +301,7 @@ You can define signal and queries functions in your service, if they are annotat
 `temporal.v1.query` options they will be treated as such. For example if we have a signal like so:
 
 ```protobuf
-    rpc Continue(ContinueSignalRequest) returns (google.protobuf.Empty) {
+    rpc CancelOrder(CancelOrderRequest) returns (google.protobuf.Empty) {
         option (temporal.v1.signal) = {};
     }
 ```
@@ -305,18 +309,18 @@ You can define signal and queries functions in your service, if they are annotat
 You will have access to the three following methods:
 
 ```golang
-// SendSignalContinue sends the Continue signal to a workflow
+// SendSignalCancelOrder sends the CancelOrder signal to a workflow
 // This can be called from a workflow or externally
-func (c *ServiceClient) SendSignalContinue(ctx context.Context, workflowID string, runID string, req *ContinueSignalRequest) error
+func (c *OrdersClient) SendSignalCancelOrder(ctx context.Context, workflowID string, runID string, req *CancelOrderRequest) error
 
-// ReceiveSignalContinue waits for the the Continue signal
+// ReceiveSignalCancelOrder waits for the the CancelOrder signal
 // This is called within a workflow exclusively
-func ReceiveSignalContinue(ctx workflow.Context) (*ContinueSignalRequest, bool)
+func ReceiveSignalCancelOrder(ctx workflow.Context) (*CancelOrderRequest, bool)
 
-// ReceiveSignalContinueAsync recieves the the Continue signal asynchronously.
+// ReceiveSignalCancelOrderAsync recieves the the CancelOrder signal asynchronously.
 // It doesn't wait if there is no signal in the queue.
 // This is called within a workflow exclusively
-func ReceiveSignalContinueAsync(ctx workflow.Context) (*ContinueSignalRequest, bool)
+func ReceiveSignalCancelOrderAsync(ctx workflow.Context) (*CancelOrderRequest, bool)
 ```
 
 :warning: Whatever you put in the response parameter of the signal does not matter at all and
@@ -324,7 +328,7 @@ will be ignored by the code generator, as you want to send and recieve the same 
 
 For queriees it is very similar, let's take for example the following query:
 ```protobuf
-    rpc GetStatus(GetStatusRequest) returns (GetStatusResponse) {
+    rpc GetOrderStatus(google.protobuf.Empty) returns (GetOrderStatusResponse) {
         option (temporal.v1.query) = {};
     }
 ```
@@ -332,26 +336,59 @@ For queriees it is very similar, let's take for example the following query:
 This will grant you the following two methods:
 
 ```golang
-// QueryGetStatus sends the GetStatus query to a workflow
+// QueryGetOrderStatus sends the GetOrderStatus query to a workflow
 // This can be called from a workflow or externally
-func (c *ServiceClient) QueryGetStatus(ctx context.Context, workflowID string, runID string, req *GetStatusRequest) (*GetStatusResponse, error)
+func (c *OrdersClient) QueryGetOrderStatus(ctx context.Context, workflowID string, runID string, req *emptypb.Empty) (*GetOrderStatusResponse, error)
 
-// HandleQueryGetStatus sets up the GetStatus query and responds accordingly, returns an error if it failed
+// HandleQueryGetOrderStatus sets up the GetOrderStatus query and responds accordingly, returns an error if it failed
 // This is called within your workflow to setup the handler method
-func HandleQueryGetStatus(ctx workflow.Context, queryFunc func(req *GetStatusRequest) (*GetStatusResponse, error)) error
+func HandleQueryGetOrderStatus(ctx workflow.Context, queryFunc func(req *emptypb.Empty) (*GetOrderStatusResponse, error)) error
 ```
+
+### Updates
+
+Updates are synchronous request/response interactions with a running workflow: the caller blocks until the
+workflow's update handler returns, and gets back a typed response. Unlike queries, updates are recorded in the
+workflow history and their handlers can mutate workflow state and block (using `workflow.Await`, timers, etc)
+before answering. Annotate a method with the `temporal.v1.update` option:
+
+```protobuf
+    rpc ChangeShippingAddress(ChangeShippingAddressRequest) returns (ChangeShippingAddressResponse) {
+        option (temporal.v1.update) = {};
+    }
+```
+
+This will grant you the following methods:
+
+```golang
+// UpdateChangeShippingAddress sends the ChangeShippingAddress update to a workflow and waits for it to complete
+// This can be called externally
+func (c *OrdersClient) UpdateChangeShippingAddress(ctx context.Context, workflowID string, runID string, req *ChangeShippingAddressRequest, options ...client.UpdateWorkflowOptions) (*ChangeShippingAddressResponse, error)
+
+// HandleUpdateChangeShippingAddress sets up the ChangeShippingAddress update handler, returns an error if it failed
+// This is called within your workflow to setup the handler method
+func HandleUpdateChangeShippingAddress(ctx workflow.Context, updateFunc func(ctx workflow.Context, req *ChangeShippingAddressRequest) (*ChangeShippingAddressResponse, error)) error
+
+// HandleUpdateChangeShippingAddressWithValidator sets up the ChangeShippingAddress update handler with a validator.
+// The validator runs before the update is admitted to history; if it returns a non-nil error
+// the update is rejected and never recorded
+func HandleUpdateChangeShippingAddressWithValidator(ctx workflow.Context, updateFunc func(ctx workflow.Context, req *ChangeShippingAddressRequest) (*ChangeShippingAddressResponse, error), validatorFunc func(ctx workflow.Context, req *ChangeShippingAddressRequest) error) error
+```
+
+The client helper defaults `WaitForStage` to `client.WorkflowUpdateStageCompleted` so the call blocks until the
+handler returns; pass a `client.UpdateWorkflowOptions` to override it or to set an `UpdateID` for idempotency.
 
 ### Child workflow executions
 You get access to a similar API with the child workflows executions, something like so
 ```golang
-func (c *HelloWorldClient) GetChildHelloWorldSayMultipleHelloExecution(future workflow.ChildWorkflowFuture) *ChildHelloWorldSayMultipleHelloExecution
+func (c *OrdersClient) GetChildOrdersProcessOrderExecution(future workflow.ChildWorkflowFuture) *ChildOrdersProcessOrderExecution
 ```
 
 However the API is a bit more limited (no way to query for example) because it is a wrapper around the `internal.ChildWorkflowExecution` object.
 The method type you'd be interested in are the ones that allow you to signal the child workflow, for example:
 
 ```golang
-func (w *ChildHelloWorldSayMultipleHelloExecution) SignalContinue(ctx workflow.Context, req *ContinueSignalRequest) error
+func (w *ChildOrdersProcessOrderExecution) SignalCancelOrder(ctx workflow.Context, req *CancelOrderRequest) error
 ```
 
 ### The exposed API
@@ -371,16 +408,17 @@ The generated code exposes a lot of primitives such as (non exhaustive list):
 * `client.UpsertScheduleX`: Creates or updates a schedule idempotently (caller supplies the Spec)
 * `client.PauseScheduleX`: Pauses a schedule if it's running; no-op if already paused
 * `client.UnpauseScheduleX`: Resumes a paused schedule; no-op if already running
+* `client.UpdateX`: Sends the X update to a workflow and blocks until the typed result is returned
 * `client.GetX`: Gets an instance of a workflow
 * `workflow.Cancel`: Cancels a workflow
 * `workflow.Teminate`: Terminates a workflow
 * `workflow.Get`: Gets the result of a workflow like you would on a normal future (you probably don't want that because no type safety)
 * `workflow.Result`: Gets the result of a workflow *with type safety*
 
-Generally a good starting point to get familiar with the generated code is to have a look at the [example client](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/example/client/main.go) and [example worker](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/example/worker/main.go) provided.
+Generally a good starting point to get familiar with the generated code is to run [the example walkthrough](example/README.md): the [example client](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/example/client/main.go) is a narrated tour of every generated primitive and the [example worker](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/example/worker/main.go) implements the matching service.
 
 ## Options
-* `gen-workflow-prefix`, if set to true, instead of using an UUID for workflow IDs, the worker will generate a name that looks like `<module>.v<X>.<service>.<rpcMethodName>/<uuid>`, like `example.v1.DieRoll.ThrowDies/e2715d07-7bc0-495d-90c5-c396c0a17b46` for example.
+* `gen-workflow-prefix`, if set to true, instead of using an UUID for workflow IDs, the worker will generate a name that looks like `<module>.v<X>.<service>.<rpcMethodName>/<uuid>`, like `example.v1.Orders.DailySalesReport/e2715d07-7bc0-495d-90c5-c396c0a17b46` for example.
 * `gen-docs`, if set to true a markdown documentation file will be output along your generated protobuf code.
 * `paths`, like on the protoc-gen-go, for example `paths=source_relative`
 * `default-activity-schedule-to-close`, sets the default activity schedule to close timeout, this is required otherwise temporal won't run your activity at all if it is left unspecified  (default `86400` which is 24h)

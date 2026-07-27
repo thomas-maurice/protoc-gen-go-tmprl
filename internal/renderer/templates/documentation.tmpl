@@ -30,6 +30,12 @@
    * [{{$.PackageName}}.{{$.Name}}.{{.GoName}}](#{{MakeAnchor "method" $.PackageName $.Name .GoName}})
 {{- end}}
 {{- end}}
+{{- if .Updates}}
+ * Updates
+{{- range .Updates}}
+   * [{{$.PackageName}}.{{$.Name}}.{{.GoName}}](#{{MakeAnchor "method" $.PackageName $.Name .GoName}})
+{{- end}}
+{{- end}}
 
 <a id="{{MakeAnchor "svcoptions" .PackageName .Name}}"></a>
 ### Service options
@@ -145,6 +151,17 @@ Queries:
 {{- end}}
 {{- end}}
 
+{{- if .Options.Updates}}
+
+Updates:
+{{- range .Options.Updates}}
+{{- $update := index $.UpdatesMap .}}
+{{- if $update}}
+ * [{{$.PackageName}}.{{$.Name}}.{{.}}](#{{MakeAnchor "method" $.PackageName $.Name .}})
+{{- end}}
+{{- end}}
+{{- end}}
+
 {{- end}}
 
 ### Activities
@@ -218,6 +235,23 @@ Output: [{{FullName .Output.Desc.FullName}}](#{{MakeAnchor "message" (FullName .
 
 ### Signals
 {{- range .Signals}}
+<a id="{{MakeAnchor "method" $.PackageName $.Name .GoName}}"></a>
+#### {{$.PackageName}}.{{$.Name}}.{{.GoName}}
+{{TrimComment .Comment}}
+
+Input: [{{FullName .Input.Desc.FullName}}](#{{MakeAnchor "message" (FullName .Input.Desc.FullName)}})
+
+Output: [{{FullName .Output.Desc.FullName}}](#{{MakeAnchor "message" (FullName .Output.Desc.FullName)}})
+
+
+| Setting | Value |
+| ----------- | ----------------------- |
+| Temporal registered method name | `{{.RegisteredName}}` |
+
+{{- end}}
+
+### Updates
+{{- range .Updates}}
 <a id="{{MakeAnchor "method" $.PackageName $.Name .GoName}}"></a>
 #### {{$.PackageName}}.{{$.Name}}.{{.GoName}}
 {{TrimComment .Comment}}

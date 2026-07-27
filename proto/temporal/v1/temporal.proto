@@ -11,6 +11,7 @@ extend google.protobuf.MethodOptions {
   optional WorkflowOptions workflow = 50001;
   optional SignalOptions signal = 50002;
   optional QueryOptions query = 50003;
+  optional UpdateOptions update = 50004;
 }
 
 extend google.protobuf.ServiceOptions {
@@ -52,6 +53,11 @@ message WorkflowOptions {
   // the same service. The values of the list is
   // simply the name of the corresponding RPC method
   repeated string queries = 7;
+  // Updates is a list of updates that the
+  // workflow can process. They MUST be defined in
+  // the same service. The values of the list is
+  // simply the name of the corresponding RPC method
+  repeated string updates = 8;
 }
 
 message ServiceOptions {
@@ -84,5 +90,10 @@ message SignalOptions {
 
 message QueryOptions {
   // Name is the name of the query, better left auto generated
+  string name = 1;
+}
+
+message UpdateOptions {
+  // Name is the name of the update, better left auto generated
   string name = 1;
 }

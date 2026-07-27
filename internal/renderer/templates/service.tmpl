@@ -50,6 +50,12 @@ const (
 	// Query{{.GoName}}Name is the registered name for query {{.GoName}}.
 	Query{{.GoName}}Name = {{Quote .RegisteredName}}
 {{- end}}
+
+{{- range .Updates}}
+
+	// Update{{.GoName}}Name is the registered name for update {{.GoName}}.
+	Update{{.GoName}}Name = {{Quote .RegisteredName}}
+{{- end}}
 )
 
 {{/* ============================================================================
@@ -957,6 +963,33 @@ func (w *{{WorkflowObjectName $workflow.Service.GoName $workflow.GoName}}) Query
 {{- end}}
 {{- end}}
 
+{{- range .Options.Updates}}
+{{- $update := index $.UpdatesMap .}}
+{{- if $update}}
+// Update{{.}} sends the {{.}} update to the workflow and waits for it to complete
+func (w *{{WorkflowObjectName $workflow.Service.GoName $workflow.GoName}}) Update{{.}}(ctx {{Context}}, req *{{QualifiedGoIdent $update.Input.GoIdent}}) (*{{QualifiedGoIdent $update.Output.GoIdent}}, error) {
+	handle, err := w.client.UpdateWorkflow(ctx, {{TemporalClient "UpdateWorkflowOptions"}}{
+		WorkflowID:   w.future.GetID(),
+		RunID:        w.future.GetRunID(),
+		UpdateName:   Update{{.}}Name,
+		Args:         []interface{}{req},
+		WaitForStage: {{TemporalClient "WorkflowUpdateStageCompleted"}},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *{{QualifiedGoIdent $update.Output.GoIdent}}
+	err = handle.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+{{- end}}
+{{- end}}
+
 // {{ChildWorkflowObjectName .Service.GoName .GoName}} is a struct that wraps a workflow execution (called from another workflow)
 type {{ChildWorkflowObjectName .Service.GoName .GoName}} struct {
 	client {{TemporalClient "Client"}}
@@ -1085,5 +1118,68 @@ func (c *{{.Service.GetClientName}}) Query{{.GoName}}(ctx {{Context}}, workflowI
 {{- end}}
 func HandleQuery{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, queryFunc func(req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error)) error {
 	return {{TemporalWorkflow "SetQueryHandler"}}(ctx, Query{{.GoName}}Name, queryFunc)
+}
+{{- end}}
+
+{{/* ============================================================================
+    SECTION 8: UPDATE HELPER FUNCTIONS
+    Functions to send updates and register update handlers
+============================================================================ */}}
+{{- range .Updates}}
+
+// Update{{.GoName}} sends the {{.GoName}} update to a workflow and waits for it to
+// complete, returning the typed result. WaitForStage defaults to
+// WorkflowUpdateStageCompleted; pass options to override it or to set an UpdateID
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
+func (c *{{.Service.GetClientName}}) Update{{.GoName}}(ctx {{Context}}, workflowID string, runID string, req *{{QualifiedGoIdent .Input.GoIdent}}, options ...{{TemporalClient "UpdateWorkflowOptions"}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error) {
+	uOptions := {{TemporalClient "UpdateWorkflowOptions"}}{}
+	if len(options) > 0 {
+		uOptions = options[0]
+	}
+	uOptions.WorkflowID = workflowID
+	uOptions.RunID = runID
+	uOptions.UpdateName = Update{{.GoName}}Name
+	uOptions.Args = []interface{}{req}
+	if uOptions.WaitForStage == {{TemporalClient "WorkflowUpdateStageUnspecified"}} {
+		uOptions.WaitForStage = {{TemporalClient "WorkflowUpdateStageCompleted"}}
+	}
+
+	handle, err := c.client.UpdateWorkflow(ctx, uOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *{{QualifiedGoIdent .Output.GoIdent}}
+	err = handle.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// HandleUpdate{{.GoName}} sets up the {{.GoName}} update handler, returns an error if it failed
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
+func HandleUpdate{{.GoName}}(ctx {{TemporalWorkflow "Context"}}, updateFunc func(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error)) error {
+	return {{TemporalWorkflow "SetUpdateHandler"}}(ctx, Update{{.GoName}}Name, updateFunc)
+}
+
+// HandleUpdate{{.GoName}}WithValidator sets up the {{.GoName}} update handler with a
+// validator. The validator runs before the update is admitted to history; if it
+// returns a non-nil error the update is rejected and never recorded
+{{- if .Comment}}
+//
+{{commentBlock "" .Comment}}
+{{- end}}
+func HandleUpdate{{.GoName}}WithValidator(ctx {{TemporalWorkflow "Context"}}, updateFunc func(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}) (*{{QualifiedGoIdent .Output.GoIdent}}, error), validatorFunc func(ctx {{TemporalWorkflow "Context"}}, req *{{QualifiedGoIdent .Input.GoIdent}}) error) error {
+	return {{TemporalWorkflow "SetUpdateHandlerWithOptions"}}(ctx, Update{{.GoName}}Name, updateFunc, {{TemporalWorkflow "UpdateHandlerOptions"}}{
+		Validator: validatorFunc,
+	})
 }
 {{- end}}

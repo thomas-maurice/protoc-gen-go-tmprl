@@ -267,10 +267,11 @@ func TestMergeWorkflowOptions(t *testing.T) {
 		}
 	})
 
-	t.Run("signals and queries from method", func(t *testing.T) {
+	t.Run("signals, queries and updates from method", func(t *testing.T) {
 		method := &temporalv1.WorkflowOptions{
 			Signals: []string{"SignalA", "SignalB"},
 			Queries: []string{"QueryX", "QueryY"},
+			Updates: []string{"UpdateM", "UpdateN"},
 		}
 
 		result := MergeWorkflowOptions(method, nil)
@@ -287,6 +288,13 @@ func TestMergeWorkflowOptions(t *testing.T) {
 		}
 		if result.Queries[0] != "QueryX" {
 			t.Errorf("expected first query 'QueryX', got %s", result.Queries[0])
+		}
+
+		if len(result.Updates) != 2 {
+			t.Errorf("expected 2 updates, got %d", len(result.Updates))
+		}
+		if result.Updates[0] != "UpdateM" {
+			t.Errorf("expected first update 'UpdateM', got %s", result.Updates[0])
 		}
 	})
 

@@ -101,10 +101,19 @@ func TestQueryGetType(t *testing.T) {
 	}
 }
 
+// TestUpdateGetType Tests Update.GetType() returns correct type
+func TestUpdateGetType(t *testing.T) {
+	update := &Update{}
+	if update.GetType() != MethodTypeUpdate {
+		t.Errorf("expected MethodTypeUpdate, got %v", update.GetType())
+	}
+}
+
 // TestMethodInterface Tests that all method types implement Method interface
 func TestMethodInterface(t *testing.T) {
 	var _ Method = &Workflow{}
 	var _ Method = &Activity{}
 	var _ Method = &Signal{}
 	var _ Method = &Query{}
+	var _ Method = &Update{}
 }
