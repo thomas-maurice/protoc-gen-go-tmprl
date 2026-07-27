@@ -121,9 +121,7 @@ service Orders {
   // `name` option overrides the registered activity name, which otherwise
   // defaults to <package>.<service>.<method>
   rpc DispatchCourier(DispatchCourierRequest) returns (DispatchCourierResponse) {
-    option (temporal.v1.activity) = {
-      name: "courier.Dispatch"
-    };
+    option (temporal.v1.activity) = {name: "courier.Dispatch"};
   }
 
   // CancelOrder asks a running ProcessOrder workflow to stop. Signals are
