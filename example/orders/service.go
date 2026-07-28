@@ -296,9 +296,27 @@ func (s *Service) TrackInventory(ctx workflow.Context, req *examplev1.TrackInven
 	// handler coroutine suspends on Await; the rest of the workflow keeps
 	// running, and the moment a Restock pushes the stock high enough the
 	// condition flips, the reservation is taken and the caller unblocks.
+	//
+	// The caller may bound its patience with timeout_seconds: the wait then
+	// uses AwaitWithTimeout, backed by a durable workflow timer, and on
+	// expiry the update FAILS cleanly -- the caller gets the error as the
+	// update outcome, and the handler stops counting against the
+	// pre-rollover drain (a parked reservation can otherwise delay
+	// continue-as-new indefinitely). State is only mutated after the wait
+	// resolves, so a timed-out reservation leaves no trace.
 	err = examplev1.HandleUpdateReserveWithValidator(ctx,
 		func(ctx workflow.Context, u *examplev1.ReserveRequest) (*examplev1.ReserveResponse, error) {
-			if err := workflow.Await(ctx, func() bool { return stock >= u.Quantity }); err != nil {
+			enough := func() bool { return stock >= u.Quantity }
+			if u.TimeoutSeconds > 0 {
+				ok, err := workflow.AwaitWithTimeout(ctx, time.Duration(u.TimeoutSeconds)*time.Second, enough)
+				if err != nil {
+					return nil, err
+				}
+				if !ok {
+					logger.Info("reservation timed out", "quantity", u.Quantity, "stock", stock, "timeout_seconds", u.TimeoutSeconds)
+					return nil, fmt.Errorf("could not fill reservation of %d within %ds", u.Quantity, u.TimeoutSeconds)
+				}
+			} else if err := workflow.Await(ctx, enough); err != nil {
 				return nil, err
 			}
 			stock -= u.Quantity
@@ -308,6 +326,9 @@ func (s *Service) TrackInventory(ctx workflow.Context, req *examplev1.TrackInven
 		func(ctx workflow.Context, u *examplev1.ReserveRequest) error {
 			if u.Quantity <= 0 {
 				return fmt.Errorf("quantity must be positive")
+			}
+			if u.TimeoutSeconds < 0 {
+				return fmt.Errorf("timeout_seconds cannot be negative")
 			}
 			return nil
 		},

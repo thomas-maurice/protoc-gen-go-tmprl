@@ -123,9 +123,10 @@ The client narrates six steps:
    sweep its signal channel right before rolling over — signals still queued
    when a run ends do NOT carry over to the continue-as-new successor and are
    silently lost. Also note the drain's trade-off: it converts "abandoned
-   update" into "rollover waits, possibly forever" — a real handler should
-   bound its own wait with `workflow.AwaitWithTimeout` and fail the update
-   cleanly when it expires.
+   update" into "rollover waits, possibly forever" — which is why `Reserve`
+   accepts a caller-supplied `timeout_seconds`: the handler bounds its wait
+   with `workflow.AwaitWithTimeout` (a durable workflow timer) and fails the
+   update cleanly on expiry, which also releases the drain.
 
 Everything is also visible in the Temporal UI at
 [http://localhost:8080](http://localhost:8080) — the child `ShipOrder`
@@ -198,6 +199,14 @@ as a story. What each one demonstrates:
   rollover; only still-parked handlers are abandoned. The anti-pattern path
   also drops queued signals (it deliberately gets no pre-rollover sweep —
   see the next test for why).
+- **`TestReserveTimeoutFailsCleanly`** — the caller-supplied reservation
+  timeout. `Reserve(10, timeout_seconds: 2)` on insufficient stock fails
+  after ~2s with the handler's own error as the update outcome — enforced by
+  a durable timer inside the workflow, not by the client's context — and
+  leaves no trace: stock untouched, workflow healthy, a later satisfiable
+  reservation fills normally. This is also what bounds the pre-rollover
+  drain: a parked reservation can only delay continue-as-new until its
+  deadline.
 - **`TestSkipDrainNeverDoubleCounts`** — pins a subtle ordering rule found by
   adversarial testing: once the workflow has built its continue-as-new
   arguments, it can no longer observe handler effects. Sweeping queued

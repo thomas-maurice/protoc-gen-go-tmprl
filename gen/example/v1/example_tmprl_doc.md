@@ -466,6 +466,11 @@ Takes stock, blocking until enough is available
 | Field name | Type | Cardinality | Deprecated ? | Description |
 | --- | --- | --- | --- | --- |
 | Quantity | int32 | Optional | ✅ | <pre>How many items to reserve, must be > 0</pre> |
+| TimeoutSeconds | int32 | Optional | ✅ | <pre>How long to wait for enough stock before failing the update, in
+ seconds. 0 waits forever. The timeout is enforced INSIDE the workflow
+ with a durable timer (workflow.AwaitWithTimeout), so it survives worker
+ restarts and also bounds how long a parked reservation can delay a
+ continue-as-new rollover</pre> |
 
 
 <a id="message_example_v1_ReserveResponse"></a>

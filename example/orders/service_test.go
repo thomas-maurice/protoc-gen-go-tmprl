@@ -287,3 +287,91 @@ func TestTrackInventory_DrainKeepsServicingRestocks(t *testing.T) {
 		t.Fatalf("expected ContinueAsNewError, got %v", wfErr)
 	}
 }
+
+// TestTrackInventory_ReserveTimeoutBoundsTheDrain: a Reserve with
+// timeout_seconds set must fail cleanly when the stock never materialises --
+// and, crucially, its expiry must UNBLOCK the pre-rollover handler drain. A
+// Restock(5) triggers the rollover while Reserve(10, 5m) is still parked:
+// the drain waits, the reservation times out at the five minute mark, the
+// caller gets the error as the update outcome, and only then does the run
+// continue-as-new. Without the timeout this run could never roll over.
+func TestTrackInventory_ReserveTimeoutBoundsTheDrain(t *testing.T) {
+	env := newTestEnv(t)
+	env.SetTestTimeout(30 * time.Second)
+
+	cb := &updateCallback{}
+	env.RegisterDelayedCallback(func() {
+		env.UpdateWorkflow(examplev1.UpdateReserveName, "reserve-timeout", cb,
+			&examplev1.ReserveRequest{Quantity: 10, TimeoutSeconds: 300})
+	}, time.Minute)
+	// 5 < 10: the reservation stays unsatisfiable; this restock only
+	// triggers the rollover, whose drain then waits on the parked handler.
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(examplev1.SignalRestockName, &examplev1.RestockRequest{Quantity: 5})
+	}, 2*time.Minute)
+
+	env.ExecuteWorkflow(examplev1.WorkflowTrackInventoryName, &examplev1.TrackInventoryRequest{
+		Sku:                         "die-d20",
+		InitialStock:                0,
+		RestocksBeforeContinueAsNew: 1,
+	})
+
+	if !env.IsWorkflowCompleted() {
+		t.Fatal("workflow did not complete")
+	}
+
+	// The update completed -- with the timeout error as its outcome, not by
+	// being abandoned.
+	if !cb.completed {
+		t.Fatal("timed-out update never completed")
+	}
+	if cb.err == nil {
+		t.Fatalf("expected the reservation to fail on timeout, got result %v", cb.result)
+	}
+
+	// The drain was released by the expiry: the run ended in a rollover
+	// carrying the full, un-reserved stock.
+	wfErr := env.GetWorkflowError()
+	var canErr *workflow.ContinueAsNewError
+	if wfErr == nil || !errors.As(wfErr, &canErr) {
+		t.Fatalf("expected ContinueAsNewError after the timed-out handler released the drain, got %v", wfErr)
+	}
+}
+
+// TestTrackInventory_ReserveTimeoutNotHitStillFills: setting timeout_seconds
+// must not change the happy path -- a restock arriving before the deadline
+// fills the reservation exactly like an unbounded one.
+func TestTrackInventory_ReserveTimeoutNotHitStillFills(t *testing.T) {
+	env := newTestEnv(t)
+	env.SetTestTimeout(30 * time.Second)
+
+	cb := &updateCallback{}
+	env.RegisterDelayedCallback(func() {
+		env.UpdateWorkflow(examplev1.UpdateReserveName, "reserve-bounded", cb,
+			&examplev1.ReserveRequest{Quantity: 3, TimeoutSeconds: 3600})
+	}, time.Minute)
+	// Arrives half an hour in: well before the one hour deadline.
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(examplev1.SignalRestockName, &examplev1.RestockRequest{Quantity: 5})
+	}, 30*time.Minute)
+
+	env.ExecuteWorkflow(examplev1.WorkflowTrackInventoryName, &examplev1.TrackInventoryRequest{
+		Sku:                         "die-d20",
+		InitialStock:                0,
+		RestocksBeforeContinueAsNew: 1,
+	})
+
+	if !env.IsWorkflowCompleted() {
+		t.Fatal("workflow did not complete")
+	}
+	if !cb.completed || cb.err != nil {
+		t.Fatalf("bounded reservation did not fill cleanly: completed=%v err=%v", cb.completed, cb.err)
+	}
+	resp, ok := cb.result.(*examplev1.ReserveResponse)
+	if !ok {
+		t.Fatalf("update result has wrong type: %T", cb.result)
+	}
+	if resp.RemainingStock != 2 {
+		t.Errorf("remaining stock = %d, want 2", resp.RemainingStock)
+	}
+}

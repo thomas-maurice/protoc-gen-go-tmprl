@@ -599,3 +599,61 @@ func TestSkipDrainNeverDoubleCounts(t *testing.T) {
 
 	cancelInventory(ctx, t, inv)
 }
+
+// TestReserveTimeoutFailsCleanly: the caller-supplied reservation timeout,
+// against a real server. Reserve(10, timeout 2s) on an empty inventory: the
+// handler's AwaitWithTimeout expires (a durable workflow timer, not a client
+// deadline), the caller receives the handler's error as the update outcome,
+// and the workflow is untouched -- still running, stock unchanged, no trace
+// of the reservation.
+func TestReserveTimeoutFailsCleanly(t *testing.T) {
+	ctx := context.Background()
+
+	future, err := ordersClient.ExecuteWorkflowTrackInventory(ctx, &examplev1.TrackInventoryRequest{
+		Sku:          "die-d8",
+		InitialStock: 4,
+		// no rollovers: this test is about the handler timeout alone
+	})
+	if err != nil {
+		t.Fatalf("could not start workflow: %v", err)
+	}
+	inv := ordersClient.GetTrackInventory(ctx, future.GetID(), "")
+
+	start := time.Now()
+	_, err = ordersClient.UpdateReserve(ctx, future.GetID(), "", &examplev1.ReserveRequest{
+		Quantity:       10,
+		TimeoutSeconds: 2,
+	})
+	took := time.Since(start)
+	if err == nil {
+		t.Fatal("expected the reservation to fail on timeout")
+	}
+	t.Logf("reservation failed after %s with the handler's own error: %v", took.Round(time.Millisecond), err)
+	if took > 15*time.Second {
+		t.Errorf("timeout took %s, expected roughly the requested 2s", took)
+	}
+
+	// The failed reservation left no trace: same stock, workflow healthy.
+	st, err := inv.QueryGetStock(ctx, &emptypb.Empty{})
+	if err != nil {
+		t.Fatalf("could not query after the timed-out update: %v", err)
+	}
+	if st.Stock != 4 {
+		t.Errorf("stock = %d, want 4 untouched", st.Stock)
+	}
+	t.Logf("workflow unaffected: stock still %d, and a fresh reservation within means still works", st.Stock)
+
+	// Sanity: a satisfiable bounded reservation still fills.
+	resp, err := ordersClient.UpdateReserve(ctx, future.GetID(), "", &examplev1.ReserveRequest{
+		Quantity:       3,
+		TimeoutSeconds: 30,
+	})
+	if err != nil {
+		t.Fatalf("satisfiable bounded reservation failed: %v", err)
+	}
+	if resp.RemainingStock != 1 {
+		t.Errorf("remaining stock = %d, want 1", resp.RemainingStock)
+	}
+
+	cancelInventory(ctx, t, inv)
+}
