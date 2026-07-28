@@ -1082,9 +1082,15 @@ func (x *RestockRequest) GetQuantity() int32 {
 type ReserveRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// How many items to reserve, must be > 0
-	Quantity      int32 `protobuf:"varint,1,opt,name=quantity,proto3" json:"quantity,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Quantity int32 `protobuf:"varint,1,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	// How long to wait for enough stock before failing the update, in
+	// seconds. 0 waits forever. The timeout is enforced INSIDE the workflow
+	// with a durable timer (workflow.AwaitWithTimeout), so it survives worker
+	// restarts and also bounds how long a parked reservation can delay a
+	// continue-as-new rollover
+	TimeoutSeconds int32 `protobuf:"varint,2,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ReserveRequest) Reset() {
@@ -1120,6 +1126,13 @@ func (*ReserveRequest) Descriptor() ([]byte, []int) {
 func (x *ReserveRequest) GetQuantity() int32 {
 	if x != nil {
 		return x.Quantity
+	}
+	return 0
+}
+
+func (x *ReserveRequest) GetTimeoutSeconds() int32 {
+	if x != nil {
+		return x.TimeoutSeconds
 	}
 	return 0
 }
@@ -1297,9 +1310,10 @@ const file_example_v1_example_proto_rawDesc = "" +
 	"\x1frestocks_before_continue_as_new\x18\x04 \x01(\x05R\x1brestocksBeforeContinueAsNew\x12,\n" +
 	"\x12skip_handler_drain\x18\x05 \x01(\bR\x10skipHandlerDrain\",\n" +
 	"\x0eRestockRequest\x12\x1a\n" +
-	"\bquantity\x18\x01 \x01(\x05R\bquantity\",\n" +
+	"\bquantity\x18\x01 \x01(\x05R\bquantity\"U\n" +
 	"\x0eReserveRequest\x12\x1a\n" +
-	"\bquantity\x18\x01 \x01(\x05R\bquantity\"Z\n" +
+	"\bquantity\x18\x01 \x01(\x05R\bquantity\x12'\n" +
+	"\x0ftimeout_seconds\x18\x02 \x01(\x05R\x0etimeoutSeconds\"Z\n" +
 	"\x0fReserveResponse\x12'\n" +
 	"\x0fremaining_stock\x18\x01 \x01(\x05R\x0eremainingStock\x12\x1e\n" +
 	"\n" +

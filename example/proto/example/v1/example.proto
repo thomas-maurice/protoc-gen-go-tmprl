@@ -313,6 +313,12 @@ message RestockRequest {
 message ReserveRequest {
   // How many items to reserve, must be > 0
   int32 quantity = 1;
+  // How long to wait for enough stock before failing the update, in
+  // seconds. 0 waits forever. The timeout is enforced INSIDE the workflow
+  // with a durable timer (workflow.AwaitWithTimeout), so it survives worker
+  // restarts and also bounds how long a parked reservation can delay a
+  // continue-as-new rollover
+  int32 timeout_seconds = 2;
 }
 
 // Answer to a successful reservation
