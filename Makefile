@@ -26,10 +26,17 @@ verify-examples:
 .PHONY: test
 test: test-unit
 
+.PHONY: test-e2e
+test-e2e:
+	@echo "Starting the temporal dev stack..."
+	@docker compose up -d --wait
+	@echo "Running e2e tests against the dev stack..."
+	@go test -race -count=1 -tags e2e -v ./example/e2e/
+
 .PHONY: test-unit
 test-unit:
 	@echo "Running unit tests with race detection and coverage..."
-	@go test -race -cover ./internal/... ./gen/...
+	@go test -race -cover ./internal/... ./gen/... ./example/...
 
 .PHONY: clean
 clean:

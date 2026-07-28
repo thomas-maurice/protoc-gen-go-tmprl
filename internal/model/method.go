@@ -18,6 +18,7 @@ const (
 	MethodTypeActivity
 	MethodTypeSignal
 	MethodTypeQuery
+	MethodTypeUpdate
 )
 
 // Method Base interface for all method types
@@ -86,6 +87,14 @@ type Query struct {
 
 func (q *Query) GetType() MethodType { return MethodTypeQuery }
 
+// Update Represents a temporal update
+type Update struct {
+	BaseMethod
+	CustomName string
+}
+
+func (u *Update) GetType() MethodType { return MethodTypeUpdate }
+
 // detectMethodType Determines the type of a protobuf method
 func detectMethodType(method *protogen.Method) (MethodType, error) {
 	if opts, ok := proto.GetExtension(method.Desc.Options(), temporalv1.E_Workflow).(*temporalv1.WorkflowOptions); ok && opts != nil {
@@ -99,6 +108,9 @@ func detectMethodType(method *protogen.Method) (MethodType, error) {
 	}
 	if opts, ok := proto.GetExtension(method.Desc.Options(), temporalv1.E_Query).(*temporalv1.QueryOptions); ok && opts != nil {
 		return MethodTypeQuery, nil
+	}
+	if opts, ok := proto.GetExtension(method.Desc.Options(), temporalv1.E_Update).(*temporalv1.UpdateOptions); ok && opts != nil {
+		return MethodTypeUpdate, nil
 	}
 	return MethodTypeUnknown, fmt.Errorf("method %s has no temporal annotation", method.GoName)
 }
@@ -234,6 +246,36 @@ func NewQuery(protoMethod *protogen.Method, service *Service) (*Query, error) {
 	}
 
 	return &Query{
+		BaseMethod: base,
+		CustomName: customName,
+	}, nil
+}
+
+// NewUpdate Creates an update from a protobuf method
+func NewUpdate(protoMethod *protogen.Method, service *Service) (*Update, error) {
+	opts, ok := proto.GetExtension(protoMethod.Desc.Options(), temporalv1.E_Update).(*temporalv1.UpdateOptions)
+	if !ok || opts == nil {
+		return nil, fmt.Errorf("method %s is not an update", protoMethod.GoName)
+	}
+
+	base := BaseMethod{
+		Name:           string(protoMethod.Desc.Name()),
+		GoName:         protoMethod.GoName,
+		RegisteredName: getRegisteredName(protoMethod),
+		Input:          protoMethod.Input,
+		Output:         protoMethod.Output,
+		Comment:        getComment(protoMethod),
+		ProtoMethod:    protoMethod,
+		Service:        service,
+	}
+
+	customName := ""
+	if opts.Name != "" {
+		customName = opts.Name
+		base.RegisteredName = opts.Name
+	}
+
+	return &Update{
 		BaseMethod: base,
 		CustomName: customName,
 	}, nil

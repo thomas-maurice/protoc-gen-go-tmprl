@@ -25,14 +25,16 @@ type Service struct {
 	Activities []*Activity
 	Signals    []*Signal
 	Queries    []*Query
+	Updates    []*Update
 
 	// Defaults
 	DefaultActivityOptions *temporalv1.ActivityOptions
 	DefaultWorkflowOptions *temporalv1.WorkflowOptions
 
-	// Lookup maps for signals/queries (exported for templates)
+	// Lookup maps for signals/queries/updates (exported for templates)
 	SignalsMap map[string]*Signal
 	QueriesMap map[string]*Query
+	UpdatesMap map[string]*Update
 }
 
 // NewService Creates a service model from a protobuf service
@@ -55,9 +57,10 @@ func NewService(protoService *protogen.Service, gf *protogen.GeneratedFile, conf
 		DefaultWorkflowOptions: serviceOpts.DefaultWorkflowOptions,
 		SignalsMap:             make(map[string]*Signal),
 		QueriesMap:             make(map[string]*Query),
+		UpdatesMap:             make(map[string]*Update),
 	}
 
-	// First pass: create signals and queries for lookup
+	// First pass: create signals, queries and updates for lookup
 	for _, method := range protoService.Methods {
 		methodType, err := detectMethodType(method)
 		if err != nil {
@@ -80,6 +83,14 @@ func NewService(protoService *protogen.Service, gf *protogen.GeneratedFile, conf
 			}
 			service.Queries = append(service.Queries, query)
 			service.QueriesMap[query.GoName] = query
+
+		case MethodTypeUpdate:
+			update, err := NewUpdate(method, service)
+			if err != nil {
+				return nil, err
+			}
+			service.Updates = append(service.Updates, update)
+			service.UpdatesMap[update.GoName] = update
 		}
 	}
 
@@ -126,6 +137,15 @@ func (s *Service) GetQuery(name string) (*Query, error) {
 		return nil, fmt.Errorf("query %s not found in service %s", name, s.GoName)
 	}
 	return query, nil
+}
+
+// GetUpdate Retrieves an update by name
+func (s *Service) GetUpdate(name string) (*Update, error) {
+	update, ok := s.UpdatesMap[name]
+	if !ok {
+		return nil, fmt.Errorf("update %s not found in service %s", name, s.GoName)
+	}
+	return update, nil
 }
 
 // GetClientName Returns the generated client name

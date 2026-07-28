@@ -21,120 +21,152 @@ import (
 	time "time"
 )
 
-// Constants for DieRoll service
+// Constants for Orders service
 const (
-	// DefaultDieRollTaskQueueName Default task queue name for DieRoll
-	DefaultDieRollTaskQueueName = "service-task-queue"
+	// DefaultOrdersTaskQueueName Default task queue name for Orders
+	DefaultOrdersTaskQueueName = "orders"
 
-	// DefaultDieRollActivityScheduleToCloseTimeout Default activity schedule to close timeout
-	DefaultDieRollActivityScheduleToCloseTimeout = 86400
+	// DefaultOrdersActivityScheduleToCloseTimeout Default activity schedule to close timeout
+	DefaultOrdersActivityScheduleToCloseTimeout = 86400
 
-	// WorkflowParentWorkflowName is the registered name for workflow ParentWorkflow.
-	WorkflowParentWorkflowName = "example.v1.DieRoll.ParentWorkflow"
+	// WorkflowProcessOrderName is the registered name for workflow ProcessOrder.
+	WorkflowProcessOrderName = "example.v1.Orders.ProcessOrder"
 
-	// WorkflowChildWorkflowName is the registered name for workflow ChildWorkflow.
-	WorkflowChildWorkflowName = "example.v1.DieRoll.ChildWorkflow"
+	// WorkflowShipOrderName is the registered name for workflow ShipOrder.
+	WorkflowShipOrderName = "example.v1.Orders.ShipOrder"
 
-	// WorkflowThrowDiesName is the registered name for workflow ThrowDies.
-	WorkflowThrowDiesName = "example.v1.DieRoll.ThrowDies"
+	// WorkflowDailySalesReportName is the registered name for workflow DailySalesReport.
+	WorkflowDailySalesReportName = "example.v1.Orders.DailySalesReport"
 
-	// WorkflowThrowUntilValueName is the registered name for workflow ThrowUntilValue.
-	WorkflowThrowUntilValueName = "example.v1.DieRoll.ThrowUntilValue"
+	// WorkflowTrackInventoryName is the registered name for workflow TrackInventory.
+	WorkflowTrackInventoryName = "example.v1.Orders.TrackInventory"
 
-	// ActivityThrowDieName is the registered name for activity ThrowDie.
-	ActivityThrowDieName = "example.v1.DieRoll.ThrowDie"
+	// ActivityChargePaymentName is the registered name for activity ChargePayment.
+	ActivityChargePaymentName = "example.v1.Orders.ChargePayment"
 
-	// ActivityPingName is the registered name for activity Ping.
-	ActivityPingName = "ping.Ping"
+	// ActivityPackItemsName is the registered name for activity PackItems.
+	ActivityPackItemsName = "example.v1.Orders.PackItems"
 
-	// SignalContinueName is the registered name for signal Continue.
-	SignalContinueName = "example.v1.DieRoll.Continue"
+	// ActivityDispatchCourierName is the registered name for activity DispatchCourier.
+	ActivityDispatchCourierName = "courier.Dispatch"
 
-	// QueryGetThrowsStatusName is the registered name for query GetThrowsStatus.
-	QueryGetThrowsStatusName = "example.v1.DieRoll.GetThrowsStatus"
+	// SignalCancelOrderName is the registered name for signal CancelOrder.
+	SignalCancelOrderName = "example.v1.Orders.CancelOrder"
+
+	// SignalRestockName is the registered name for signal Restock.
+	SignalRestockName = "example.v1.Orders.Restock"
+
+	// QueryGetOrderStatusName is the registered name for query GetOrderStatus.
+	QueryGetOrderStatusName = "example.v1.Orders.GetOrderStatus"
+
+	// QueryGetStockName is the registered name for query GetStock.
+	QueryGetStockName = "example.v1.Orders.GetStock"
+
+	// UpdateChangeShippingAddressName is the registered name for update ChangeShippingAddress.
+	UpdateChangeShippingAddressName = "example.v1.Orders.ChangeShippingAddress"
+
+	// UpdateReserveName is the registered name for update Reserve.
+	UpdateReserveName = "example.v1.Orders.Reserve"
 )
 
-// DieRollService Interface that must be implemented to register workflows and activities
+// OrdersService Interface that must be implemented to register workflows and activities
 //
-// Service DieRoll is an example implementation of a service
-// It doesn't do much
+// Service Orders is a small e-commerce style fulfillment service used as a
+// guided tour of everything this plugin generates:
 //
-// But it is there, chilling.
+//   - workflows:  ProcessOrder (long lived), ShipOrder (child), DailySalesReport (scheduled)
+//   - activities: ChargePayment (retries + non-retryable errors), PackItems (heartbeats), DispatchCourier (custom name)
+//   - signals:    CancelOrder
+//   - queries:    GetOrderStatus
+//   - updates:    ChangeShippingAddress (validated, synchronous request/response)
 //
-// This documentation will be generated along the code
-// ```golang
-// package main
-//
-// import "fmt"
-//
-//	func main() {
-//	    fmt.Println("You can also put markdown in there, how cool is that ?")
-//	}
-//
-// ```
-type DieRollService interface {
-	// ParentWorkflow Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-	ParentWorkflow(ctx workflow.Context, req *emptypb.Empty) (*ParentWorkflowReply, error)
-	// ChildWorkflow
-	ChildWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error)
-	// ThrowDies Throws dies a few times and return the result
-	ThrowDies(ctx workflow.Context, req *ThrowDiesRequest) (*ThrowDiesResponse, error)
-	// ThrowUntilValue
-	ThrowUntilValue(ctx workflow.Context, req *ThrowUntilValueRequest) (*emptypb.Empty, error)
-	// ThrowDie Throws a d6 and returns the result
-	ThrowDie(ctx context.Context, req *emptypb.Empty) (*ThrowDieResponse, error)
-	// Ping Just a simple ping
-	// Takes no parameters
-	// returns nothing
-	Ping(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error)
+// See `example/worker` for the implementation and `example/client` for a
+// runnable walkthrough of all of the above.
+type OrdersService interface {
+	// ProcessOrder ProcessOrder drives an order from payment to shipping. While it runs it
+	// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+	// cancelled (CancelOrder signal)
+	ProcessOrder(ctx workflow.Context, req *ProcessOrderRequest) (*ProcessOrderResponse, error)
+	// ShipOrder ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+	// child workflow so shipping shows up as its own execution in the UI
+	ShipOrder(ctx workflow.Context, req *ShipOrderRequest) (*ShipOrderResponse, error)
+	// DailySalesReport DailySalesReport is a fast workflow meant to be driven by a Temporal
+	// schedule -- see the schedule part of the client walkthrough
+	DailySalesReport(ctx workflow.Context, req *emptypb.Empty) (*DailySalesReportResponse, error)
+	// TrackInventory TrackInventory is a long-lived "entity" workflow tracking the stock of
+	// one SKU. It rolls over with continue-as-new after a number of restocks,
+	// which makes it the demo for how BLOCKED updates interact with
+	// continue-as-new: the workflow drains its update handlers (see
+	// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+	// parked on "not enough stock" is answered before the run ends
+	TrackInventory(ctx workflow.Context, req *TrackInventoryRequest) (*GetStockResponse, error)
+	// ChargePayment ChargePayment captures the money. The retry policy retries transient
+	// payment provider hiccups with exponential backoff, but gives up
+	// immediately when the card is declined: "CardDeclined" is listed in
+	// non_retryable_error_types and the worker returns application errors of
+	// that type when the card is bad
+	ChargePayment(ctx context.Context, req *ChargePaymentRequest) (*ChargePaymentResponse, error)
+	// PackItems PackItems packs the order, one parcel per item. It is slow, so it
+	// records a heartbeat after every parcel: if the worker dies mid-pack,
+	// Temporal notices within heartbeat_timeout and reschedules the activity
+	PackItems(ctx context.Context, req *PackItemsRequest) (*PackItemsResponse, error)
+	// DispatchCourier DispatchCourier books a courier and returns a tracking number. The
+	// `name` option overrides the registered activity name, which otherwise
+	// defaults to <package>.<service>.<method>
+	DispatchCourier(ctx context.Context, req *DispatchCourierRequest) (*DispatchCourierResponse, error)
 }
 
-// UnimplementedDieRollService Stub implementation that panics
-type UnimplementedDieRollService struct{}
+// UnimplementedOrdersService Stub implementation that panics
+type UnimplementedOrdersService struct{}
 
-func (UnimplementedDieRollService) ParentWorkflow(ctx workflow.Context, req *emptypb.Empty) (*ParentWorkflowReply, error) {
-	panic("ParentWorkflow not implemented")
+func (UnimplementedOrdersService) ProcessOrder(ctx workflow.Context, req *ProcessOrderRequest) (*ProcessOrderResponse, error) {
+	panic("ProcessOrder not implemented")
 }
-func (UnimplementedDieRollService) ChildWorkflow(ctx workflow.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
-	panic("ChildWorkflow not implemented")
+func (UnimplementedOrdersService) ShipOrder(ctx workflow.Context, req *ShipOrderRequest) (*ShipOrderResponse, error) {
+	panic("ShipOrder not implemented")
 }
-func (UnimplementedDieRollService) ThrowDies(ctx workflow.Context, req *ThrowDiesRequest) (*ThrowDiesResponse, error) {
-	panic("ThrowDies not implemented")
+func (UnimplementedOrdersService) DailySalesReport(ctx workflow.Context, req *emptypb.Empty) (*DailySalesReportResponse, error) {
+	panic("DailySalesReport not implemented")
 }
-func (UnimplementedDieRollService) ThrowUntilValue(ctx workflow.Context, req *ThrowUntilValueRequest) (*emptypb.Empty, error) {
-	panic("ThrowUntilValue not implemented")
+func (UnimplementedOrdersService) TrackInventory(ctx workflow.Context, req *TrackInventoryRequest) (*GetStockResponse, error) {
+	panic("TrackInventory not implemented")
 }
-func (UnimplementedDieRollService) ThrowDie(ctx context.Context, req *emptypb.Empty) (*ThrowDieResponse, error) {
-	panic("ThrowDie not implemented")
+func (UnimplementedOrdersService) ChargePayment(ctx context.Context, req *ChargePaymentRequest) (*ChargePaymentResponse, error) {
+	panic("ChargePayment not implemented")
 }
-func (UnimplementedDieRollService) Ping(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
-	panic("Ping not implemented")
+func (UnimplementedOrdersService) PackItems(ctx context.Context, req *PackItemsRequest) (*PackItemsResponse, error) {
+	panic("PackItems not implemented")
+}
+func (UnimplementedOrdersService) DispatchCourier(ctx context.Context, req *DispatchCourierRequest) (*DispatchCourierResponse, error) {
+	panic("DispatchCourier not implemented")
 }
 
-// DieRollClient Client for the DieRoll service
-type DieRollClient struct {
+// OrdersClient Client for the Orders service
+type OrdersClient struct {
 	client    client.Client
 	taskQueue string
 }
 
-// NewDieRollClient Returns a new instance of the client.
+// NewOrdersClient Returns a new instance of the client.
 // If `taskQueue` stays empty the default one will be used
-func NewDieRollClient(client client.Client, taskQueue ...string) (*DieRollClient, error) {
-	clientTaskQueue := DefaultDieRollTaskQueueName
+func NewOrdersClient(client client.Client, taskQueue ...string) (*OrdersClient, error) {
+	clientTaskQueue := DefaultOrdersTaskQueueName
 	if len(taskQueue) > 0 {
 		clientTaskQueue = taskQueue[0]
 	}
 
-	return &DieRollClient{
+	return &OrdersClient{
 		client:    client,
 		taskQueue: clientTaskQueue,
 	}, nil
 }
 
-// ExecuteWorkflowParentWorkflow executes the workflow and returns a future to it
+// ExecuteWorkflowProcessOrder executes the workflow and returns a future to it
 //
-// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-func (c *DieRollClient) ExecuteWorkflowParentWorkflow(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
+// ProcessOrder drives an order from payment to shipping. While it runs it
+// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+// cancelled (CancelOrder signal)
+func (c *OrdersClient) ExecuteWorkflowProcessOrder(ctx context.Context, req *ProcessOrderRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
 	wOptions := client.StartWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
@@ -143,33 +175,32 @@ func (c *DieRollClient) ExecuteWorkflowParentWorkflow(ctx context.Context, req *
 		wOptions.TaskQueue = c.taskQueue
 	}
 	if wOptions.TaskQueue == "" {
-		wOptions.TaskQueue = DefaultDieRollTaskQueueName
+		wOptions.TaskQueue = DefaultOrdersTaskQueueName
 	}
 	if wOptions.ID == "" {
-		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowParentWorkflowName, uuid.NewString())
+		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowProcessOrderName, uuid.NewString())
 	}
 
 	// Apply timeout options
 	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+		wOptions.WorkflowExecutionTimeout = time.Duration(3600) * time.Second
 	}
 
-	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowParentWorkflowName, req)
+	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowProcessOrderName, req)
 }
 
-// ExecuteWorkflowParentWorkflowSync executes the workflow and returns the result when finished
+// ExecuteWorkflowProcessOrderSync executes the workflow and returns the result when finished
 //
-// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-func (c *DieRollClient) ExecuteWorkflowParentWorkflowSync(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (*ParentWorkflowReply, error) {
-	future, err := c.ExecuteWorkflowParentWorkflow(ctx, req, options...)
+// ProcessOrder drives an order from payment to shipping. While it runs it
+// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+// cancelled (CancelOrder signal)
+func (c *OrdersClient) ExecuteWorkflowProcessOrderSync(ctx context.Context, req *ProcessOrderRequest, options ...client.StartWorkflowOptions) (*ProcessOrderResponse, error) {
+	future, err := c.ExecuteWorkflowProcessOrder(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	var resp *ParentWorkflowReply
+	var resp *ProcessOrderResponse
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -178,11 +209,11 @@ func (c *DieRollClient) ExecuteWorkflowParentWorkflowSync(ctx context.Context, r
 	return resp, nil
 }
 
-// GetWorkflowParentWorkflowResult gets the result of a given workflow
-func (c *DieRollClient) GetWorkflowParentWorkflowResult(ctx context.Context, workflowId string, runId string) (*ParentWorkflowReply, error) {
+// GetWorkflowProcessOrderResult gets the result of a given workflow
+func (c *OrdersClient) GetWorkflowProcessOrderResult(ctx context.Context, workflowId string, runId string) (*ProcessOrderResponse, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 
-	var resp *ParentWorkflowReply
+	var resp *ProcessOrderResponse
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -191,10 +222,12 @@ func (c *DieRollClient) GetWorkflowParentWorkflowResult(ctx context.Context, wor
 	return resp, nil
 }
 
-// ExecuteChildParentWorkflow executes the workflow as a child workflow and returns a future to it
+// ExecuteChildProcessOrder executes the workflow as a child workflow and returns a future to it
 //
-// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-func (c *DieRollClient) ExecuteChildParentWorkflow(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
+// ProcessOrder drives an order from payment to shipping. While it runs it
+// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+// cancelled (CancelOrder signal)
+func (c *OrdersClient) ExecuteChildProcessOrder(ctx workflow.Context, req *ProcessOrderRequest, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
 	wOptions := workflow.ChildWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
@@ -205,12 +238,12 @@ func (c *DieRollClient) ExecuteChildParentWorkflow(ctx workflow.Context, req *em
 	}
 
 	if wOptions.TaskQueue == "" {
-		wOptions.TaskQueue = DefaultDieRollTaskQueueName
+		wOptions.TaskQueue = DefaultOrdersTaskQueueName
 	}
 	if wOptions.WorkflowID == "" {
 		var id string
 		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
-			return fmt.Sprintf("%s/%s", WorkflowParentWorkflowName, uuid.NewString())
+			return fmt.Sprintf("%s/%s", WorkflowProcessOrderName, uuid.NewString())
 		})
 
 		err := genId.Get(&id)
@@ -223,25 +256,24 @@ func (c *DieRollClient) ExecuteChildParentWorkflow(ctx workflow.Context, req *em
 
 	// Apply timeout options
 	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+		wOptions.WorkflowExecutionTimeout = time.Duration(3600) * time.Second
 	}
 
-	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowParentWorkflowName, req), nil
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowProcessOrderName, req), nil
 }
 
-// ExecuteChildParentWorkflowSync executes the workflow as a child workflow and returns the result when finished
+// ExecuteChildProcessOrderSync executes the workflow as a child workflow and returns the result when finished
 //
-// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-func (c *DieRollClient) ExecuteChildParentWorkflowSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (*ParentWorkflowReply, error) {
-	future, err := c.ExecuteChildParentWorkflow(ctx, req, options...)
+// ProcessOrder drives an order from payment to shipping. While it runs it
+// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+// cancelled (CancelOrder signal)
+func (c *OrdersClient) ExecuteChildProcessOrderSync(ctx workflow.Context, req *ProcessOrderRequest, options ...workflow.ChildWorkflowOptions) (*ProcessOrderResponse, error) {
+	future, err := c.ExecuteChildProcessOrder(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	var resp *ParentWorkflowReply
+	var resp *ProcessOrderResponse
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -250,53 +282,60 @@ func (c *DieRollClient) ExecuteChildParentWorkflowSync(ctx workflow.Context, req
 	return resp, nil
 }
 
-// CreateScheduleParentWorkflow creates a schedule for ParentWorkflow
+// CreateScheduleProcessOrder creates a schedule for ProcessOrder
 //
-// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-func (c *DieRollClient) CreateScheduleParentWorkflow(ctx context.Context, scheduleID string, req *emptypb.Empty, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+// ProcessOrder drives an order from payment to shipping. While it runs it
+// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+// cancelled (CancelOrder signal)
+func (c *OrdersClient) CreateScheduleProcessOrder(ctx context.Context, scheduleID string, req *ProcessOrderRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
 	scheduleOptions := client.ScheduleOptions{
 		ID: scheduleID,
 		Action: &client.ScheduleWorkflowAction{
 			ID:                       scheduleID,
-			Workflow:                 WorkflowParentWorkflowName,
+			Workflow:                 WorkflowProcessOrderName,
 			Args:                     []interface{}{req},
 			TaskQueue:                c.taskQueue,
-			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
-			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+			WorkflowExecutionTimeout: time.Duration(3600) * time.Second,
 		},
 	}
 
 	if len(options) > 0 {
-		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], true)
+		mergeScheduleOptionsOrders(&scheduleOptions, options[0], true)
 	}
-	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
 
 	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
 }
 
-// GetScheduleParentWorkflow gets a handle to an existing schedule for ParentWorkflow
+// GetScheduleProcessOrder gets a handle to an existing schedule for ProcessOrder
 //
-// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-func (c *DieRollClient) GetScheduleParentWorkflow(ctx context.Context, scheduleID string) client.ScheduleHandle {
+// ProcessOrder drives an order from payment to shipping. While it runs it
+// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+// cancelled (CancelOrder signal)
+func (c *OrdersClient) GetScheduleProcessOrder(ctx context.Context, scheduleID string) client.ScheduleHandle {
 	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 }
 
-// DeleteScheduleParentWorkflow deletes a schedule for ParentWorkflow
+// DeleteScheduleProcessOrder deletes a schedule for ProcessOrder
 //
-// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-func (c *DieRollClient) DeleteScheduleParentWorkflow(ctx context.Context, scheduleID string) error {
+// ProcessOrder drives an order from payment to shipping. While it runs it
+// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+// cancelled (CancelOrder signal)
+func (c *OrdersClient) DeleteScheduleProcessOrder(ctx context.Context, scheduleID string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	return handle.Delete(ctx)
 }
 
-// PauseScheduleParentWorkflow pauses a running schedule for ParentWorkflow. The note is
+// PauseScheduleProcessOrder pauses a running schedule for ProcessOrder. The note is
 // recorded by Temporal on the schedule's audit trail (visible via Describe). If
 // the schedule is already paused this is a no-op: we Describe first and skip the
 // Pause API call when .Schedule.State.Paused is already true, so it's safe to
 // call on every reconcile/bootstrap path without spamming the server.
 //
-// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-func (c *DieRollClient) PauseScheduleParentWorkflow(ctx context.Context, scheduleID string, note string) error {
+// ProcessOrder drives an order from payment to shipping. While it runs it
+// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+// cancelled (CancelOrder signal)
+func (c *OrdersClient) PauseScheduleProcessOrder(ctx context.Context, scheduleID string, note string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	desc, err := handle.Describe(ctx)
 	if err != nil {
@@ -308,13 +347,15 @@ func (c *DieRollClient) PauseScheduleParentWorkflow(ctx context.Context, schedul
 	return handle.Pause(ctx, client.SchedulePauseOptions{Note: note})
 }
 
-// UnpauseScheduleParentWorkflow resumes a paused schedule for ParentWorkflow. Like
-// PauseScheduleParentWorkflow, this is a read-then-write: we Describe first and
+// UnpauseScheduleProcessOrder resumes a paused schedule for ProcessOrder. Like
+// PauseScheduleProcessOrder, this is a read-then-write: we Describe first and
 // return nil if the schedule is already running, so idempotent bootstrap code
 // doesn't pay an extra Unpause round-trip per reconcile tick.
 //
-// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-func (c *DieRollClient) UnpauseScheduleParentWorkflow(ctx context.Context, scheduleID string, note string) error {
+// ProcessOrder drives an order from payment to shipping. While it runs it
+// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+// cancelled (CancelOrder signal)
+func (c *OrdersClient) UnpauseScheduleProcessOrder(ctx context.Context, scheduleID string, note string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	desc, err := handle.Describe(ctx)
 	if err != nil {
@@ -326,10 +367,12 @@ func (c *DieRollClient) UnpauseScheduleParentWorkflow(ctx context.Context, sched
 	return handle.Unpause(ctx, client.ScheduleUnpauseOptions{Note: note})
 }
 
-// ListScheduleParentWorkflow lists all schedules for ParentWorkflow workflow
+// ListScheduleProcessOrder lists all schedules for ProcessOrder workflow
 //
-// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-func (c *DieRollClient) ListScheduleParentWorkflow(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
+// ProcessOrder drives an order from payment to shipping. While it runs it
+// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+// cancelled (CancelOrder signal)
+func (c *OrdersClient) ListScheduleProcessOrder(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
 	var schedules []client.ScheduleListEntry
 
 	iter, err := c.client.ScheduleClient().List(ctx, client.ScheduleListOptions{
@@ -346,7 +389,7 @@ func (c *DieRollClient) ListScheduleParentWorkflow(ctx context.Context, pageSize
 		}
 
 		// Filter by workflow type
-		if entry.WorkflowType.Name == WorkflowParentWorkflowName {
+		if entry.WorkflowType.Name == WorkflowProcessOrderName {
 			schedules = append(schedules, *entry)
 		}
 	}
@@ -354,17 +397,19 @@ func (c *DieRollClient) ListScheduleParentWorkflow(ctx context.Context, pageSize
 	return schedules, nil
 }
 
-// UpsertScheduleParentWorkflow creates or updates a schedule for ParentWorkflow
+// UpsertScheduleProcessOrder creates or updates a schedule for ProcessOrder
 //
-// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-func (c *DieRollClient) UpsertScheduleParentWorkflow(ctx context.Context, scheduleID string, req *emptypb.Empty, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+// ProcessOrder drives an order from payment to shipping. While it runs it
+// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+// cancelled (CancelOrder signal)
+func (c *OrdersClient) UpsertScheduleProcessOrder(ctx context.Context, scheduleID string, req *ProcessOrderRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 
 	// Try to describe the schedule to see if it exists
 	_, err := handle.Describe(ctx)
 	if err != nil {
 		// Schedule doesn't exist, create it
-		return c.CreateScheduleParentWorkflow(ctx, scheduleID, req, options...)
+		return c.CreateScheduleProcessOrder(ctx, scheduleID, req, options...)
 	}
 
 	// Schedule exists, update it
@@ -372,20 +417,19 @@ func (c *DieRollClient) UpsertScheduleParentWorkflow(ctx context.Context, schedu
 		ID: scheduleID,
 		Action: &client.ScheduleWorkflowAction{
 			ID:                       scheduleID,
-			Workflow:                 WorkflowParentWorkflowName,
+			Workflow:                 WorkflowProcessOrderName,
 			Args:                     []interface{}{req},
 			TaskQueue:                c.taskQueue,
-			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
-			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+			WorkflowExecutionTimeout: time.Duration(3600) * time.Second,
 		},
 	}
 
 	if len(options) > 0 {
 		// Upsert never flips Paused on a running schedule; everything else merges
 		// identically to CreateSchedule.
-		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], false)
+		mergeScheduleOptionsOrders(&scheduleOptions, options[0], false)
 	}
-	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
 
 	// Update the schedule
 	err = handle.Update(ctx, client.ScheduleUpdateOptions{
@@ -423,8 +467,11 @@ func (c *DieRollClient) UpsertScheduleParentWorkflow(ctx context.Context, schedu
 	return handle, nil
 }
 
-// ExecuteWorkflowChildWorkflow executes the workflow and returns a future to it
-func (c *DieRollClient) ExecuteWorkflowChildWorkflow(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
+// ExecuteWorkflowShipOrder executes the workflow and returns a future to it
+//
+// ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+// child workflow so shipping shows up as its own execution in the UI
+func (c *OrdersClient) ExecuteWorkflowShipOrder(ctx context.Context, req *ShipOrderRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
 	wOptions := client.StartWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
@@ -433,31 +480,31 @@ func (c *DieRollClient) ExecuteWorkflowChildWorkflow(ctx context.Context, req *e
 		wOptions.TaskQueue = c.taskQueue
 	}
 	if wOptions.TaskQueue == "" {
-		wOptions.TaskQueue = DefaultDieRollTaskQueueName
+		wOptions.TaskQueue = DefaultOrdersTaskQueueName
 	}
 	if wOptions.ID == "" {
-		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowChildWorkflowName, uuid.NewString())
+		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowShipOrderName, uuid.NewString())
 	}
 
 	// Apply timeout options
 	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+		wOptions.WorkflowExecutionTimeout = time.Duration(3600) * time.Second
 	}
 
-	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowChildWorkflowName, req)
+	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowShipOrderName, req)
 }
 
-// ExecuteWorkflowChildWorkflowSync executes the workflow and returns the result when finished
-func (c *DieRollClient) ExecuteWorkflowChildWorkflowSync(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (*emptypb.Empty, error) {
-	future, err := c.ExecuteWorkflowChildWorkflow(ctx, req, options...)
+// ExecuteWorkflowShipOrderSync executes the workflow and returns the result when finished
+//
+// ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+// child workflow so shipping shows up as its own execution in the UI
+func (c *OrdersClient) ExecuteWorkflowShipOrderSync(ctx context.Context, req *ShipOrderRequest, options ...client.StartWorkflowOptions) (*ShipOrderResponse, error) {
+	future, err := c.ExecuteWorkflowShipOrder(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	var resp *emptypb.Empty
+	var resp *ShipOrderResponse
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -466,11 +513,11 @@ func (c *DieRollClient) ExecuteWorkflowChildWorkflowSync(ctx context.Context, re
 	return resp, nil
 }
 
-// GetWorkflowChildWorkflowResult gets the result of a given workflow
-func (c *DieRollClient) GetWorkflowChildWorkflowResult(ctx context.Context, workflowId string, runId string) (*emptypb.Empty, error) {
+// GetWorkflowShipOrderResult gets the result of a given workflow
+func (c *OrdersClient) GetWorkflowShipOrderResult(ctx context.Context, workflowId string, runId string) (*ShipOrderResponse, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 
-	var resp *emptypb.Empty
+	var resp *ShipOrderResponse
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -479,8 +526,11 @@ func (c *DieRollClient) GetWorkflowChildWorkflowResult(ctx context.Context, work
 	return resp, nil
 }
 
-// ExecuteChildChildWorkflow executes the workflow as a child workflow and returns a future to it
-func (c *DieRollClient) ExecuteChildChildWorkflow(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
+// ExecuteChildShipOrder executes the workflow as a child workflow and returns a future to it
+//
+// ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+// child workflow so shipping shows up as its own execution in the UI
+func (c *OrdersClient) ExecuteChildShipOrder(ctx workflow.Context, req *ShipOrderRequest, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
 	wOptions := workflow.ChildWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
@@ -491,12 +541,12 @@ func (c *DieRollClient) ExecuteChildChildWorkflow(ctx workflow.Context, req *emp
 	}
 
 	if wOptions.TaskQueue == "" {
-		wOptions.TaskQueue = DefaultDieRollTaskQueueName
+		wOptions.TaskQueue = DefaultOrdersTaskQueueName
 	}
 	if wOptions.WorkflowID == "" {
 		var id string
 		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
-			return fmt.Sprintf("%s/%s", WorkflowChildWorkflowName, uuid.NewString())
+			return fmt.Sprintf("%s/%s", WorkflowShipOrderName, uuid.NewString())
 		})
 
 		err := genId.Get(&id)
@@ -509,23 +559,23 @@ func (c *DieRollClient) ExecuteChildChildWorkflow(ctx workflow.Context, req *emp
 
 	// Apply timeout options
 	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+		wOptions.WorkflowExecutionTimeout = time.Duration(3600) * time.Second
 	}
 
-	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowChildWorkflowName, req), nil
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowShipOrderName, req), nil
 }
 
-// ExecuteChildChildWorkflowSync executes the workflow as a child workflow and returns the result when finished
-func (c *DieRollClient) ExecuteChildChildWorkflowSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (*emptypb.Empty, error) {
-	future, err := c.ExecuteChildChildWorkflow(ctx, req, options...)
+// ExecuteChildShipOrderSync executes the workflow as a child workflow and returns the result when finished
+//
+// ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+// child workflow so shipping shows up as its own execution in the UI
+func (c *OrdersClient) ExecuteChildShipOrderSync(ctx workflow.Context, req *ShipOrderRequest, options ...workflow.ChildWorkflowOptions) (*ShipOrderResponse, error) {
+	future, err := c.ExecuteChildShipOrder(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	var resp *emptypb.Empty
+	var resp *ShipOrderResponse
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -534,45 +584,56 @@ func (c *DieRollClient) ExecuteChildChildWorkflowSync(ctx workflow.Context, req 
 	return resp, nil
 }
 
-// CreateScheduleChildWorkflow creates a schedule for ChildWorkflow
-func (c *DieRollClient) CreateScheduleChildWorkflow(ctx context.Context, scheduleID string, req *emptypb.Empty, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+// CreateScheduleShipOrder creates a schedule for ShipOrder
+//
+// ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+// child workflow so shipping shows up as its own execution in the UI
+func (c *OrdersClient) CreateScheduleShipOrder(ctx context.Context, scheduleID string, req *ShipOrderRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
 	scheduleOptions := client.ScheduleOptions{
 		ID: scheduleID,
 		Action: &client.ScheduleWorkflowAction{
 			ID:                       scheduleID,
-			Workflow:                 WorkflowChildWorkflowName,
+			Workflow:                 WorkflowShipOrderName,
 			Args:                     []interface{}{req},
 			TaskQueue:                c.taskQueue,
-			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
-			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+			WorkflowExecutionTimeout: time.Duration(3600) * time.Second,
 		},
 	}
 
 	if len(options) > 0 {
-		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], true)
+		mergeScheduleOptionsOrders(&scheduleOptions, options[0], true)
 	}
-	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
 
 	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
 }
 
-// GetScheduleChildWorkflow gets a handle to an existing schedule for ChildWorkflow
-func (c *DieRollClient) GetScheduleChildWorkflow(ctx context.Context, scheduleID string) client.ScheduleHandle {
+// GetScheduleShipOrder gets a handle to an existing schedule for ShipOrder
+//
+// ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+// child workflow so shipping shows up as its own execution in the UI
+func (c *OrdersClient) GetScheduleShipOrder(ctx context.Context, scheduleID string) client.ScheduleHandle {
 	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 }
 
-// DeleteScheduleChildWorkflow deletes a schedule for ChildWorkflow
-func (c *DieRollClient) DeleteScheduleChildWorkflow(ctx context.Context, scheduleID string) error {
+// DeleteScheduleShipOrder deletes a schedule for ShipOrder
+//
+// ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+// child workflow so shipping shows up as its own execution in the UI
+func (c *OrdersClient) DeleteScheduleShipOrder(ctx context.Context, scheduleID string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	return handle.Delete(ctx)
 }
 
-// PauseScheduleChildWorkflow pauses a running schedule for ChildWorkflow. The note is
+// PauseScheduleShipOrder pauses a running schedule for ShipOrder. The note is
 // recorded by Temporal on the schedule's audit trail (visible via Describe). If
 // the schedule is already paused this is a no-op: we Describe first and skip the
 // Pause API call when .Schedule.State.Paused is already true, so it's safe to
 // call on every reconcile/bootstrap path without spamming the server.
-func (c *DieRollClient) PauseScheduleChildWorkflow(ctx context.Context, scheduleID string, note string) error {
+//
+// ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+// child workflow so shipping shows up as its own execution in the UI
+func (c *OrdersClient) PauseScheduleShipOrder(ctx context.Context, scheduleID string, note string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	desc, err := handle.Describe(ctx)
 	if err != nil {
@@ -584,11 +645,14 @@ func (c *DieRollClient) PauseScheduleChildWorkflow(ctx context.Context, schedule
 	return handle.Pause(ctx, client.SchedulePauseOptions{Note: note})
 }
 
-// UnpauseScheduleChildWorkflow resumes a paused schedule for ChildWorkflow. Like
-// PauseScheduleChildWorkflow, this is a read-then-write: we Describe first and
+// UnpauseScheduleShipOrder resumes a paused schedule for ShipOrder. Like
+// PauseScheduleShipOrder, this is a read-then-write: we Describe first and
 // return nil if the schedule is already running, so idempotent bootstrap code
 // doesn't pay an extra Unpause round-trip per reconcile tick.
-func (c *DieRollClient) UnpauseScheduleChildWorkflow(ctx context.Context, scheduleID string, note string) error {
+//
+// ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+// child workflow so shipping shows up as its own execution in the UI
+func (c *OrdersClient) UnpauseScheduleShipOrder(ctx context.Context, scheduleID string, note string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	desc, err := handle.Describe(ctx)
 	if err != nil {
@@ -600,8 +664,11 @@ func (c *DieRollClient) UnpauseScheduleChildWorkflow(ctx context.Context, schedu
 	return handle.Unpause(ctx, client.ScheduleUnpauseOptions{Note: note})
 }
 
-// ListScheduleChildWorkflow lists all schedules for ChildWorkflow workflow
-func (c *DieRollClient) ListScheduleChildWorkflow(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
+// ListScheduleShipOrder lists all schedules for ShipOrder workflow
+//
+// ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+// child workflow so shipping shows up as its own execution in the UI
+func (c *OrdersClient) ListScheduleShipOrder(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
 	var schedules []client.ScheduleListEntry
 
 	iter, err := c.client.ScheduleClient().List(ctx, client.ScheduleListOptions{
@@ -618,7 +685,7 @@ func (c *DieRollClient) ListScheduleChildWorkflow(ctx context.Context, pageSize 
 		}
 
 		// Filter by workflow type
-		if entry.WorkflowType.Name == WorkflowChildWorkflowName {
+		if entry.WorkflowType.Name == WorkflowShipOrderName {
 			schedules = append(schedules, *entry)
 		}
 	}
@@ -626,15 +693,18 @@ func (c *DieRollClient) ListScheduleChildWorkflow(ctx context.Context, pageSize 
 	return schedules, nil
 }
 
-// UpsertScheduleChildWorkflow creates or updates a schedule for ChildWorkflow
-func (c *DieRollClient) UpsertScheduleChildWorkflow(ctx context.Context, scheduleID string, req *emptypb.Empty, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+// UpsertScheduleShipOrder creates or updates a schedule for ShipOrder
+//
+// ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+// child workflow so shipping shows up as its own execution in the UI
+func (c *OrdersClient) UpsertScheduleShipOrder(ctx context.Context, scheduleID string, req *ShipOrderRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 
 	// Try to describe the schedule to see if it exists
 	_, err := handle.Describe(ctx)
 	if err != nil {
 		// Schedule doesn't exist, create it
-		return c.CreateScheduleChildWorkflow(ctx, scheduleID, req, options...)
+		return c.CreateScheduleShipOrder(ctx, scheduleID, req, options...)
 	}
 
 	// Schedule exists, update it
@@ -642,20 +712,19 @@ func (c *DieRollClient) UpsertScheduleChildWorkflow(ctx context.Context, schedul
 		ID: scheduleID,
 		Action: &client.ScheduleWorkflowAction{
 			ID:                       scheduleID,
-			Workflow:                 WorkflowChildWorkflowName,
+			Workflow:                 WorkflowShipOrderName,
 			Args:                     []interface{}{req},
 			TaskQueue:                c.taskQueue,
-			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
-			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+			WorkflowExecutionTimeout: time.Duration(3600) * time.Second,
 		},
 	}
 
 	if len(options) > 0 {
 		// Upsert never flips Paused on a running schedule; everything else merges
 		// identically to CreateSchedule.
-		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], false)
+		mergeScheduleOptionsOrders(&scheduleOptions, options[0], false)
 	}
-	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
 
 	// Update the schedule
 	err = handle.Update(ctx, client.ScheduleUpdateOptions{
@@ -693,10 +762,11 @@ func (c *DieRollClient) UpsertScheduleChildWorkflow(ctx context.Context, schedul
 	return handle, nil
 }
 
-// ExecuteWorkflowThrowDies executes the workflow and returns a future to it
+// ExecuteWorkflowDailySalesReport executes the workflow and returns a future to it
 //
-// Throws dies a few times and return the result
-func (c *DieRollClient) ExecuteWorkflowThrowDies(ctx context.Context, req *ThrowDiesRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
+// DailySalesReport is a fast workflow meant to be driven by a Temporal
+// schedule -- see the schedule part of the client walkthrough
+func (c *OrdersClient) ExecuteWorkflowDailySalesReport(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
 	wOptions := client.StartWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
@@ -705,33 +775,31 @@ func (c *DieRollClient) ExecuteWorkflowThrowDies(ctx context.Context, req *Throw
 		wOptions.TaskQueue = c.taskQueue
 	}
 	if wOptions.TaskQueue == "" {
-		wOptions.TaskQueue = DefaultDieRollTaskQueueName
+		wOptions.TaskQueue = DefaultOrdersTaskQueueName
 	}
 	if wOptions.ID == "" {
-		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowThrowDiesName, uuid.NewString())
+		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowDailySalesReportName, uuid.NewString())
 	}
 
 	// Apply timeout options
 	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+		wOptions.WorkflowExecutionTimeout = time.Duration(3600) * time.Second
 	}
 
-	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowThrowDiesName, req)
+	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowDailySalesReportName, req)
 }
 
-// ExecuteWorkflowThrowDiesSync executes the workflow and returns the result when finished
+// ExecuteWorkflowDailySalesReportSync executes the workflow and returns the result when finished
 //
-// Throws dies a few times and return the result
-func (c *DieRollClient) ExecuteWorkflowThrowDiesSync(ctx context.Context, req *ThrowDiesRequest, options ...client.StartWorkflowOptions) (*ThrowDiesResponse, error) {
-	future, err := c.ExecuteWorkflowThrowDies(ctx, req, options...)
+// DailySalesReport is a fast workflow meant to be driven by a Temporal
+// schedule -- see the schedule part of the client walkthrough
+func (c *OrdersClient) ExecuteWorkflowDailySalesReportSync(ctx context.Context, req *emptypb.Empty, options ...client.StartWorkflowOptions) (*DailySalesReportResponse, error) {
+	future, err := c.ExecuteWorkflowDailySalesReport(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	var resp *ThrowDiesResponse
+	var resp *DailySalesReportResponse
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -740,11 +808,11 @@ func (c *DieRollClient) ExecuteWorkflowThrowDiesSync(ctx context.Context, req *T
 	return resp, nil
 }
 
-// GetWorkflowThrowDiesResult gets the result of a given workflow
-func (c *DieRollClient) GetWorkflowThrowDiesResult(ctx context.Context, workflowId string, runId string) (*ThrowDiesResponse, error) {
+// GetWorkflowDailySalesReportResult gets the result of a given workflow
+func (c *OrdersClient) GetWorkflowDailySalesReportResult(ctx context.Context, workflowId string, runId string) (*DailySalesReportResponse, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 
-	var resp *ThrowDiesResponse
+	var resp *DailySalesReportResponse
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -753,10 +821,11 @@ func (c *DieRollClient) GetWorkflowThrowDiesResult(ctx context.Context, workflow
 	return resp, nil
 }
 
-// ExecuteChildThrowDies executes the workflow as a child workflow and returns a future to it
+// ExecuteChildDailySalesReport executes the workflow as a child workflow and returns a future to it
 //
-// Throws dies a few times and return the result
-func (c *DieRollClient) ExecuteChildThrowDies(ctx workflow.Context, req *ThrowDiesRequest, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
+// DailySalesReport is a fast workflow meant to be driven by a Temporal
+// schedule -- see the schedule part of the client walkthrough
+func (c *OrdersClient) ExecuteChildDailySalesReport(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
 	wOptions := workflow.ChildWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
@@ -767,12 +836,12 @@ func (c *DieRollClient) ExecuteChildThrowDies(ctx workflow.Context, req *ThrowDi
 	}
 
 	if wOptions.TaskQueue == "" {
-		wOptions.TaskQueue = DefaultDieRollTaskQueueName
+		wOptions.TaskQueue = DefaultOrdersTaskQueueName
 	}
 	if wOptions.WorkflowID == "" {
 		var id string
 		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
-			return fmt.Sprintf("%s/%s", WorkflowThrowDiesName, uuid.NewString())
+			return fmt.Sprintf("%s/%s", WorkflowDailySalesReportName, uuid.NewString())
 		})
 
 		err := genId.Get(&id)
@@ -785,25 +854,23 @@ func (c *DieRollClient) ExecuteChildThrowDies(ctx workflow.Context, req *ThrowDi
 
 	// Apply timeout options
 	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+		wOptions.WorkflowExecutionTimeout = time.Duration(3600) * time.Second
 	}
 
-	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowThrowDiesName, req), nil
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowDailySalesReportName, req), nil
 }
 
-// ExecuteChildThrowDiesSync executes the workflow as a child workflow and returns the result when finished
+// ExecuteChildDailySalesReportSync executes the workflow as a child workflow and returns the result when finished
 //
-// Throws dies a few times and return the result
-func (c *DieRollClient) ExecuteChildThrowDiesSync(ctx workflow.Context, req *ThrowDiesRequest, options ...workflow.ChildWorkflowOptions) (*ThrowDiesResponse, error) {
-	future, err := c.ExecuteChildThrowDies(ctx, req, options...)
+// DailySalesReport is a fast workflow meant to be driven by a Temporal
+// schedule -- see the schedule part of the client walkthrough
+func (c *OrdersClient) ExecuteChildDailySalesReportSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ChildWorkflowOptions) (*DailySalesReportResponse, error) {
+	future, err := c.ExecuteChildDailySalesReport(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	var resp *ThrowDiesResponse
+	var resp *DailySalesReportResponse
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -812,53 +879,56 @@ func (c *DieRollClient) ExecuteChildThrowDiesSync(ctx workflow.Context, req *Thr
 	return resp, nil
 }
 
-// CreateScheduleThrowDies creates a schedule for ThrowDies
+// CreateScheduleDailySalesReport creates a schedule for DailySalesReport
 //
-// Throws dies a few times and return the result
-func (c *DieRollClient) CreateScheduleThrowDies(ctx context.Context, scheduleID string, req *ThrowDiesRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+// DailySalesReport is a fast workflow meant to be driven by a Temporal
+// schedule -- see the schedule part of the client walkthrough
+func (c *OrdersClient) CreateScheduleDailySalesReport(ctx context.Context, scheduleID string, req *emptypb.Empty, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
 	scheduleOptions := client.ScheduleOptions{
 		ID: scheduleID,
 		Action: &client.ScheduleWorkflowAction{
 			ID:                       scheduleID,
-			Workflow:                 WorkflowThrowDiesName,
+			Workflow:                 WorkflowDailySalesReportName,
 			Args:                     []interface{}{req},
 			TaskQueue:                c.taskQueue,
-			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
-			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+			WorkflowExecutionTimeout: time.Duration(3600) * time.Second,
 		},
 	}
 
 	if len(options) > 0 {
-		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], true)
+		mergeScheduleOptionsOrders(&scheduleOptions, options[0], true)
 	}
-	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
 
 	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
 }
 
-// GetScheduleThrowDies gets a handle to an existing schedule for ThrowDies
+// GetScheduleDailySalesReport gets a handle to an existing schedule for DailySalesReport
 //
-// Throws dies a few times and return the result
-func (c *DieRollClient) GetScheduleThrowDies(ctx context.Context, scheduleID string) client.ScheduleHandle {
+// DailySalesReport is a fast workflow meant to be driven by a Temporal
+// schedule -- see the schedule part of the client walkthrough
+func (c *OrdersClient) GetScheduleDailySalesReport(ctx context.Context, scheduleID string) client.ScheduleHandle {
 	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 }
 
-// DeleteScheduleThrowDies deletes a schedule for ThrowDies
+// DeleteScheduleDailySalesReport deletes a schedule for DailySalesReport
 //
-// Throws dies a few times and return the result
-func (c *DieRollClient) DeleteScheduleThrowDies(ctx context.Context, scheduleID string) error {
+// DailySalesReport is a fast workflow meant to be driven by a Temporal
+// schedule -- see the schedule part of the client walkthrough
+func (c *OrdersClient) DeleteScheduleDailySalesReport(ctx context.Context, scheduleID string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	return handle.Delete(ctx)
 }
 
-// PauseScheduleThrowDies pauses a running schedule for ThrowDies. The note is
+// PauseScheduleDailySalesReport pauses a running schedule for DailySalesReport. The note is
 // recorded by Temporal on the schedule's audit trail (visible via Describe). If
 // the schedule is already paused this is a no-op: we Describe first and skip the
 // Pause API call when .Schedule.State.Paused is already true, so it's safe to
 // call on every reconcile/bootstrap path without spamming the server.
 //
-// Throws dies a few times and return the result
-func (c *DieRollClient) PauseScheduleThrowDies(ctx context.Context, scheduleID string, note string) error {
+// DailySalesReport is a fast workflow meant to be driven by a Temporal
+// schedule -- see the schedule part of the client walkthrough
+func (c *OrdersClient) PauseScheduleDailySalesReport(ctx context.Context, scheduleID string, note string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	desc, err := handle.Describe(ctx)
 	if err != nil {
@@ -870,13 +940,14 @@ func (c *DieRollClient) PauseScheduleThrowDies(ctx context.Context, scheduleID s
 	return handle.Pause(ctx, client.SchedulePauseOptions{Note: note})
 }
 
-// UnpauseScheduleThrowDies resumes a paused schedule for ThrowDies. Like
-// PauseScheduleThrowDies, this is a read-then-write: we Describe first and
+// UnpauseScheduleDailySalesReport resumes a paused schedule for DailySalesReport. Like
+// PauseScheduleDailySalesReport, this is a read-then-write: we Describe first and
 // return nil if the schedule is already running, so idempotent bootstrap code
 // doesn't pay an extra Unpause round-trip per reconcile tick.
 //
-// Throws dies a few times and return the result
-func (c *DieRollClient) UnpauseScheduleThrowDies(ctx context.Context, scheduleID string, note string) error {
+// DailySalesReport is a fast workflow meant to be driven by a Temporal
+// schedule -- see the schedule part of the client walkthrough
+func (c *OrdersClient) UnpauseScheduleDailySalesReport(ctx context.Context, scheduleID string, note string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	desc, err := handle.Describe(ctx)
 	if err != nil {
@@ -888,10 +959,11 @@ func (c *DieRollClient) UnpauseScheduleThrowDies(ctx context.Context, scheduleID
 	return handle.Unpause(ctx, client.ScheduleUnpauseOptions{Note: note})
 }
 
-// ListScheduleThrowDies lists all schedules for ThrowDies workflow
+// ListScheduleDailySalesReport lists all schedules for DailySalesReport workflow
 //
-// Throws dies a few times and return the result
-func (c *DieRollClient) ListScheduleThrowDies(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
+// DailySalesReport is a fast workflow meant to be driven by a Temporal
+// schedule -- see the schedule part of the client walkthrough
+func (c *OrdersClient) ListScheduleDailySalesReport(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
 	var schedules []client.ScheduleListEntry
 
 	iter, err := c.client.ScheduleClient().List(ctx, client.ScheduleListOptions{
@@ -908,7 +980,7 @@ func (c *DieRollClient) ListScheduleThrowDies(ctx context.Context, pageSize int)
 		}
 
 		// Filter by workflow type
-		if entry.WorkflowType.Name == WorkflowThrowDiesName {
+		if entry.WorkflowType.Name == WorkflowDailySalesReportName {
 			schedules = append(schedules, *entry)
 		}
 	}
@@ -916,17 +988,18 @@ func (c *DieRollClient) ListScheduleThrowDies(ctx context.Context, pageSize int)
 	return schedules, nil
 }
 
-// UpsertScheduleThrowDies creates or updates a schedule for ThrowDies
+// UpsertScheduleDailySalesReport creates or updates a schedule for DailySalesReport
 //
-// Throws dies a few times and return the result
-func (c *DieRollClient) UpsertScheduleThrowDies(ctx context.Context, scheduleID string, req *ThrowDiesRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+// DailySalesReport is a fast workflow meant to be driven by a Temporal
+// schedule -- see the schedule part of the client walkthrough
+func (c *OrdersClient) UpsertScheduleDailySalesReport(ctx context.Context, scheduleID string, req *emptypb.Empty, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 
 	// Try to describe the schedule to see if it exists
 	_, err := handle.Describe(ctx)
 	if err != nil {
 		// Schedule doesn't exist, create it
-		return c.CreateScheduleThrowDies(ctx, scheduleID, req, options...)
+		return c.CreateScheduleDailySalesReport(ctx, scheduleID, req, options...)
 	}
 
 	// Schedule exists, update it
@@ -934,20 +1007,19 @@ func (c *DieRollClient) UpsertScheduleThrowDies(ctx context.Context, scheduleID 
 		ID: scheduleID,
 		Action: &client.ScheduleWorkflowAction{
 			ID:                       scheduleID,
-			Workflow:                 WorkflowThrowDiesName,
+			Workflow:                 WorkflowDailySalesReportName,
 			Args:                     []interface{}{req},
 			TaskQueue:                c.taskQueue,
-			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
-			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+			WorkflowExecutionTimeout: time.Duration(3600) * time.Second,
 		},
 	}
 
 	if len(options) > 0 {
 		// Upsert never flips Paused on a running schedule; everything else merges
 		// identically to CreateSchedule.
-		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], false)
+		mergeScheduleOptionsOrders(&scheduleOptions, options[0], false)
 	}
-	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
 
 	// Update the schedule
 	err = handle.Update(ctx, client.ScheduleUpdateOptions{
@@ -985,8 +1057,15 @@ func (c *DieRollClient) UpsertScheduleThrowDies(ctx context.Context, scheduleID 
 	return handle, nil
 }
 
-// ExecuteWorkflowThrowUntilValue executes the workflow and returns a future to it
-func (c *DieRollClient) ExecuteWorkflowThrowUntilValue(ctx context.Context, req *ThrowUntilValueRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
+// ExecuteWorkflowTrackInventory executes the workflow and returns a future to it
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) ExecuteWorkflowTrackInventory(ctx context.Context, req *TrackInventoryRequest, options ...client.StartWorkflowOptions) (client.WorkflowRun, error) {
 	wOptions := client.StartWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
@@ -995,31 +1074,35 @@ func (c *DieRollClient) ExecuteWorkflowThrowUntilValue(ctx context.Context, req 
 		wOptions.TaskQueue = c.taskQueue
 	}
 	if wOptions.TaskQueue == "" {
-		wOptions.TaskQueue = DefaultDieRollTaskQueueName
+		wOptions.TaskQueue = DefaultOrdersTaskQueueName
 	}
 	if wOptions.ID == "" {
-		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowThrowUntilValueName, uuid.NewString())
+		wOptions.ID = fmt.Sprintf("%s/%s", WorkflowTrackInventoryName, uuid.NewString())
 	}
 
 	// Apply timeout options
 	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+		wOptions.WorkflowExecutionTimeout = time.Duration(3600) * time.Second
 	}
 
-	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowThrowUntilValueName, req)
+	return c.client.ExecuteWorkflow(ctx, wOptions, WorkflowTrackInventoryName, req)
 }
 
-// ExecuteWorkflowThrowUntilValueSync executes the workflow and returns the result when finished
-func (c *DieRollClient) ExecuteWorkflowThrowUntilValueSync(ctx context.Context, req *ThrowUntilValueRequest, options ...client.StartWorkflowOptions) (*emptypb.Empty, error) {
-	future, err := c.ExecuteWorkflowThrowUntilValue(ctx, req, options...)
+// ExecuteWorkflowTrackInventorySync executes the workflow and returns the result when finished
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) ExecuteWorkflowTrackInventorySync(ctx context.Context, req *TrackInventoryRequest, options ...client.StartWorkflowOptions) (*GetStockResponse, error) {
+	future, err := c.ExecuteWorkflowTrackInventory(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	var resp *emptypb.Empty
+	var resp *GetStockResponse
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -1028,11 +1111,11 @@ func (c *DieRollClient) ExecuteWorkflowThrowUntilValueSync(ctx context.Context, 
 	return resp, nil
 }
 
-// GetWorkflowThrowUntilValueResult gets the result of a given workflow
-func (c *DieRollClient) GetWorkflowThrowUntilValueResult(ctx context.Context, workflowId string, runId string) (*emptypb.Empty, error) {
+// GetWorkflowTrackInventoryResult gets the result of a given workflow
+func (c *OrdersClient) GetWorkflowTrackInventoryResult(ctx context.Context, workflowId string, runId string) (*GetStockResponse, error) {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 
-	var resp *emptypb.Empty
+	var resp *GetStockResponse
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -1041,8 +1124,15 @@ func (c *DieRollClient) GetWorkflowThrowUntilValueResult(ctx context.Context, wo
 	return resp, nil
 }
 
-// ExecuteChildThrowUntilValue executes the workflow as a child workflow and returns a future to it
-func (c *DieRollClient) ExecuteChildThrowUntilValue(ctx workflow.Context, req *ThrowUntilValueRequest, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
+// ExecuteChildTrackInventory executes the workflow as a child workflow and returns a future to it
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) ExecuteChildTrackInventory(ctx workflow.Context, req *TrackInventoryRequest, options ...workflow.ChildWorkflowOptions) (workflow.ChildWorkflowFuture, error) {
 	wOptions := workflow.ChildWorkflowOptions{}
 	if len(options) > 0 {
 		wOptions = options[0]
@@ -1053,12 +1143,12 @@ func (c *DieRollClient) ExecuteChildThrowUntilValue(ctx workflow.Context, req *T
 	}
 
 	if wOptions.TaskQueue == "" {
-		wOptions.TaskQueue = DefaultDieRollTaskQueueName
+		wOptions.TaskQueue = DefaultOrdersTaskQueueName
 	}
 	if wOptions.WorkflowID == "" {
 		var id string
 		genId := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
-			return fmt.Sprintf("%s/%s", WorkflowThrowUntilValueName, uuid.NewString())
+			return fmt.Sprintf("%s/%s", WorkflowTrackInventoryName, uuid.NewString())
 		})
 
 		err := genId.Get(&id)
@@ -1071,23 +1161,27 @@ func (c *DieRollClient) ExecuteChildThrowUntilValue(ctx workflow.Context, req *T
 
 	// Apply timeout options
 	if wOptions.WorkflowExecutionTimeout == 0 {
-		wOptions.WorkflowExecutionTimeout = time.Duration(86400) * time.Second
-	}
-	if wOptions.WorkflowRunTimeout == 0 {
-		wOptions.WorkflowRunTimeout = time.Duration(7200) * time.Second
+		wOptions.WorkflowExecutionTimeout = time.Duration(3600) * time.Second
 	}
 
-	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowThrowUntilValueName, req), nil
+	return workflow.ExecuteChildWorkflow(workflow.WithChildOptions(ctx, wOptions), WorkflowTrackInventoryName, req), nil
 }
 
-// ExecuteChildThrowUntilValueSync executes the workflow as a child workflow and returns the result when finished
-func (c *DieRollClient) ExecuteChildThrowUntilValueSync(ctx workflow.Context, req *ThrowUntilValueRequest, options ...workflow.ChildWorkflowOptions) (*emptypb.Empty, error) {
-	future, err := c.ExecuteChildThrowUntilValue(ctx, req, options...)
+// ExecuteChildTrackInventorySync executes the workflow as a child workflow and returns the result when finished
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) ExecuteChildTrackInventorySync(ctx workflow.Context, req *TrackInventoryRequest, options ...workflow.ChildWorkflowOptions) (*GetStockResponse, error) {
+	future, err := c.ExecuteChildTrackInventory(ctx, req, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	var resp *emptypb.Empty
+	var resp *GetStockResponse
 	err = future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -1096,45 +1190,72 @@ func (c *DieRollClient) ExecuteChildThrowUntilValueSync(ctx workflow.Context, re
 	return resp, nil
 }
 
-// CreateScheduleThrowUntilValue creates a schedule for ThrowUntilValue
-func (c *DieRollClient) CreateScheduleThrowUntilValue(ctx context.Context, scheduleID string, req *ThrowUntilValueRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+// CreateScheduleTrackInventory creates a schedule for TrackInventory
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) CreateScheduleTrackInventory(ctx context.Context, scheduleID string, req *TrackInventoryRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
 	scheduleOptions := client.ScheduleOptions{
 		ID: scheduleID,
 		Action: &client.ScheduleWorkflowAction{
 			ID:                       scheduleID,
-			Workflow:                 WorkflowThrowUntilValueName,
+			Workflow:                 WorkflowTrackInventoryName,
 			Args:                     []interface{}{req},
 			TaskQueue:                c.taskQueue,
-			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
-			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+			WorkflowExecutionTimeout: time.Duration(3600) * time.Second,
 		},
 	}
 
 	if len(options) > 0 {
-		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], true)
+		mergeScheduleOptionsOrders(&scheduleOptions, options[0], true)
 	}
-	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
 
 	return c.client.ScheduleClient().Create(ctx, scheduleOptions)
 }
 
-// GetScheduleThrowUntilValue gets a handle to an existing schedule for ThrowUntilValue
-func (c *DieRollClient) GetScheduleThrowUntilValue(ctx context.Context, scheduleID string) client.ScheduleHandle {
+// GetScheduleTrackInventory gets a handle to an existing schedule for TrackInventory
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) GetScheduleTrackInventory(ctx context.Context, scheduleID string) client.ScheduleHandle {
 	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 }
 
-// DeleteScheduleThrowUntilValue deletes a schedule for ThrowUntilValue
-func (c *DieRollClient) DeleteScheduleThrowUntilValue(ctx context.Context, scheduleID string) error {
+// DeleteScheduleTrackInventory deletes a schedule for TrackInventory
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) DeleteScheduleTrackInventory(ctx context.Context, scheduleID string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	return handle.Delete(ctx)
 }
 
-// PauseScheduleThrowUntilValue pauses a running schedule for ThrowUntilValue. The note is
+// PauseScheduleTrackInventory pauses a running schedule for TrackInventory. The note is
 // recorded by Temporal on the schedule's audit trail (visible via Describe). If
 // the schedule is already paused this is a no-op: we Describe first and skip the
 // Pause API call when .Schedule.State.Paused is already true, so it's safe to
 // call on every reconcile/bootstrap path without spamming the server.
-func (c *DieRollClient) PauseScheduleThrowUntilValue(ctx context.Context, scheduleID string, note string) error {
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) PauseScheduleTrackInventory(ctx context.Context, scheduleID string, note string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	desc, err := handle.Describe(ctx)
 	if err != nil {
@@ -1146,11 +1267,18 @@ func (c *DieRollClient) PauseScheduleThrowUntilValue(ctx context.Context, schedu
 	return handle.Pause(ctx, client.SchedulePauseOptions{Note: note})
 }
 
-// UnpauseScheduleThrowUntilValue resumes a paused schedule for ThrowUntilValue. Like
-// PauseScheduleThrowUntilValue, this is a read-then-write: we Describe first and
+// UnpauseScheduleTrackInventory resumes a paused schedule for TrackInventory. Like
+// PauseScheduleTrackInventory, this is a read-then-write: we Describe first and
 // return nil if the schedule is already running, so idempotent bootstrap code
 // doesn't pay an extra Unpause round-trip per reconcile tick.
-func (c *DieRollClient) UnpauseScheduleThrowUntilValue(ctx context.Context, scheduleID string, note string) error {
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) UnpauseScheduleTrackInventory(ctx context.Context, scheduleID string, note string) error {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 	desc, err := handle.Describe(ctx)
 	if err != nil {
@@ -1162,8 +1290,15 @@ func (c *DieRollClient) UnpauseScheduleThrowUntilValue(ctx context.Context, sche
 	return handle.Unpause(ctx, client.ScheduleUnpauseOptions{Note: note})
 }
 
-// ListScheduleThrowUntilValue lists all schedules for ThrowUntilValue workflow
-func (c *DieRollClient) ListScheduleThrowUntilValue(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
+// ListScheduleTrackInventory lists all schedules for TrackInventory workflow
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) ListScheduleTrackInventory(ctx context.Context, pageSize int) ([]client.ScheduleListEntry, error) {
 	var schedules []client.ScheduleListEntry
 
 	iter, err := c.client.ScheduleClient().List(ctx, client.ScheduleListOptions{
@@ -1180,7 +1315,7 @@ func (c *DieRollClient) ListScheduleThrowUntilValue(ctx context.Context, pageSiz
 		}
 
 		// Filter by workflow type
-		if entry.WorkflowType.Name == WorkflowThrowUntilValueName {
+		if entry.WorkflowType.Name == WorkflowTrackInventoryName {
 			schedules = append(schedules, *entry)
 		}
 	}
@@ -1188,15 +1323,22 @@ func (c *DieRollClient) ListScheduleThrowUntilValue(ctx context.Context, pageSiz
 	return schedules, nil
 }
 
-// UpsertScheduleThrowUntilValue creates or updates a schedule for ThrowUntilValue
-func (c *DieRollClient) UpsertScheduleThrowUntilValue(ctx context.Context, scheduleID string, req *ThrowUntilValueRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
+// UpsertScheduleTrackInventory creates or updates a schedule for TrackInventory
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+func (c *OrdersClient) UpsertScheduleTrackInventory(ctx context.Context, scheduleID string, req *TrackInventoryRequest, options ...client.ScheduleOptions) (client.ScheduleHandle, error) {
 	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 
 	// Try to describe the schedule to see if it exists
 	_, err := handle.Describe(ctx)
 	if err != nil {
 		// Schedule doesn't exist, create it
-		return c.CreateScheduleThrowUntilValue(ctx, scheduleID, req, options...)
+		return c.CreateScheduleTrackInventory(ctx, scheduleID, req, options...)
 	}
 
 	// Schedule exists, update it
@@ -1204,20 +1346,19 @@ func (c *DieRollClient) UpsertScheduleThrowUntilValue(ctx context.Context, sched
 		ID: scheduleID,
 		Action: &client.ScheduleWorkflowAction{
 			ID:                       scheduleID,
-			Workflow:                 WorkflowThrowUntilValueName,
+			Workflow:                 WorkflowTrackInventoryName,
 			Args:                     []interface{}{req},
 			TaskQueue:                c.taskQueue,
-			WorkflowExecutionTimeout: time.Duration(86400) * time.Second,
-			WorkflowRunTimeout:       time.Duration(7200) * time.Second,
+			WorkflowExecutionTimeout: time.Duration(3600) * time.Second,
 		},
 	}
 
 	if len(options) > 0 {
 		// Upsert never flips Paused on a running schedule; everything else merges
 		// identically to CreateSchedule.
-		mergeScheduleOptionsDieRoll(&scheduleOptions, options[0], false)
+		mergeScheduleOptionsOrders(&scheduleOptions, options[0], false)
 	}
-	applyScheduleDefaultsDieRoll(&scheduleOptions, DefaultDieRollTaskQueueName)
+	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
 
 	// Update the schedule
 	err = handle.Update(ctx, client.ScheduleUpdateOptions{
@@ -1255,7 +1396,7 @@ func (c *DieRollClient) UpsertScheduleThrowUntilValue(ctx context.Context, sched
 	return handle, nil
 }
 
-// mergeScheduleOptionsDieRoll merges user-supplied schedule options into the
+// mergeScheduleOptionsOrders merges user-supplied schedule options into the
 // base struct built by the generated CreateSchedule/UpsertSchedule methods. Only
 // non-zero fields on the user struct overwrite the base, so callers can pass a
 // partial client.ScheduleOptions and keep whatever defaults the generator baked
@@ -1265,7 +1406,7 @@ func (c *DieRollClient) UpsertScheduleThrowUntilValue(ctx context.Context, sched
 // run-state transitions are handled out of band via the per-workflow
 // PauseScheduleX / UnpauseScheduleX helpers rather than through the options
 // struct.
-func mergeScheduleOptionsDieRoll(base *client.ScheduleOptions, user client.ScheduleOptions, applyPaused bool) {
+func mergeScheduleOptionsOrders(base *client.ScheduleOptions, user client.ScheduleOptions, applyPaused bool) {
 	if user.Spec.CronExpressions != nil {
 		base.Spec.CronExpressions = user.Spec.CronExpressions
 	}
@@ -1313,20 +1454,24 @@ func mergeScheduleOptionsDieRoll(base *client.ScheduleOptions, user client.Sched
 	}
 }
 
-// applyScheduleDefaultsDieRoll fills in the service's default task queue on
+// applyScheduleDefaultsOrders fills in the service's default task queue on
 // the ScheduleWorkflowAction whenever the caller left TaskQueue empty. It runs
 // after the merge helper so explicit caller input always wins over generator
 // defaults.
-func applyScheduleDefaultsDieRoll(opts *client.ScheduleOptions, defaultTaskQueue string) {
+func applyScheduleDefaultsOrders(opts *client.ScheduleOptions, defaultTaskQueue string) {
 	if action, ok := opts.Action.(*client.ScheduleWorkflowAction); ok && action.TaskQueue == "" {
 		action.TaskQueue = defaultTaskQueue
 	}
 }
 
-// ExecuteActivityThrowDie executes the activity asynchronously and returns a future to it
+// ExecuteActivityChargePayment executes the activity asynchronously and returns a future to it
 //
-// Throws a d6 and returns the result
-func (c *DieRollClient) ExecuteActivityThrowDie(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) workflow.Future {
+// ChargePayment captures the money. The retry policy retries transient
+// payment provider hiccups with exponential backoff, but gives up
+// immediately when the card is declined: "CardDeclined" is listed in
+// non_retryable_error_types and the worker returns application errors of
+// that type when the card is bad
+func (c *OrdersClient) ExecuteActivityChargePayment(ctx workflow.Context, req *ChargePaymentRequest, options ...workflow.ActivityOptions) workflow.Future {
 	var aOptions workflow.ActivityOptions
 
 	if len(options) > 0 {
@@ -1338,18 +1483,15 @@ func (c *DieRollClient) ExecuteActivityThrowDie(ctx workflow.Context, req *empty
 	}
 
 	if aOptions.TaskQueue == "" {
-		aOptions.TaskQueue = DefaultDieRollTaskQueueName
+		aOptions.TaskQueue = DefaultOrdersTaskQueueName
 	}
 
 	// Apply timeout options
 	if aOptions.StartToCloseTimeout == 0 {
-		aOptions.StartToCloseTimeout = time.Duration(120) * time.Second
+		aOptions.StartToCloseTimeout = time.Duration(10) * time.Second
 	}
 	if aOptions.ScheduleToCloseTimeout == 0 {
-		aOptions.ScheduleToCloseTimeout = time.Duration(120) * time.Second
-	}
-	if aOptions.ScheduleToStartTimeout == 0 {
-		aOptions.ScheduleToStartTimeout = time.Duration(30) * time.Second
+		aOptions.ScheduleToCloseTimeout = time.Duration(300) * time.Second
 	}
 
 	// Apply retry policy
@@ -1357,22 +1499,25 @@ func (c *DieRollClient) ExecuteActivityThrowDie(ctx workflow.Context, req *empty
 		aOptions.RetryPolicy = &temporal.RetryPolicy{
 			InitialInterval:    time.Duration(1) * time.Second,
 			MaximumInterval:    time.Duration(10) * time.Second,
-			BackoffCoefficient: 1.5,
-			MaximumAttempts:    10,
+			BackoffCoefficient: 2,
+			MaximumAttempts:    5,
 			NonRetryableErrorTypes: []string{
-				"FATAL",
-				"NOT_FOUND",
+				"CardDeclined",
 			},
 		}
 	}
 
-	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), ActivityThrowDieName, req)
+	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), ActivityChargePaymentName, req)
 }
 
-// ExecuteActivityThrowDieSync executes the activity synchronously and returns the result when finished
+// ExecuteActivityChargePaymentSync executes the activity synchronously and returns the result when finished
 //
-// Throws a d6 and returns the result
-func (c *DieRollClient) ExecuteActivityThrowDieSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) (*ThrowDieResponse, error) {
+// ChargePayment captures the money. The retry policy retries transient
+// payment provider hiccups with exponential backoff, but gives up
+// immediately when the card is declined: "CardDeclined" is listed in
+// non_retryable_error_types and the worker returns application errors of
+// that type when the card is bad
+func (c *OrdersClient) ExecuteActivityChargePaymentSync(ctx workflow.Context, req *ChargePaymentRequest, options ...workflow.ActivityOptions) (*ChargePaymentResponse, error) {
 	aOptions := workflow.ActivityOptions{
 		TaskQueue: c.taskQueue,
 	}
@@ -1380,9 +1525,9 @@ func (c *DieRollClient) ExecuteActivityThrowDieSync(ctx workflow.Context, req *e
 		aOptions = options[0]
 	}
 
-	future := c.ExecuteActivityThrowDie(ctx, req, aOptions)
+	future := c.ExecuteActivityChargePayment(ctx, req, aOptions)
 
-	var resp *ThrowDieResponse
+	var resp *ChargePaymentResponse
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -1391,12 +1536,12 @@ func (c *DieRollClient) ExecuteActivityThrowDieSync(ctx workflow.Context, req *e
 	return resp, nil
 }
 
-// ExecuteActivityPing executes the activity asynchronously and returns a future to it
+// ExecuteActivityPackItems executes the activity asynchronously and returns a future to it
 //
-// Just a simple ping
-// Takes no parameters
-// returns nothing
-func (c *DieRollClient) ExecuteActivityPing(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) workflow.Future {
+// PackItems packs the order, one parcel per item. It is slow, so it
+// records a heartbeat after every parcel: if the worker dies mid-pack,
+// Temporal notices within heartbeat_timeout and reschedules the activity
+func (c *OrdersClient) ExecuteActivityPackItems(ctx workflow.Context, req *PackItemsRequest, options ...workflow.ActivityOptions) workflow.Future {
 	var aOptions workflow.ActivityOptions
 
 	if len(options) > 0 {
@@ -1408,26 +1553,29 @@ func (c *DieRollClient) ExecuteActivityPing(ctx workflow.Context, req *emptypb.E
 	}
 
 	if aOptions.TaskQueue == "" {
-		aOptions.TaskQueue = DefaultDieRollTaskQueueName
+		aOptions.TaskQueue = DefaultOrdersTaskQueueName
 	}
 
 	// Apply timeout options
+	if aOptions.StartToCloseTimeout == 0 {
+		aOptions.StartToCloseTimeout = time.Duration(60) * time.Second
+	}
 	if aOptions.ScheduleToCloseTimeout == 0 {
-		aOptions.ScheduleToCloseTimeout = time.Duration(DefaultDieRollActivityScheduleToCloseTimeout) * time.Second
+		aOptions.ScheduleToCloseTimeout = time.Duration(300) * time.Second
 	}
 	if aOptions.HeartbeatTimeout == 0 {
-		aOptions.HeartbeatTimeout = time.Duration(60) * time.Second
+		aOptions.HeartbeatTimeout = time.Duration(10) * time.Second
 	}
 
-	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), ActivityPingName, req)
+	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), ActivityPackItemsName, req)
 }
 
-// ExecuteActivityPingSync executes the activity synchronously and returns the result when finished
+// ExecuteActivityPackItemsSync executes the activity synchronously and returns the result when finished
 //
-// Just a simple ping
-// Takes no parameters
-// returns nothing
-func (c *DieRollClient) ExecuteActivityPingSync(ctx workflow.Context, req *emptypb.Empty, options ...workflow.ActivityOptions) (*emptypb.Empty, error) {
+// PackItems packs the order, one parcel per item. It is slow, so it
+// records a heartbeat after every parcel: if the worker dies mid-pack,
+// Temporal notices within heartbeat_timeout and reschedules the activity
+func (c *OrdersClient) ExecuteActivityPackItemsSync(ctx workflow.Context, req *PackItemsRequest, options ...workflow.ActivityOptions) (*PackItemsResponse, error) {
 	aOptions := workflow.ActivityOptions{
 		TaskQueue: c.taskQueue,
 	}
@@ -1435,9 +1583,9 @@ func (c *DieRollClient) ExecuteActivityPingSync(ctx workflow.Context, req *empty
 		aOptions = options[0]
 	}
 
-	future := c.ExecuteActivityPing(ctx, req, aOptions)
+	future := c.ExecuteActivityPackItems(ctx, req, aOptions)
 
-	var resp *emptypb.Empty
+	var resp *PackItemsResponse
 	err := future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -1446,26 +1594,81 @@ func (c *DieRollClient) ExecuteActivityPingSync(ctx workflow.Context, req *empty
 	return resp, nil
 }
 
-// DieRollWorker Worker for the DieRoll service
-type DieRollWorker struct {
-	client client.Client
-	worker worker.Worker
-	svc    DieRollService
+// ExecuteActivityDispatchCourier executes the activity asynchronously and returns a future to it
+//
+// DispatchCourier books a courier and returns a tracking number. The
+// `name` option overrides the registered activity name, which otherwise
+// defaults to <package>.<service>.<method>
+func (c *OrdersClient) ExecuteActivityDispatchCourier(ctx workflow.Context, req *DispatchCourierRequest, options ...workflow.ActivityOptions) workflow.Future {
+	var aOptions workflow.ActivityOptions
+
+	if len(options) > 0 {
+		aOptions = options[0]
+	}
+
+	if aOptions.TaskQueue == "" {
+		aOptions.TaskQueue = c.taskQueue
+	}
+
+	if aOptions.TaskQueue == "" {
+		aOptions.TaskQueue = DefaultOrdersTaskQueueName
+	}
+
+	// Apply timeout options
+	if aOptions.StartToCloseTimeout == 0 {
+		aOptions.StartToCloseTimeout = time.Duration(30) * time.Second
+	}
+	if aOptions.ScheduleToCloseTimeout == 0 {
+		aOptions.ScheduleToCloseTimeout = time.Duration(300) * time.Second
+	}
+
+	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aOptions), ActivityDispatchCourierName, req)
 }
 
-// NewDieRollWorker Returns a new instance of the worker.
+// ExecuteActivityDispatchCourierSync executes the activity synchronously and returns the result when finished
+//
+// DispatchCourier books a courier and returns a tracking number. The
+// `name` option overrides the registered activity name, which otherwise
+// defaults to <package>.<service>.<method>
+func (c *OrdersClient) ExecuteActivityDispatchCourierSync(ctx workflow.Context, req *DispatchCourierRequest, options ...workflow.ActivityOptions) (*DispatchCourierResponse, error) {
+	aOptions := workflow.ActivityOptions{
+		TaskQueue: c.taskQueue,
+	}
+	if len(options) > 0 {
+		aOptions = options[0]
+	}
+
+	future := c.ExecuteActivityDispatchCourier(ctx, req, aOptions)
+
+	var resp *DispatchCourierResponse
+	err := future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// OrdersWorker Worker for the Orders service
+type OrdersWorker struct {
+	client client.Client
+	worker worker.Worker
+	svc    OrdersService
+}
+
+// NewOrdersWorker Returns a new instance of the worker.
 // If `taskQueue` stays empty the default one will be used
-func NewDieRollWorker(client client.Client, svc DieRollService, taskQueue string, workerOptions ...worker.Options) (*DieRollWorker, error) {
+func NewOrdersWorker(client client.Client, svc OrdersService, taskQueue string, workerOptions ...worker.Options) (*OrdersWorker, error) {
 	wOpts := worker.Options{}
 	if taskQueue == "" {
-		taskQueue = DefaultDieRollTaskQueueName
+		taskQueue = DefaultOrdersTaskQueueName
 	}
 	if len(workerOptions) > 0 {
 		wOpts = workerOptions[0]
 	}
 	w := worker.New(client, taskQueue, wOpts)
 
-	return &DieRollWorker{
+	return &OrdersWorker{
 		client: client,
 		svc:    svc,
 		worker: w,
@@ -1473,63 +1676,69 @@ func NewDieRollWorker(client client.Client, svc DieRollService, taskQueue string
 }
 
 // Register registers the worker's activities and workflows with Temporal.
-func (w *DieRollWorker) Register() {
-	// Registers activity ThrowDie
-	w.worker.RegisterActivityWithOptions(w.svc.ThrowDie, activity.RegisterOptions{
-		Name: ActivityThrowDieName,
+func (w *OrdersWorker) Register() {
+	// Registers activity ChargePayment
+	w.worker.RegisterActivityWithOptions(w.svc.ChargePayment, activity.RegisterOptions{
+		Name: ActivityChargePaymentName,
 	})
-	// Registers activity Ping
-	w.worker.RegisterActivityWithOptions(w.svc.Ping, activity.RegisterOptions{
-		Name: ActivityPingName,
+	// Registers activity PackItems
+	w.worker.RegisterActivityWithOptions(w.svc.PackItems, activity.RegisterOptions{
+		Name: ActivityPackItemsName,
 	})
-	// Registers workflow ParentWorkflow
-	w.worker.RegisterWorkflowWithOptions(w.svc.ParentWorkflow, workflow.RegisterOptions{
-		Name: WorkflowParentWorkflowName,
+	// Registers activity DispatchCourier
+	w.worker.RegisterActivityWithOptions(w.svc.DispatchCourier, activity.RegisterOptions{
+		Name: ActivityDispatchCourierName,
 	})
-	// Registers workflow ChildWorkflow
-	w.worker.RegisterWorkflowWithOptions(w.svc.ChildWorkflow, workflow.RegisterOptions{
-		Name: WorkflowChildWorkflowName,
+	// Registers workflow ProcessOrder
+	w.worker.RegisterWorkflowWithOptions(w.svc.ProcessOrder, workflow.RegisterOptions{
+		Name: WorkflowProcessOrderName,
 	})
-	// Registers workflow ThrowDies
-	w.worker.RegisterWorkflowWithOptions(w.svc.ThrowDies, workflow.RegisterOptions{
-		Name: WorkflowThrowDiesName,
+	// Registers workflow ShipOrder
+	w.worker.RegisterWorkflowWithOptions(w.svc.ShipOrder, workflow.RegisterOptions{
+		Name: WorkflowShipOrderName,
 	})
-	// Registers workflow ThrowUntilValue
-	w.worker.RegisterWorkflowWithOptions(w.svc.ThrowUntilValue, workflow.RegisterOptions{
-		Name: WorkflowThrowUntilValueName,
+	// Registers workflow DailySalesReport
+	w.worker.RegisterWorkflowWithOptions(w.svc.DailySalesReport, workflow.RegisterOptions{
+		Name: WorkflowDailySalesReportName,
+	})
+	// Registers workflow TrackInventory
+	w.worker.RegisterWorkflowWithOptions(w.svc.TrackInventory, workflow.RegisterOptions{
+		Name: WorkflowTrackInventoryName,
 	})
 }
 
 // Start runs the worker in a non-blocking fashion. Use Stop() to stop it.
-func (w *DieRollWorker) Start() error {
+func (w *OrdersWorker) Start() error {
 	return w.worker.Start()
 }
 
 // Run runs the worker until interruptCh receives a signal. Use worker.InterruptCh() to wire up an OS interrupt signal.
-func (w *DieRollWorker) Run(interruptCh <-chan any) error {
+func (w *OrdersWorker) Run(interruptCh <-chan any) error {
 	return w.worker.Run(interruptCh)
 }
 
 // Stop stops the worker. It may panic if called twice.
-func (w *DieRollWorker) Stop() {
+func (w *OrdersWorker) Stop() {
 	w.worker.Stop()
 }
 
-// DieRollParentWorkflow is a struct that wraps a workflow
+// OrdersProcessOrder is a struct that wraps a workflow
 //
-// Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-type DieRollParentWorkflow struct {
+// ProcessOrder drives an order from payment to shipping. While it runs it
+// can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+// cancelled (CancelOrder signal)
+type OrdersProcessOrder struct {
 	client     client.Client
 	future     client.WorkflowRun
 	workflowId string
 	runId      string
 }
 
-// GetParentWorkflow gets an instance of a given workflow
-func (c *DieRollClient) GetParentWorkflow(ctx context.Context, workflowId string, runId string) *DieRollParentWorkflow {
+// GetProcessOrder gets an instance of a given workflow
+func (c *OrdersClient) GetProcessOrder(ctx context.Context, workflowId string, runId string) *OrdersProcessOrder {
 	future := c.client.GetWorkflow(ctx, workflowId, runId)
 
-	return &DieRollParentWorkflow{
+	return &OrdersProcessOrder{
 		client:     c.client,
 		future:     future,
 		workflowId: workflowId,
@@ -1537,9 +1746,9 @@ func (c *DieRollClient) GetParentWorkflow(ctx context.Context, workflowId string
 	}
 }
 
-// GetParentWorkflowFromRun gets an instance of a given workflow from a future
-func (c *DieRollClient) GetParentWorkflowFromRun(future client.WorkflowRun) *DieRollParentWorkflow {
-	return &DieRollParentWorkflow{
+// GetProcessOrderFromRun gets an instance of a given workflow from a future
+func (c *OrdersClient) GetProcessOrderFromRun(future client.WorkflowRun) *OrdersProcessOrder {
+	return &OrdersProcessOrder{
 		workflowId: future.GetID(),
 		runId:      future.GetRunID(),
 		client:     c.client,
@@ -1548,28 +1757,28 @@ func (c *DieRollClient) GetParentWorkflowFromRun(future client.WorkflowRun) *Die
 }
 
 // Cancel cancels a given workflow
-func (w *DieRollParentWorkflow) Cancel(ctx context.Context) error {
+func (w *OrdersProcessOrder) Cancel(ctx context.Context) error {
 	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
 }
 
 // GetID Returns the workflow ID
-func (w *DieRollParentWorkflow) GetID() string {
+func (w *OrdersProcessOrder) GetID() string {
 	return w.future.GetID()
 }
 
 // GetRunID Returns the run ID
-func (w *DieRollParentWorkflow) GetRunID() string {
+func (w *OrdersProcessOrder) GetRunID() string {
 	return w.future.GetRunID()
 }
 
 // Terminate terminates a given workflow
-func (w *DieRollParentWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+func (w *OrdersProcessOrder) Terminate(ctx context.Context, reason string, details ...interface{}) error {
 	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
 }
 
 // Result gets the result of a given workflow with its native type
-func (w *DieRollParentWorkflow) Result(ctx context.Context) (*ParentWorkflowReply, error) {
-	var resp *ParentWorkflowReply
+func (w *OrdersProcessOrder) Result(ctx context.Context) (*ProcessOrderResponse, error) {
+	var resp *ProcessOrderResponse
 
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
@@ -1580,8 +1789,8 @@ func (w *DieRollParentWorkflow) Result(ctx context.Context) (*ParentWorkflowRepl
 }
 
 // ResultWithOptions gets the result of a given workflow with its native type
-func (w *DieRollParentWorkflow) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*ParentWorkflowReply, error) {
-	var resp *ParentWorkflowReply
+func (w *OrdersProcessOrder) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*ProcessOrderResponse, error) {
+	var resp *ProcessOrderResponse
 
 	err := w.future.GetWithOptions(ctx, &resp, options)
 	if err != nil {
@@ -1592,435 +1801,28 @@ func (w *DieRollParentWorkflow) ResultWithOptions(ctx context.Context, options c
 }
 
 // Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *DieRollParentWorkflow) Get(ctx context.Context, valuePtr interface{}) error {
+func (w *OrdersProcessOrder) Get(ctx context.Context, valuePtr interface{}) error {
 	return w.future.Get(ctx, valuePtr)
 }
 
 // GetWithOptions gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *DieRollParentWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+func (w *OrdersProcessOrder) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
 	return w.future.GetWithOptions(ctx, valuePtr, options)
 }
 
-// SignalContinue sends the Continue signal to the workflow
-func (w *DieRollParentWorkflow) SignalContinue(ctx context.Context, req *ContinueSignalRequest) error {
-	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), SignalContinueName, req)
+// SignalCancelOrder sends the CancelOrder signal to the workflow
+func (w *OrdersProcessOrder) SignalCancelOrder(ctx context.Context, req *CancelOrderRequest) error {
+	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), SignalCancelOrderName, req)
 }
 
-// ChildDieRollParentWorkflowExecution is a struct that wraps a workflow execution (called from another workflow)
-type ChildDieRollParentWorkflowExecution struct {
-	client client.Client
-	future workflow.ChildWorkflowFuture
-}
-
-// GetChildDieRollParentWorkflowExecution gets an instance of a given workflow from a future
-func (c *DieRollClient) GetChildDieRollParentWorkflowExecution(future workflow.ChildWorkflowFuture) *ChildDieRollParentWorkflowExecution {
-	return &ChildDieRollParentWorkflowExecution{
-		client: c.client,
-		future: future,
-	}
-}
-
-// Result gets the result of a given workflow with its native type
-func (w *ChildDieRollParentWorkflowExecution) Result(ctx workflow.Context) (*ParentWorkflowReply, error) {
-	var resp *ParentWorkflowReply
-
-	err := w.future.Get(ctx, &resp)
+// QueryGetOrderStatus queries the workflow with GetOrderStatus
+func (w *OrdersProcessOrder) QueryGetOrderStatus(ctx context.Context, req *emptypb.Empty) (*GetOrderStatusResponse, error) {
+	future, err := w.client.QueryWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), QueryGetOrderStatusName, req)
 	if err != nil {
 		return nil, err
 	}
 
-	return resp, nil
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
-func (w *ChildDieRollParentWorkflowExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
-	return w.future.Get(ctx, valuePtr)
-}
-
-// GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
-func (w *ChildDieRollParentWorkflowExecution) GetChildWorkflowExecution() workflow.Future {
-	return w.future
-}
-
-// IsReady Wraps the IsReady method from the future
-func (w *ChildDieRollParentWorkflowExecution) IsReady() bool {
-	return w.future.IsReady()
-}
-
-// SignalChildWorkflow Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
-func (w *ChildDieRollParentWorkflowExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
-	return w.future.SignalChildWorkflow(ctx, sigName, data)
-}
-
-// SignalContinue sends the Continue signal to the workflow
-func (w *ChildDieRollParentWorkflowExecution) SignalContinue(ctx workflow.Context, req *ContinueSignalRequest) error {
-	return w.future.SignalChildWorkflow(ctx, SignalContinueName, req).Get(ctx, nil)
-}
-
-// DieRollChildWorkflow is a struct that wraps a workflow
-type DieRollChildWorkflow struct {
-	client     client.Client
-	future     client.WorkflowRun
-	workflowId string
-	runId      string
-}
-
-// GetChildWorkflow gets an instance of a given workflow
-func (c *DieRollClient) GetChildWorkflow(ctx context.Context, workflowId string, runId string) *DieRollChildWorkflow {
-	future := c.client.GetWorkflow(ctx, workflowId, runId)
-
-	return &DieRollChildWorkflow{
-		client:     c.client,
-		future:     future,
-		workflowId: workflowId,
-		runId:      runId,
-	}
-}
-
-// GetChildWorkflowFromRun gets an instance of a given workflow from a future
-func (c *DieRollClient) GetChildWorkflowFromRun(future client.WorkflowRun) *DieRollChildWorkflow {
-	return &DieRollChildWorkflow{
-		workflowId: future.GetID(),
-		runId:      future.GetRunID(),
-		client:     c.client,
-		future:     future,
-	}
-}
-
-// Cancel cancels a given workflow
-func (w *DieRollChildWorkflow) Cancel(ctx context.Context) error {
-	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
-}
-
-// GetID Returns the workflow ID
-func (w *DieRollChildWorkflow) GetID() string {
-	return w.future.GetID()
-}
-
-// GetRunID Returns the run ID
-func (w *DieRollChildWorkflow) GetRunID() string {
-	return w.future.GetRunID()
-}
-
-// Terminate terminates a given workflow
-func (w *DieRollChildWorkflow) Terminate(ctx context.Context, reason string, details ...interface{}) error {
-	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
-}
-
-// Result gets the result of a given workflow with its native type
-func (w *DieRollChildWorkflow) Result(ctx context.Context) (*emptypb.Empty, error) {
-	var resp *emptypb.Empty
-
-	err := w.future.Get(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-// ResultWithOptions gets the result of a given workflow with its native type
-func (w *DieRollChildWorkflow) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*emptypb.Empty, error) {
-	var resp *emptypb.Empty
-
-	err := w.future.GetWithOptions(ctx, &resp, options)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *DieRollChildWorkflow) Get(ctx context.Context, valuePtr interface{}) error {
-	return w.future.Get(ctx, valuePtr)
-}
-
-// GetWithOptions gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *DieRollChildWorkflow) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
-	return w.future.GetWithOptions(ctx, valuePtr, options)
-}
-
-// ChildDieRollChildWorkflowExecution is a struct that wraps a workflow execution (called from another workflow)
-type ChildDieRollChildWorkflowExecution struct {
-	client client.Client
-	future workflow.ChildWorkflowFuture
-}
-
-// GetChildDieRollChildWorkflowExecution gets an instance of a given workflow from a future
-func (c *DieRollClient) GetChildDieRollChildWorkflowExecution(future workflow.ChildWorkflowFuture) *ChildDieRollChildWorkflowExecution {
-	return &ChildDieRollChildWorkflowExecution{
-		client: c.client,
-		future: future,
-	}
-}
-
-// Result gets the result of a given workflow with its native type
-func (w *ChildDieRollChildWorkflowExecution) Result(ctx workflow.Context) (*emptypb.Empty, error) {
-	var resp *emptypb.Empty
-
-	err := w.future.Get(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
-func (w *ChildDieRollChildWorkflowExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
-	return w.future.Get(ctx, valuePtr)
-}
-
-// GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
-func (w *ChildDieRollChildWorkflowExecution) GetChildWorkflowExecution() workflow.Future {
-	return w.future
-}
-
-// IsReady Wraps the IsReady method from the future
-func (w *ChildDieRollChildWorkflowExecution) IsReady() bool {
-	return w.future.IsReady()
-}
-
-// SignalChildWorkflow Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
-func (w *ChildDieRollChildWorkflowExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
-	return w.future.SignalChildWorkflow(ctx, sigName, data)
-}
-
-// DieRollThrowDies is a struct that wraps a workflow
-//
-// Throws dies a few times and return the result
-type DieRollThrowDies struct {
-	client     client.Client
-	future     client.WorkflowRun
-	workflowId string
-	runId      string
-}
-
-// GetThrowDies gets an instance of a given workflow
-func (c *DieRollClient) GetThrowDies(ctx context.Context, workflowId string, runId string) *DieRollThrowDies {
-	future := c.client.GetWorkflow(ctx, workflowId, runId)
-
-	return &DieRollThrowDies{
-		client:     c.client,
-		future:     future,
-		workflowId: workflowId,
-		runId:      runId,
-	}
-}
-
-// GetThrowDiesFromRun gets an instance of a given workflow from a future
-func (c *DieRollClient) GetThrowDiesFromRun(future client.WorkflowRun) *DieRollThrowDies {
-	return &DieRollThrowDies{
-		workflowId: future.GetID(),
-		runId:      future.GetRunID(),
-		client:     c.client,
-		future:     future,
-	}
-}
-
-// Cancel cancels a given workflow
-func (w *DieRollThrowDies) Cancel(ctx context.Context) error {
-	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
-}
-
-// GetID Returns the workflow ID
-func (w *DieRollThrowDies) GetID() string {
-	return w.future.GetID()
-}
-
-// GetRunID Returns the run ID
-func (w *DieRollThrowDies) GetRunID() string {
-	return w.future.GetRunID()
-}
-
-// Terminate terminates a given workflow
-func (w *DieRollThrowDies) Terminate(ctx context.Context, reason string, details ...interface{}) error {
-	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
-}
-
-// Result gets the result of a given workflow with its native type
-func (w *DieRollThrowDies) Result(ctx context.Context) (*ThrowDiesResponse, error) {
-	var resp *ThrowDiesResponse
-
-	err := w.future.Get(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-// ResultWithOptions gets the result of a given workflow with its native type
-func (w *DieRollThrowDies) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*ThrowDiesResponse, error) {
-	var resp *ThrowDiesResponse
-
-	err := w.future.GetWithOptions(ctx, &resp, options)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *DieRollThrowDies) Get(ctx context.Context, valuePtr interface{}) error {
-	return w.future.Get(ctx, valuePtr)
-}
-
-// GetWithOptions gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *DieRollThrowDies) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
-	return w.future.GetWithOptions(ctx, valuePtr, options)
-}
-
-// SignalContinue sends the Continue signal to the workflow
-func (w *DieRollThrowDies) SignalContinue(ctx context.Context, req *ContinueSignalRequest) error {
-	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), SignalContinueName, req)
-}
-
-// ChildDieRollThrowDiesExecution is a struct that wraps a workflow execution (called from another workflow)
-type ChildDieRollThrowDiesExecution struct {
-	client client.Client
-	future workflow.ChildWorkflowFuture
-}
-
-// GetChildDieRollThrowDiesExecution gets an instance of a given workflow from a future
-func (c *DieRollClient) GetChildDieRollThrowDiesExecution(future workflow.ChildWorkflowFuture) *ChildDieRollThrowDiesExecution {
-	return &ChildDieRollThrowDiesExecution{
-		client: c.client,
-		future: future,
-	}
-}
-
-// Result gets the result of a given workflow with its native type
-func (w *ChildDieRollThrowDiesExecution) Result(ctx workflow.Context) (*ThrowDiesResponse, error) {
-	var resp *ThrowDiesResponse
-
-	err := w.future.Get(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
-func (w *ChildDieRollThrowDiesExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
-	return w.future.Get(ctx, valuePtr)
-}
-
-// GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
-func (w *ChildDieRollThrowDiesExecution) GetChildWorkflowExecution() workflow.Future {
-	return w.future
-}
-
-// IsReady Wraps the IsReady method from the future
-func (w *ChildDieRollThrowDiesExecution) IsReady() bool {
-	return w.future.IsReady()
-}
-
-// SignalChildWorkflow Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
-func (w *ChildDieRollThrowDiesExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
-	return w.future.SignalChildWorkflow(ctx, sigName, data)
-}
-
-// SignalContinue sends the Continue signal to the workflow
-func (w *ChildDieRollThrowDiesExecution) SignalContinue(ctx workflow.Context, req *ContinueSignalRequest) error {
-	return w.future.SignalChildWorkflow(ctx, SignalContinueName, req).Get(ctx, nil)
-}
-
-// DieRollThrowUntilValue is a struct that wraps a workflow
-type DieRollThrowUntilValue struct {
-	client     client.Client
-	future     client.WorkflowRun
-	workflowId string
-	runId      string
-}
-
-// GetThrowUntilValue gets an instance of a given workflow
-func (c *DieRollClient) GetThrowUntilValue(ctx context.Context, workflowId string, runId string) *DieRollThrowUntilValue {
-	future := c.client.GetWorkflow(ctx, workflowId, runId)
-
-	return &DieRollThrowUntilValue{
-		client:     c.client,
-		future:     future,
-		workflowId: workflowId,
-		runId:      runId,
-	}
-}
-
-// GetThrowUntilValueFromRun gets an instance of a given workflow from a future
-func (c *DieRollClient) GetThrowUntilValueFromRun(future client.WorkflowRun) *DieRollThrowUntilValue {
-	return &DieRollThrowUntilValue{
-		workflowId: future.GetID(),
-		runId:      future.GetRunID(),
-		client:     c.client,
-		future:     future,
-	}
-}
-
-// Cancel cancels a given workflow
-func (w *DieRollThrowUntilValue) Cancel(ctx context.Context) error {
-	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
-}
-
-// GetID Returns the workflow ID
-func (w *DieRollThrowUntilValue) GetID() string {
-	return w.future.GetID()
-}
-
-// GetRunID Returns the run ID
-func (w *DieRollThrowUntilValue) GetRunID() string {
-	return w.future.GetRunID()
-}
-
-// Terminate terminates a given workflow
-func (w *DieRollThrowUntilValue) Terminate(ctx context.Context, reason string, details ...interface{}) error {
-	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
-}
-
-// Result gets the result of a given workflow with its native type
-func (w *DieRollThrowUntilValue) Result(ctx context.Context) (*emptypb.Empty, error) {
-	var resp *emptypb.Empty
-
-	err := w.future.Get(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-// ResultWithOptions gets the result of a given workflow with its native type
-func (w *DieRollThrowUntilValue) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*emptypb.Empty, error) {
-	var resp *emptypb.Empty
-
-	err := w.future.GetWithOptions(ctx, &resp, options)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *DieRollThrowUntilValue) Get(ctx context.Context, valuePtr interface{}) error {
-	return w.future.Get(ctx, valuePtr)
-}
-
-// GetWithOptions gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
-func (w *DieRollThrowUntilValue) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
-	return w.future.GetWithOptions(ctx, valuePtr, options)
-}
-
-// QueryGetThrowsStatus queries the workflow with GetThrowsStatus
-func (w *DieRollThrowUntilValue) QueryGetThrowsStatus(ctx context.Context, req *emptypb.Empty) (*ThrowStatusResponse, error) {
-	future, err := w.client.QueryWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), QueryGetThrowsStatusName, req)
-	if err != nil {
-		return nil, err
-	}
-
-	var resp *ThrowStatusResponse
+	var resp *GetOrderStatusResponse
 	err = future.Get(&resp)
 	if err != nil {
 		return nil, err
@@ -2029,23 +1831,45 @@ func (w *DieRollThrowUntilValue) QueryGetThrowsStatus(ctx context.Context, req *
 	return resp, nil
 }
 
-// ChildDieRollThrowUntilValueExecution is a struct that wraps a workflow execution (called from another workflow)
-type ChildDieRollThrowUntilValueExecution struct {
+// UpdateChangeShippingAddress sends the ChangeShippingAddress update to the workflow and waits for it to complete
+func (w *OrdersProcessOrder) UpdateChangeShippingAddress(ctx context.Context, req *ChangeShippingAddressRequest) (*ChangeShippingAddressResponse, error) {
+	handle, err := w.client.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
+		WorkflowID:   w.future.GetID(),
+		RunID:        w.future.GetRunID(),
+		UpdateName:   UpdateChangeShippingAddressName,
+		Args:         []interface{}{req},
+		WaitForStage: client.WorkflowUpdateStageCompleted,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *ChangeShippingAddressResponse
+	err = handle.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ChildOrdersProcessOrderExecution is a struct that wraps a workflow execution (called from another workflow)
+type ChildOrdersProcessOrderExecution struct {
 	client client.Client
 	future workflow.ChildWorkflowFuture
 }
 
-// GetChildDieRollThrowUntilValueExecution gets an instance of a given workflow from a future
-func (c *DieRollClient) GetChildDieRollThrowUntilValueExecution(future workflow.ChildWorkflowFuture) *ChildDieRollThrowUntilValueExecution {
-	return &ChildDieRollThrowUntilValueExecution{
+// GetChildOrdersProcessOrderExecution gets an instance of a given workflow from a future
+func (c *OrdersClient) GetChildOrdersProcessOrderExecution(future workflow.ChildWorkflowFuture) *ChildOrdersProcessOrderExecution {
+	return &ChildOrdersProcessOrderExecution{
 		client: c.client,
 		future: future,
 	}
 }
 
 // Result gets the result of a given workflow with its native type
-func (w *ChildDieRollThrowUntilValueExecution) Result(ctx workflow.Context) (*emptypb.Empty, error) {
-	var resp *emptypb.Empty
+func (w *ChildOrdersProcessOrderExecution) Result(ctx workflow.Context) (*ProcessOrderResponse, error) {
+	var resp *ProcessOrderResponse
 
 	err := w.future.Get(ctx, &resp)
 	if err != nil {
@@ -2056,60 +1880,400 @@ func (w *ChildDieRollThrowUntilValueExecution) Result(ctx workflow.Context) (*em
 }
 
 // Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
-func (w *ChildDieRollThrowUntilValueExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
+func (w *ChildOrdersProcessOrderExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
 	return w.future.Get(ctx, valuePtr)
 }
 
 // GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
-func (w *ChildDieRollThrowUntilValueExecution) GetChildWorkflowExecution() workflow.Future {
+func (w *ChildOrdersProcessOrderExecution) GetChildWorkflowExecution() workflow.Future {
 	return w.future
 }
 
 // IsReady Wraps the IsReady method from the future
-func (w *ChildDieRollThrowUntilValueExecution) IsReady() bool {
+func (w *ChildOrdersProcessOrderExecution) IsReady() bool {
 	return w.future.IsReady()
 }
 
 // SignalChildWorkflow Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
-func (w *ChildDieRollThrowUntilValueExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
+func (w *ChildOrdersProcessOrderExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
 	return w.future.SignalChildWorkflow(ctx, sigName, data)
 }
 
-// SendSignalContinue sends the Continue signal to a workflow
-//
-// Instruct the workflow to proceed
-func (c *DieRollClient) SendSignalContinue(ctx context.Context, workflowID string, runID string, req *ContinueSignalRequest) error {
-	return c.client.SignalWorkflow(ctx, workflowID, runID, SignalContinueName, req)
+// SignalCancelOrder sends the CancelOrder signal to the workflow
+func (w *ChildOrdersProcessOrderExecution) SignalCancelOrder(ctx workflow.Context, req *CancelOrderRequest) error {
+	return w.future.SignalChildWorkflow(ctx, SignalCancelOrderName, req).Get(ctx, nil)
 }
 
-// ReceiveSignalContinue waits for the Continue signal
+// OrdersShipOrder is a struct that wraps a workflow
 //
-// Instruct the workflow to proceed
-func ReceiveSignalContinue(ctx workflow.Context) (*ContinueSignalRequest, bool) {
-	var result *ContinueSignalRequest
-	ok := workflow.GetSignalChannel(ctx, SignalContinueName).Receive(ctx, &result)
-	return result, ok
+// ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+// child workflow so shipping shows up as its own execution in the UI
+type OrdersShipOrder struct {
+	client     client.Client
+	future     client.WorkflowRun
+	workflowId string
+	runId      string
 }
 
-// ReceiveSignalContinueAsync receives the Continue signal asynchronously. It doesn't wait if there is no signal in the queue
-//
-// Instruct the workflow to proceed
-func ReceiveSignalContinueAsync(ctx workflow.Context) (*ContinueSignalRequest, bool) {
-	var result *ContinueSignalRequest
-	ok := workflow.GetSignalChannel(ctx, SignalContinueName).ReceiveAsync(&result)
-	return result, ok
+// GetShipOrder gets an instance of a given workflow
+func (c *OrdersClient) GetShipOrder(ctx context.Context, workflowId string, runId string) *OrdersShipOrder {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
+	return &OrdersShipOrder{
+		client:     c.client,
+		future:     future,
+		workflowId: workflowId,
+		runId:      runId,
+	}
 }
 
-// QueryGetThrowsStatus sends the GetThrowsStatus query to a workflow
-//
-// Query the state of the workflow
-func (c *DieRollClient) QueryGetThrowsStatus(ctx context.Context, workflowID string, runID string, req *emptypb.Empty) (*ThrowStatusResponse, error) {
-	future, err := c.client.QueryWorkflow(ctx, workflowID, runID, QueryGetThrowsStatusName, req)
+// GetShipOrderFromRun gets an instance of a given workflow from a future
+func (c *OrdersClient) GetShipOrderFromRun(future client.WorkflowRun) *OrdersShipOrder {
+	return &OrdersShipOrder{
+		workflowId: future.GetID(),
+		runId:      future.GetRunID(),
+		client:     c.client,
+		future:     future,
+	}
+}
+
+// Cancel cancels a given workflow
+func (w *OrdersShipOrder) Cancel(ctx context.Context) error {
+	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
+}
+
+// GetID Returns the workflow ID
+func (w *OrdersShipOrder) GetID() string {
+	return w.future.GetID()
+}
+
+// GetRunID Returns the run ID
+func (w *OrdersShipOrder) GetRunID() string {
+	return w.future.GetRunID()
+}
+
+// Terminate terminates a given workflow
+func (w *OrdersShipOrder) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
+}
+
+// Result gets the result of a given workflow with its native type
+func (w *OrdersShipOrder) Result(ctx context.Context) (*ShipOrderResponse, error) {
+	var resp *ShipOrderResponse
+
+	err := w.future.Get(ctx, &resp)
 	if err != nil {
 		return nil, err
 	}
 
-	var resp *ThrowStatusResponse
+	return resp, nil
+}
+
+// ResultWithOptions gets the result of a given workflow with its native type
+func (w *OrdersShipOrder) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*ShipOrderResponse, error) {
+	var resp *ShipOrderResponse
+
+	err := w.future.GetWithOptions(ctx, &resp, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *OrdersShipOrder) Get(ctx context.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// GetWithOptions gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *OrdersShipOrder) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+	return w.future.GetWithOptions(ctx, valuePtr, options)
+}
+
+// ChildOrdersShipOrderExecution is a struct that wraps a workflow execution (called from another workflow)
+type ChildOrdersShipOrderExecution struct {
+	client client.Client
+	future workflow.ChildWorkflowFuture
+}
+
+// GetChildOrdersShipOrderExecution gets an instance of a given workflow from a future
+func (c *OrdersClient) GetChildOrdersShipOrderExecution(future workflow.ChildWorkflowFuture) *ChildOrdersShipOrderExecution {
+	return &ChildOrdersShipOrderExecution{
+		client: c.client,
+		future: future,
+	}
+}
+
+// Result gets the result of a given workflow with its native type
+func (w *ChildOrdersShipOrderExecution) Result(ctx workflow.Context) (*ShipOrderResponse, error) {
+	var resp *ShipOrderResponse
+
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
+func (w *ChildOrdersShipOrderExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildOrdersShipOrderExecution) GetChildWorkflowExecution() workflow.Future {
+	return w.future
+}
+
+// IsReady Wraps the IsReady method from the future
+func (w *ChildOrdersShipOrderExecution) IsReady() bool {
+	return w.future.IsReady()
+}
+
+// SignalChildWorkflow Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+func (w *ChildOrdersShipOrderExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
+	return w.future.SignalChildWorkflow(ctx, sigName, data)
+}
+
+// OrdersDailySalesReport is a struct that wraps a workflow
+//
+// DailySalesReport is a fast workflow meant to be driven by a Temporal
+// schedule -- see the schedule part of the client walkthrough
+type OrdersDailySalesReport struct {
+	client     client.Client
+	future     client.WorkflowRun
+	workflowId string
+	runId      string
+}
+
+// GetDailySalesReport gets an instance of a given workflow
+func (c *OrdersClient) GetDailySalesReport(ctx context.Context, workflowId string, runId string) *OrdersDailySalesReport {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
+	return &OrdersDailySalesReport{
+		client:     c.client,
+		future:     future,
+		workflowId: workflowId,
+		runId:      runId,
+	}
+}
+
+// GetDailySalesReportFromRun gets an instance of a given workflow from a future
+func (c *OrdersClient) GetDailySalesReportFromRun(future client.WorkflowRun) *OrdersDailySalesReport {
+	return &OrdersDailySalesReport{
+		workflowId: future.GetID(),
+		runId:      future.GetRunID(),
+		client:     c.client,
+		future:     future,
+	}
+}
+
+// Cancel cancels a given workflow
+func (w *OrdersDailySalesReport) Cancel(ctx context.Context) error {
+	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
+}
+
+// GetID Returns the workflow ID
+func (w *OrdersDailySalesReport) GetID() string {
+	return w.future.GetID()
+}
+
+// GetRunID Returns the run ID
+func (w *OrdersDailySalesReport) GetRunID() string {
+	return w.future.GetRunID()
+}
+
+// Terminate terminates a given workflow
+func (w *OrdersDailySalesReport) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
+}
+
+// Result gets the result of a given workflow with its native type
+func (w *OrdersDailySalesReport) Result(ctx context.Context) (*DailySalesReportResponse, error) {
+	var resp *DailySalesReportResponse
+
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ResultWithOptions gets the result of a given workflow with its native type
+func (w *OrdersDailySalesReport) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*DailySalesReportResponse, error) {
+	var resp *DailySalesReportResponse
+
+	err := w.future.GetWithOptions(ctx, &resp, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *OrdersDailySalesReport) Get(ctx context.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// GetWithOptions gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *OrdersDailySalesReport) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+	return w.future.GetWithOptions(ctx, valuePtr, options)
+}
+
+// ChildOrdersDailySalesReportExecution is a struct that wraps a workflow execution (called from another workflow)
+type ChildOrdersDailySalesReportExecution struct {
+	client client.Client
+	future workflow.ChildWorkflowFuture
+}
+
+// GetChildOrdersDailySalesReportExecution gets an instance of a given workflow from a future
+func (c *OrdersClient) GetChildOrdersDailySalesReportExecution(future workflow.ChildWorkflowFuture) *ChildOrdersDailySalesReportExecution {
+	return &ChildOrdersDailySalesReportExecution{
+		client: c.client,
+		future: future,
+	}
+}
+
+// Result gets the result of a given workflow with its native type
+func (w *ChildOrdersDailySalesReportExecution) Result(ctx workflow.Context) (*DailySalesReportResponse, error) {
+	var resp *DailySalesReportResponse
+
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
+func (w *ChildOrdersDailySalesReportExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildOrdersDailySalesReportExecution) GetChildWorkflowExecution() workflow.Future {
+	return w.future
+}
+
+// IsReady Wraps the IsReady method from the future
+func (w *ChildOrdersDailySalesReportExecution) IsReady() bool {
+	return w.future.IsReady()
+}
+
+// SignalChildWorkflow Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+func (w *ChildOrdersDailySalesReportExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
+	return w.future.SignalChildWorkflow(ctx, sigName, data)
+}
+
+// OrdersTrackInventory is a struct that wraps a workflow
+//
+// TrackInventory is a long-lived "entity" workflow tracking the stock of
+// one SKU. It rolls over with continue-as-new after a number of restocks,
+// which makes it the demo for how BLOCKED updates interact with
+// continue-as-new: the workflow drains its update handlers (see
+// workflow.AllHandlersFinished) before rolling over, so a Reserve update
+// parked on "not enough stock" is answered before the run ends
+type OrdersTrackInventory struct {
+	client     client.Client
+	future     client.WorkflowRun
+	workflowId string
+	runId      string
+}
+
+// GetTrackInventory gets an instance of a given workflow
+func (c *OrdersClient) GetTrackInventory(ctx context.Context, workflowId string, runId string) *OrdersTrackInventory {
+	future := c.client.GetWorkflow(ctx, workflowId, runId)
+
+	return &OrdersTrackInventory{
+		client:     c.client,
+		future:     future,
+		workflowId: workflowId,
+		runId:      runId,
+	}
+}
+
+// GetTrackInventoryFromRun gets an instance of a given workflow from a future
+func (c *OrdersClient) GetTrackInventoryFromRun(future client.WorkflowRun) *OrdersTrackInventory {
+	return &OrdersTrackInventory{
+		workflowId: future.GetID(),
+		runId:      future.GetRunID(),
+		client:     c.client,
+		future:     future,
+	}
+}
+
+// Cancel cancels a given workflow
+func (w *OrdersTrackInventory) Cancel(ctx context.Context) error {
+	return w.client.CancelWorkflow(ctx, w.workflowId, w.runId)
+}
+
+// GetID Returns the workflow ID
+func (w *OrdersTrackInventory) GetID() string {
+	return w.future.GetID()
+}
+
+// GetRunID Returns the run ID
+func (w *OrdersTrackInventory) GetRunID() string {
+	return w.future.GetRunID()
+}
+
+// Terminate terminates a given workflow
+func (w *OrdersTrackInventory) Terminate(ctx context.Context, reason string, details ...interface{}) error {
+	return w.client.TerminateWorkflow(ctx, w.workflowId, w.runId, reason, details...)
+}
+
+// Result gets the result of a given workflow with its native type
+func (w *OrdersTrackInventory) Result(ctx context.Context) (*GetStockResponse, error) {
+	var resp *GetStockResponse
+
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ResultWithOptions gets the result of a given workflow with its native type
+func (w *OrdersTrackInventory) ResultWithOptions(ctx context.Context, options client.WorkflowRunGetOptions) (*GetStockResponse, error) {
+	var resp *GetStockResponse
+
+	err := w.future.GetWithOptions(ctx, &resp, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *OrdersTrackInventory) Get(ctx context.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// GetWithOptions gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.WorkflowRun
+func (w *OrdersTrackInventory) GetWithOptions(ctx context.Context, valuePtr interface{}, options client.WorkflowRunGetOptions) error {
+	return w.future.GetWithOptions(ctx, valuePtr, options)
+}
+
+// SignalRestock sends the Restock signal to the workflow
+func (w *OrdersTrackInventory) SignalRestock(ctx context.Context, req *RestockRequest) error {
+	return w.client.SignalWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), SignalRestockName, req)
+}
+
+// QueryGetStock queries the workflow with GetStock
+func (w *OrdersTrackInventory) QueryGetStock(ctx context.Context, req *emptypb.Empty) (*GetStockResponse, error) {
+	future, err := w.client.QueryWorkflow(ctx, w.future.GetID(), w.future.GetRunID(), QueryGetStockName, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *GetStockResponse
 	err = future.Get(&resp)
 	if err != nil {
 		return nil, err
@@ -2118,9 +2282,313 @@ func (c *DieRollClient) QueryGetThrowsStatus(ctx context.Context, workflowID str
 	return resp, nil
 }
 
-// HandleQueryGetThrowsStatus sets up the GetThrowsStatus query and responds accordingly, returns an error if it failed
+// UpdateReserve sends the Reserve update to the workflow and waits for it to complete
+func (w *OrdersTrackInventory) UpdateReserve(ctx context.Context, req *ReserveRequest) (*ReserveResponse, error) {
+	handle, err := w.client.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
+		WorkflowID:   w.future.GetID(),
+		RunID:        w.future.GetRunID(),
+		UpdateName:   UpdateReserveName,
+		Args:         []interface{}{req},
+		WaitForStage: client.WorkflowUpdateStageCompleted,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *ReserveResponse
+	err = handle.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ChildOrdersTrackInventoryExecution is a struct that wraps a workflow execution (called from another workflow)
+type ChildOrdersTrackInventoryExecution struct {
+	client client.Client
+	future workflow.ChildWorkflowFuture
+}
+
+// GetChildOrdersTrackInventoryExecution gets an instance of a given workflow from a future
+func (c *OrdersClient) GetChildOrdersTrackInventoryExecution(future workflow.ChildWorkflowFuture) *ChildOrdersTrackInventoryExecution {
+	return &ChildOrdersTrackInventoryExecution{
+		client: c.client,
+		future: future,
+	}
+}
+
+// Result gets the result of a given workflow with its native type
+func (w *ChildOrdersTrackInventoryExecution) Result(ctx workflow.Context) (*GetStockResponse, error) {
+	var resp *GetStockResponse
+
+	err := w.future.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Get gets the result of a given workflow with pointers -- discouraged to use but required to implement internal.Future
+func (w *ChildOrdersTrackInventoryExecution) Get(ctx workflow.Context, valuePtr interface{}) error {
+	return w.future.Get(ctx, valuePtr)
+}
+
+// GetChildWorkflowExecution Wraps the GetChildWorkflowExecution and returns an workflow.Future
+func (w *ChildOrdersTrackInventoryExecution) GetChildWorkflowExecution() workflow.Future {
+	return w.future
+}
+
+// IsReady Wraps the IsReady method from the future
+func (w *ChildOrdersTrackInventoryExecution) IsReady() bool {
+	return w.future.IsReady()
+}
+
+// SignalChildWorkflow Signals the child workflow with a generic signal -- discouraged to use but required to implement internal.Future
+func (w *ChildOrdersTrackInventoryExecution) SignalChildWorkflow(ctx workflow.Context, sigName string, data interface{}) workflow.Future {
+	return w.future.SignalChildWorkflow(ctx, sigName, data)
+}
+
+// SignalRestock sends the Restock signal to the workflow
+func (w *ChildOrdersTrackInventoryExecution) SignalRestock(ctx workflow.Context, req *RestockRequest) error {
+	return w.future.SignalChildWorkflow(ctx, SignalRestockName, req).Get(ctx, nil)
+}
+
+// SendSignalCancelOrder sends the CancelOrder signal to a workflow
 //
-// Query the state of the workflow
-func HandleQueryGetThrowsStatus(ctx workflow.Context, queryFunc func(req *emptypb.Empty) (*ThrowStatusResponse, error)) error {
-	return workflow.SetQueryHandler(ctx, QueryGetThrowsStatusName, queryFunc)
+// CancelOrder asks a running ProcessOrder workflow to stop. Signals are
+// fire and forget: the response type of a signal rpc is ignored by the
+// generator
+func (c *OrdersClient) SendSignalCancelOrder(ctx context.Context, workflowID string, runID string, req *CancelOrderRequest) error {
+	return c.client.SignalWorkflow(ctx, workflowID, runID, SignalCancelOrderName, req)
+}
+
+// ReceiveSignalCancelOrder waits for the CancelOrder signal
+//
+// CancelOrder asks a running ProcessOrder workflow to stop. Signals are
+// fire and forget: the response type of a signal rpc is ignored by the
+// generator
+func ReceiveSignalCancelOrder(ctx workflow.Context) (*CancelOrderRequest, bool) {
+	var result *CancelOrderRequest
+	ok := workflow.GetSignalChannel(ctx, SignalCancelOrderName).Receive(ctx, &result)
+	return result, ok
+}
+
+// ReceiveSignalCancelOrderAsync receives the CancelOrder signal asynchronously. It doesn't wait if there is no signal in the queue
+//
+// CancelOrder asks a running ProcessOrder workflow to stop. Signals are
+// fire and forget: the response type of a signal rpc is ignored by the
+// generator
+func ReceiveSignalCancelOrderAsync(ctx workflow.Context) (*CancelOrderRequest, bool) {
+	var result *CancelOrderRequest
+	ok := workflow.GetSignalChannel(ctx, SignalCancelOrderName).ReceiveAsync(&result)
+	return result, ok
+}
+
+// SendSignalRestock sends the Restock signal to a workflow
+//
+// Restock adds stock to a running TrackInventory workflow. Fire and forget
+func (c *OrdersClient) SendSignalRestock(ctx context.Context, workflowID string, runID string, req *RestockRequest) error {
+	return c.client.SignalWorkflow(ctx, workflowID, runID, SignalRestockName, req)
+}
+
+// ReceiveSignalRestock waits for the Restock signal
+//
+// Restock adds stock to a running TrackInventory workflow. Fire and forget
+func ReceiveSignalRestock(ctx workflow.Context) (*RestockRequest, bool) {
+	var result *RestockRequest
+	ok := workflow.GetSignalChannel(ctx, SignalRestockName).Receive(ctx, &result)
+	return result, ok
+}
+
+// ReceiveSignalRestockAsync receives the Restock signal asynchronously. It doesn't wait if there is no signal in the queue
+//
+// Restock adds stock to a running TrackInventory workflow. Fire and forget
+func ReceiveSignalRestockAsync(ctx workflow.Context) (*RestockRequest, bool) {
+	var result *RestockRequest
+	ok := workflow.GetSignalChannel(ctx, SignalRestockName).ReceiveAsync(&result)
+	return result, ok
+}
+
+// QueryGetOrderStatus sends the GetOrderStatus query to a workflow
+//
+// GetOrderStatus reads the current state of an order without touching it.
+// Queries are read only and are answered even after the workflow
+// completed, as long as a worker is running
+func (c *OrdersClient) QueryGetOrderStatus(ctx context.Context, workflowID string, runID string, req *emptypb.Empty) (*GetOrderStatusResponse, error) {
+	future, err := c.client.QueryWorkflow(ctx, workflowID, runID, QueryGetOrderStatusName, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *GetOrderStatusResponse
+	err = future.Get(&resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// HandleQueryGetOrderStatus sets up the GetOrderStatus query and responds accordingly, returns an error if it failed
+//
+// GetOrderStatus reads the current state of an order without touching it.
+// Queries are read only and are answered even after the workflow
+// completed, as long as a worker is running
+func HandleQueryGetOrderStatus(ctx workflow.Context, queryFunc func(req *emptypb.Empty) (*GetOrderStatusResponse, error)) error {
+	return workflow.SetQueryHandler(ctx, QueryGetOrderStatusName, queryFunc)
+}
+
+// QueryGetStock sends the GetStock query to a workflow
+//
+// GetStock reads the current stock of a running (or finished)
+// TrackInventory workflow
+func (c *OrdersClient) QueryGetStock(ctx context.Context, workflowID string, runID string, req *emptypb.Empty) (*GetStockResponse, error) {
+	future, err := c.client.QueryWorkflow(ctx, workflowID, runID, QueryGetStockName, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *GetStockResponse
+	err = future.Get(&resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// HandleQueryGetStock sets up the GetStock query and responds accordingly, returns an error if it failed
+//
+// GetStock reads the current stock of a running (or finished)
+// TrackInventory workflow
+func HandleQueryGetStock(ctx workflow.Context, queryFunc func(req *emptypb.Empty) (*GetStockResponse, error)) error {
+	return workflow.SetQueryHandler(ctx, QueryGetStockName, queryFunc)
+}
+
+// UpdateChangeShippingAddress sends the ChangeShippingAddress update to a workflow and ALWAYS blocks until
+// the handler returned, yielding the typed result: the update handle is waited on
+// regardless of WaitForStage, so this helper cannot be used fire-and-forget.
+// Options are mainly useful for setting an UpdateID (idempotency) or
+// FirstExecutionRunID; WaitForStage defaults to WorkflowUpdateStageCompleted when
+// unspecified, and overriding it only changes how much is guaranteed to have
+// happened before the underlying UpdateWorkflow call returns internally
+//
+// ChangeShippingAddress is an update: a synchronous request/response
+// against the running workflow. The caller blocks until the handler
+// answers, and a validator rejects garbage before it ever reaches the
+// workflow history
+func (c *OrdersClient) UpdateChangeShippingAddress(ctx context.Context, workflowID string, runID string, req *ChangeShippingAddressRequest, options ...client.UpdateWorkflowOptions) (*ChangeShippingAddressResponse, error) {
+	uOptions := client.UpdateWorkflowOptions{}
+	if len(options) > 0 {
+		uOptions = options[0]
+	}
+	uOptions.WorkflowID = workflowID
+	uOptions.RunID = runID
+	uOptions.UpdateName = UpdateChangeShippingAddressName
+	uOptions.Args = []interface{}{req}
+	if uOptions.WaitForStage == client.WorkflowUpdateStageUnspecified {
+		uOptions.WaitForStage = client.WorkflowUpdateStageCompleted
+	}
+
+	handle, err := c.client.UpdateWorkflow(ctx, uOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *ChangeShippingAddressResponse
+	err = handle.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// HandleUpdateChangeShippingAddress sets up the ChangeShippingAddress update handler, returns an error if it failed
+//
+// ChangeShippingAddress is an update: a synchronous request/response
+// against the running workflow. The caller blocks until the handler
+// answers, and a validator rejects garbage before it ever reaches the
+// workflow history
+func HandleUpdateChangeShippingAddress(ctx workflow.Context, updateFunc func(ctx workflow.Context, req *ChangeShippingAddressRequest) (*ChangeShippingAddressResponse, error)) error {
+	return workflow.SetUpdateHandler(ctx, UpdateChangeShippingAddressName, updateFunc)
+}
+
+// HandleUpdateChangeShippingAddressWithValidator sets up the ChangeShippingAddress update handler with a
+// validator. The validator runs before the update is admitted to history; if it
+// returns a non-nil error the update is rejected and never recorded
+//
+// ChangeShippingAddress is an update: a synchronous request/response
+// against the running workflow. The caller blocks until the handler
+// answers, and a validator rejects garbage before it ever reaches the
+// workflow history
+func HandleUpdateChangeShippingAddressWithValidator(ctx workflow.Context, updateFunc func(ctx workflow.Context, req *ChangeShippingAddressRequest) (*ChangeShippingAddressResponse, error), validatorFunc func(ctx workflow.Context, req *ChangeShippingAddressRequest) error) error {
+	return workflow.SetUpdateHandlerWithOptions(ctx, UpdateChangeShippingAddressName, updateFunc, workflow.UpdateHandlerOptions{
+		Validator: validatorFunc,
+	})
+}
+
+// UpdateReserve sends the Reserve update to a workflow and ALWAYS blocks until
+// the handler returned, yielding the typed result: the update handle is waited on
+// regardless of WaitForStage, so this helper cannot be used fire-and-forget.
+// Options are mainly useful for setting an UpdateID (idempotency) or
+// FirstExecutionRunID; WaitForStage defaults to WorkflowUpdateStageCompleted when
+// unspecified, and overriding it only changes how much is guaranteed to have
+// happened before the underlying UpdateWorkflow call returns internally
+//
+// Reserve takes stock out of a TrackInventory workflow. This is a BLOCKING
+// update: if there is not enough stock the handler parks on workflow.Await
+// until a Restock signal makes the quantity available, and only then
+// answers the caller. This is the lease/semaphore pattern
+func (c *OrdersClient) UpdateReserve(ctx context.Context, workflowID string, runID string, req *ReserveRequest, options ...client.UpdateWorkflowOptions) (*ReserveResponse, error) {
+	uOptions := client.UpdateWorkflowOptions{}
+	if len(options) > 0 {
+		uOptions = options[0]
+	}
+	uOptions.WorkflowID = workflowID
+	uOptions.RunID = runID
+	uOptions.UpdateName = UpdateReserveName
+	uOptions.Args = []interface{}{req}
+	if uOptions.WaitForStage == client.WorkflowUpdateStageUnspecified {
+		uOptions.WaitForStage = client.WorkflowUpdateStageCompleted
+	}
+
+	handle, err := c.client.UpdateWorkflow(ctx, uOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp *ReserveResponse
+	err = handle.Get(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// HandleUpdateReserve sets up the Reserve update handler, returns an error if it failed
+//
+// Reserve takes stock out of a TrackInventory workflow. This is a BLOCKING
+// update: if there is not enough stock the handler parks on workflow.Await
+// until a Restock signal makes the quantity available, and only then
+// answers the caller. This is the lease/semaphore pattern
+func HandleUpdateReserve(ctx workflow.Context, updateFunc func(ctx workflow.Context, req *ReserveRequest) (*ReserveResponse, error)) error {
+	return workflow.SetUpdateHandler(ctx, UpdateReserveName, updateFunc)
+}
+
+// HandleUpdateReserveWithValidator sets up the Reserve update handler with a
+// validator. The validator runs before the update is admitted to history; if it
+// returns a non-nil error the update is rejected and never recorded
+//
+// Reserve takes stock out of a TrackInventory workflow. This is a BLOCKING
+// update: if there is not enough stock the handler parks on workflow.Await
+// until a Restock signal makes the quantity available, and only then
+// answers the caller. This is the lease/semaphore pattern
+func HandleUpdateReserveWithValidator(ctx workflow.Context, updateFunc func(ctx workflow.Context, req *ReserveRequest) (*ReserveResponse, error), validatorFunc func(ctx workflow.Context, req *ReserveRequest) error) error {
+	return workflow.SetUpdateHandlerWithOptions(ctx, UpdateReserveName, updateFunc, workflow.UpdateHandlerOptions{
+		Validator: validatorFunc,
+	})
 }

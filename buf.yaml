@@ -22,3 +22,8 @@ breaking:
   except:
     - EXTENSION_NO_DELETE
     - FIELD_SAME_DEFAULT
+  # Only the published module (proto/, buf.build/thomas-maurice/temporal) has
+  # compatibility guarantees; the example proto is demo material and may be
+  # reshaped freely.
+  ignore:
+    - example/proto

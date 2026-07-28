@@ -130,6 +130,39 @@ func TestServiceGetQuery(t *testing.T) {
 	})
 }
 
+// TestServiceGetUpdate Tests update retrieval from map
+func TestServiceGetUpdate(t *testing.T) {
+	update := &Update{
+		BaseMethod: BaseMethod{
+			GoName: "TestUpdate",
+		},
+	}
+
+	service := &Service{
+		GoName: "TestService",
+		UpdatesMap: map[string]*Update{
+			"TestUpdate": update,
+		},
+	}
+
+	t.Run("existing update", func(t *testing.T) {
+		result, err := service.GetUpdate("TestUpdate")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result != update {
+			t.Error("expected to get the same update instance")
+		}
+	})
+
+	t.Run("non-existing update", func(t *testing.T) {
+		_, err := service.GetUpdate("NonExisting")
+		if err == nil {
+			t.Error("expected error for non-existing update")
+		}
+	})
+}
+
 // TestServiceScheduleHelperNames Verifies the per-service schedule helper naming
 func TestServiceScheduleHelperNames(t *testing.T) {
 	s := &Service{GoName: "DieRoll"}
