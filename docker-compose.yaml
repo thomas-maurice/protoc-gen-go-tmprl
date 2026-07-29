@@ -1,56 +1,125 @@
+# Local Temporal dev stack for the example walkthrough. Follows the layout of
+# temporalio/samples-server compose: the temporalio/auto-setup image is no
+# longer the recommended path, so schema setup and namespace creation run as
+# one-shot admin-tools jobs against a plain temporalio/server container.
 services:
   postgresql:
-    container_name: temporal-postgresql
     environment:
-      POSTGRES_PASSWORD: temporal
-      POSTGRES_USER: temporal
-    image: postgres:${POSTGRESQL_VERSION}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-temporal}
+      POSTGRES_USER: ${POSTGRES_USER:-temporal}
+    image: postgres:${POSTGRESQL_VERSION:-13}
     networks:
       - temporal-network
     ports:
-      - 5432:5432
+      - ${POSTGRES_HOST_PORT:-5433}:5432
     volumes:
-      - /var/lib/postgresql/data
-  temporal:
-    container_name: temporal
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+  # One-shot job: creates the temporal and temporal_visibility databases and
+  # applies the schemas, then exits. The server only starts once it succeeded.
+  temporal-admin-tools-setup:
+    restart: on-failure:6
     depends_on:
-      - postgresql
+      postgresql:
+        condition: service_healthy
     environment:
       - DB=postgres12
       - DB_PORT=5432
       - POSTGRES_USER=temporal
       - POSTGRES_PWD=temporal
       - POSTGRES_SEEDS=postgresql
-    image: temporalio/auto-setup:${TEMPORAL_VERSION}
+      - SQL_PASSWORD=temporal
+    image: temporalio/admin-tools:${TEMPORAL_ADMINTOOLS_VERSION:-1.31.0}
+    networks:
+      - temporal-network
+    volumes:
+      - ./scripts:/scripts
+    entrypoint: ["/bin/sh"]
+    command: /scripts/setup-postgres.sh
+  temporal:
+    depends_on:
+      temporal-admin-tools-setup:
+        condition: service_completed_successfully
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+      - BIND_ON_IP=0.0.0.0
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+    image: temporalio/server:${TEMPORAL_VERSION:-1.31.0}
+    volumes:
+      - ./dynamicconfig:/etc/temporal/config/dynamicconfig
     networks:
       - temporal-network
     ports:
-      - 7233:7233
-  temporal-admin-tools:
-    container_name: temporal-admin-tools
+      - ${TEMPORAL_HOST_PORT:-7233}:7233
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "7233"]
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
+      retries: 60
+  # One-shot job: waits for the server to be healthy and makes sure the
+  # default namespace exists.
+  temporal-create-namespace:
+    restart: on-failure:5
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
-    image: temporalio/admin-tools:${TEMPORAL_ADMINTOOLS_VERSION}
+      - DEFAULT_NAMESPACE=default
+      - DEFAULT_NAMESPACE_RETENTION=72h
+      - "TEMPORAL_ADDRESS=temporal:7233"
+    image: temporalio/admin-tools:${TEMPORAL_ADMINTOOLS_VERSION:-1.31.0}
+    volumes:
+      - ./scripts:/scripts
+    networks:
+      - temporal-network
+    entrypoint: ["/bin/sh"]
+    command: /scripts/create-namespace.sh
+  # Interactive admin-tools container: docker compose exec temporal-admin-tools bash
+  temporal-admin-tools:
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      - "TEMPORAL_ADDRESS=temporal:7233"
+      - "TEMPORAL_CLI_ADDRESS=temporal:7233"
+    image: temporalio/admin-tools:${TEMPORAL_ADMINTOOLS_VERSION:-1.31.0}
     networks:
       - temporal-network
     stdin_open: true
     tty: true
   temporal-ui:
-    container_name: temporal-ui
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
+      # Also gate on the namespace job: it makes the UI meaningful, and it
+      # keeps `docker compose up --wait` happy about the job's exit(0) --
+      # compose only tolerates exited containers that are
+      # completed-successfully dependencies of another service.
+      temporal-create-namespace:
+        condition: service_completed_successfully
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
-    image: temporalio/ui:${TEMPORAL_UI_VERSION}
+    image: temporalio/ui:${TEMPORAL_UI_VERSION:-2.49.1}
     networks:
       - temporal-network
     ports:
-      - 8080:8080
+      - ${TEMPORAL_UI_HOST_PORT:-8080}:8080
+volumes:
+  postgres-data: {}
 networks:
+  # No fixed global name: the network is scoped to the compose project so this
+  # stack can coexist with other temporal stacks on the same machine.
   temporal-network:
     driver: bridge
-    name: temporal-network

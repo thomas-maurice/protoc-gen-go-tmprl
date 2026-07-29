@@ -113,10 +113,11 @@ func TestServiceTemplateSections(t *testing.T) {
 		"Workflow Wrapper Objects (type-safe workflow management)",
 		"Signal Helper Functions (send and receive signals)",
 		"Query Helper Functions (query workflows)",
+		"Update Helper Functions (send updates and register update handlers)",
 	}
 
-	if len(sections) != 7 {
-		t.Errorf("Expected service.tmpl to have 7 sections, documented %d", len(sections))
+	if len(sections) != 8 {
+		t.Errorf("Expected service.tmpl to have 8 sections, documented %d", len(sections))
 	}
 
 	for i, section := range sections {

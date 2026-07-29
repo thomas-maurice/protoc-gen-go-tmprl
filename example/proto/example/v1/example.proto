@@ -7,154 +7,332 @@ import "temporal/v1/temporal.proto";
 
 option go_package = "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/example/v1";
 
-enum Status {
-  UNDEFINED = 0;
-  SUCCESS = 1;
-  FAILURE = 2;
+// OrderStatus is where an order currently is in its lifecycle. It is exposed
+// by the GetOrderStatus query while the workflow runs and returned in the
+// final workflow result.
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  // Order accepted, payment not taken yet
+  ORDER_STATUS_PENDING = 1;
+  // Payment captured
+  ORDER_STATUS_PAID = 2;
+  // Items packed, waiting for carrier pickup
+  ORDER_STATUS_PACKED = 3;
+  // Handed to the carrier, tracking number available
+  ORDER_STATUS_SHIPPED = 4;
+  // Cancelled by a CancelOrder signal
+  ORDER_STATUS_CANCELLED = 5;
 }
 
-// Service DieRoll is an example implementation of a service
-// It doesn't do much
+// Service Orders is a small e-commerce style fulfillment service used as a
+// guided tour of everything this plugin generates:
 //
-// But it is there, chilling.
+//   - workflows:  ProcessOrder (long lived), ShipOrder (child), DailySalesReport (scheduled)
+//   - activities: ChargePayment (retries + non-retryable errors), PackItems (heartbeats), DispatchCourier (custom name)
+//   - signals:    CancelOrder
+//   - queries:    GetOrderStatus
+//   - updates:    ChangeShippingAddress (validated, synchronous request/response)
 //
-// This documentation will be generated along the code
-// ```golang
-// package main
-//
-// import "fmt"
-//
-// func main() {
-//     fmt.Println("You can also put markdown in there, how cool is that ?")
-// }
-// ```
-service DieRoll {
+// See `example/worker` for the implementation and `example/client` for a
+// runnable walkthrough of all of the above.
+service Orders {
   option (temporal.v1.service) = {
-    task_queue: "service-task-queue"
+    task_queue: "orders"
+    // Applied to every workflow of the service unless the
+    // method options say otherwise
     default_workflow_options: {
-      // one day
-      workflow_execution_timeout: 86400
-      // one hour
-      workflow_run_timeout: 7200
+      // No single order should take more than an hour
+      workflow_execution_timeout: 3600
+    }
+    // Applied to every activity of the service unless the
+    // method options say otherwise
+    default_activity_options: {
+      start_to_close_timeout: 30
+      schedule_to_close_timeout: 300
     }
   };
 
-  // Throws a d6 and returns the result
-  rpc ThrowDie(google.protobuf.Empty) returns (ThrowDieResponse) {
+  // ProcessOrder drives an order from payment to shipping. While it runs it
+  // can be queried (GetOrderStatus), updated (ChangeShippingAddress) and
+  // cancelled (CancelOrder signal)
+  rpc ProcessOrder(ProcessOrderRequest) returns (ProcessOrderResponse) {
+    option (temporal.v1.workflow) = {
+      signals: ["CancelOrder"]
+      queries: ["GetOrderStatus"]
+      updates: ["ChangeShippingAddress"]
+    };
+  }
+
+  // ShipOrder hands the package over to a courier. ProcessOrder runs it as a
+  // child workflow so shipping shows up as its own execution in the UI
+  rpc ShipOrder(ShipOrderRequest) returns (ShipOrderResponse) {
+    option (temporal.v1.workflow) = {};
+  }
+
+  // DailySalesReport is a fast workflow meant to be driven by a Temporal
+  // schedule -- see the schedule part of the client walkthrough
+  rpc DailySalesReport(google.protobuf.Empty) returns (DailySalesReportResponse) {
+    option (temporal.v1.workflow) = {};
+  }
+
+  // TrackInventory is a long-lived "entity" workflow tracking the stock of
+  // one SKU. It rolls over with continue-as-new after a number of restocks,
+  // which makes it the demo for how BLOCKED updates interact with
+  // continue-as-new: the workflow drains its update handlers (see
+  // workflow.AllHandlersFinished) before rolling over, so a Reserve update
+  // parked on "not enough stock" is answered before the run ends
+  rpc TrackInventory(TrackInventoryRequest) returns (GetStockResponse) {
+    option (temporal.v1.workflow) = {
+      signals: ["Restock"]
+      queries: ["GetStock"]
+      updates: ["Reserve"]
+    };
+  }
+
+  // ChargePayment captures the money. The retry policy retries transient
+  // payment provider hiccups with exponential backoff, but gives up
+  // immediately when the card is declined: "CardDeclined" is listed in
+  // non_retryable_error_types and the worker returns application errors of
+  // that type when the card is bad
+  rpc ChargePayment(ChargePaymentRequest) returns (ChargePaymentResponse) {
     option (temporal.v1.activity) = {
-      schedule_to_start_timeout: 30
-      schedule_to_close_timeout: 120
-      start_to_close_timeout: 120
+      start_to_close_timeout: 10
       retry_policy: {
         initial_interval: 1
-        backoff_coefficient: 1.5
+        backoff_coefficient: 2.0
         maximum_interval: 10
-        maximum_attempts: 10
-        non_retryable_error_types: [
-          "FATAL",
-          "NOT_FOUND"
-        ]
+        maximum_attempts: 5
+        non_retryable_error_types: ["CardDeclined"]
       }
     };
   }
 
-  // Just a simple ping
-  // Takes no parameters
-  // returns nothing
-  rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty) {
+  // PackItems packs the order, one parcel per item. It is slow, so it
+  // records a heartbeat after every parcel: if the worker dies mid-pack,
+  // Temporal notices within heartbeat_timeout and reschedules the activity
+  rpc PackItems(PackItemsRequest) returns (PackItemsResponse) {
     option (temporal.v1.activity) = {
-      // Specify a name for the activity. This is not required as
-      // the generator will name it automatically <package>.<service>.<rpc>
-      name: "ping.Ping"
-      // Specify a heartbeat timeout if need be
-      heartbeat_timeout: 60
+      start_to_close_timeout: 60
+      heartbeat_timeout: 10
     };
   }
 
-  // Parent workflow that calls the Child workflow -- to test workflow ID generations mainly
-  rpc ParentWorkflow(google.protobuf.Empty) returns (ParentWorkflowReply) {
-    option (temporal.v1.workflow) = {
-      signals: ["Continue"]
-    };
+  // DispatchCourier books a courier and returns a tracking number. The
+  // `name` option overrides the registered activity name, which otherwise
+  // defaults to <package>.<service>.<method>
+  rpc DispatchCourier(DispatchCourierRequest) returns (DispatchCourierResponse) {
+    option (temporal.v1.activity) = {name: "courier.Dispatch"};
   }
 
-  rpc ChildWorkflow(google.protobuf.Empty) returns (google.protobuf.Empty) {
-    option (temporal.v1.workflow) = {};
-  }
-
-  // Throws dies a few times and return the result
-  rpc ThrowDies(ThrowDiesRequest) returns (ThrowDiesResponse) {
-    option (temporal.v1.workflow) = {
-      signals: ["Continue"]
-    };
-  }
-
-  rpc ThrowUntilValue(ThrowUntilValueRequest) returns (google.protobuf.Empty) {
-    option (temporal.v1.workflow) = {
-      queries: ["GetThrowsStatus"]
-    };
-  }
-
-  // Signals can be defined with whatever return type you want as they
-  // do not expect an answer
-
-  // Instruct the workflow to proceed
-  rpc Continue(ContinueSignalRequest) returns (google.protobuf.Empty) {
+  // CancelOrder asks a running ProcessOrder workflow to stop. Signals are
+  // fire and forget: the response type of a signal rpc is ignored by the
+  // generator
+  rpc CancelOrder(CancelOrderRequest) returns (google.protobuf.Empty) {
     option (temporal.v1.signal) = {};
   }
 
-  // Query the state of a workflow
-
-  // Query the state of the workflow
-  rpc GetThrowsStatus(google.protobuf.Empty) returns (ThrowStatusResponse) {
+  // GetOrderStatus reads the current state of an order without touching it.
+  // Queries are read only and are answered even after the workflow
+  // completed, as long as a worker is running
+  rpc GetOrderStatus(google.protobuf.Empty) returns (GetOrderStatusResponse) {
     option (temporal.v1.query) = {};
+  }
+
+  // ChangeShippingAddress is an update: a synchronous request/response
+  // against the running workflow. The caller blocks until the handler
+  // answers, and a validator rejects garbage before it ever reaches the
+  // workflow history
+  rpc ChangeShippingAddress(ChangeShippingAddressRequest) returns (ChangeShippingAddressResponse) {
+    option (temporal.v1.update) = {};
+  }
+
+  // Restock adds stock to a running TrackInventory workflow. Fire and forget
+  rpc Restock(RestockRequest) returns (google.protobuf.Empty) {
+    option (temporal.v1.signal) = {};
+  }
+
+  // GetStock reads the current stock of a running (or finished)
+  // TrackInventory workflow
+  rpc GetStock(google.protobuf.Empty) returns (GetStockResponse) {
+    option (temporal.v1.query) = {};
+  }
+
+  // Reserve takes stock out of a TrackInventory workflow. This is a BLOCKING
+  // update: if there is not enough stock the handler parks on workflow.Await
+  // until a Restock signal makes the quantity available, and only then
+  // answers the caller. This is the lease/semaphore pattern
+  rpc Reserve(ReserveRequest) returns (ReserveResponse) {
+    option (temporal.v1.update) = {};
   }
 }
 
-// Instructs the workflow to continue or stop
-message ContinueSignalRequest {
-  bool continue = 1;
+// A single line of an order
+message OrderItem {
+  // Stock keeping unit, e.g. "die-d20"
+  string sku = 1;
+  // How many of them
+  int32 quantity = 2;
 }
 
-// Returns the progress
-message GetStatusResponse {
-  int64 progress = 1;
+// Everything needed to process an order
+message ProcessOrderRequest {
+  // Client-chosen order identifier
+  string order_id = 1;
+  // What was bought
+  repeated OrderItem items = 2;
+  // Total price in cents
+  int64 amount_cents = 3;
+  // Payment card token. The example worker understands three of them:
+  // "tok-ok" (works), "tok-flaky" (fails twice then works, demonstrating
+  // the retry policy) and "tok-declined" (fails the workflow with a
+  // non-retryable CardDeclined error)
+  string card_token = 4;
+  // Where to ship. Can be changed while the order is in flight with the
+  // ChangeShippingAddress update
+  string shipping_address = 5;
+  // How long the order waits for carrier pickup once packed, in seconds.
+  // Defaults to 5 when unset. Set it high to keep an order parked so you
+  // can poke at it (query it, update it, cancel it) while watching the UI
+  int32 pickup_window_seconds = 6;
 }
 
-// Returns the value that was rolled
-message ThrowDieResponse {
-  int32 result = 1;
+// Final state of a processed order
+message ProcessOrderResponse {
+  // Terminal status, SHIPPED or CANCELLED
+  OrderStatus status = 1;
+  // The address the order actually shipped to
+  string shipping_address = 2;
+  // Carrier tracking number, empty if the order never shipped
+  string tracking_number = 3;
+  // Why the order was cancelled, empty otherwise
+  string cancel_reason = 4;
 }
 
-// Returns the values of a series of rolls
-message ThrowDiesResponse {
-  // Results of the throws
-  repeated int32 results = 1;
+// Asks a running order to stop
+message CancelOrderRequest {
+  // Human readable reason, recorded in the final result
+  string reason = 1;
 }
 
-// Triggers a series of die rolls
-message ThrowDiesRequest {
-  // Result array
-  int32 results = 1;
-  // Loop ?
-  bool loop = 2;
-  // A deprecated field
-  string result_status = 3 [deprecated = true];
+// Current state of a running (or finished) order
+message GetOrderStatusResponse {
+  OrderStatus status = 1;
+  // Address the order will ship to if nobody changes it
+  string shipping_address = 2;
 }
 
-// Requests  to roll a die until a certain value is pulled
-message ThrowUntilValueRequest {
-  // Target value
-  int32 value = 1;
+// Requests re-routing an order that has not shipped yet
+message ChangeShippingAddressRequest {
+  // The new address, must not be empty
+  string address = 1;
 }
 
-// Response to a die roll request
-message ThrowStatusResponse {
-  // Number of throws
-  int32 throws = 1;
+// Confirms the re-routing
+message ChangeShippingAddressResponse {
+  // The address that was replaced
+  string previous_address = 1;
 }
 
-message ParentWorkflowReply {
-  // Status of the workflow
-  Status status = 1;
+// Payment capture input
+message ChargePaymentRequest {
+  string order_id = 1;
+  int64 amount_cents = 2;
+  string card_token = 3;
+}
+
+// Payment capture receipt
+message ChargePaymentResponse {
+  // Payment provider transaction reference
+  string transaction_id = 1;
+}
+
+// Packing input
+message PackItemsRequest {
+  repeated OrderItem items = 1;
+}
+
+// Packing result
+message PackItemsResponse {
+  // Number of parcels produced
+  int32 parcels = 1;
+}
+
+// Child workflow input: ship one order
+message ShipOrderRequest {
+  string order_id = 1;
+  string address = 2;
+}
+
+// Child workflow result
+message ShipOrderResponse {
+  string tracking_number = 1;
+}
+
+// Courier booking input
+message DispatchCourierRequest {
+  string order_id = 1;
+  string address = 2;
+}
+
+// Courier booking result
+message DispatchCourierResponse {
+  string tracking_number = 1;
+}
+
+// Output of the scheduled reporting workflow
+message DailySalesReportResponse {
+  // A very serious business report
+  string report = 1;
+}
+
+// Input of the TrackInventory entity workflow
+message TrackInventoryRequest {
+  // Which SKU this inventory tracks
+  string sku = 1;
+  // Stock at the start of this run. On continue-as-new the workflow carries
+  // the current stock over through this field
+  int32 initial_stock = 2;
+  // Incremented on every continue-as-new rollover; leave unset when starting.
+  // Exposed through GetStock so you can observe the rollovers happening
+  int32 generation = 3;
+  // Roll over with continue-as-new after this many Restock signals.
+  // 0 disables rollovers
+  int32 restocks_before_continue_as_new = 4;
+  // DO NOT SET, demo of the anti-pattern: skip draining update handlers
+  // before continue-as-new. A Reserve update blocked at rollover time is
+  // then aborted and its caller gets an error instead of an answer
+  bool skip_handler_drain = 5;
+}
+
+// Adds stock
+message RestockRequest {
+  int32 quantity = 1;
+}
+
+// Takes stock, blocking until enough is available
+message ReserveRequest {
+  // How many items to reserve, must be > 0
+  int32 quantity = 1;
+  // How long to wait for enough stock before failing the update, in
+  // seconds. 0 waits forever. The timeout is enforced INSIDE the workflow
+  // with a durable timer (workflow.AwaitWithTimeout), so it survives worker
+  // restarts and also bounds how long a parked reservation can delay a
+  // continue-as-new rollover
+  int32 timeout_seconds = 2;
+}
+
+// Answer to a successful reservation
+message ReserveResponse {
+  // Stock left after the reservation
+  int32 remaining_stock = 1;
+  // Which run answered: if the update had to wait across a rollover this is
+  // higher than the generation it was sent to
+  int32 generation = 2;
+}
+
+// Current state of a TrackInventory workflow
+message GetStockResponse {
+  int32 stock = 1;
+  // Continue-as-new rollovers so far, starts at 1
+  int32 generation = 2;
 }

@@ -35,6 +35,7 @@ type WorkflowOptions struct {
 	RetryPolicy              *RetryPolicy
 	Signals                  []string
 	Queries                  []string
+	Updates                  []string
 }
 
 // MergeRetryPolicy Merges two retry policies, method takes precedence
@@ -176,6 +177,9 @@ func MergeWorkflowOptions(method, service *temporalv1.WorkflowOptions) *Workflow
 		}
 		if method.Queries != nil {
 			result.Queries = method.Queries
+		}
+		if method.Updates != nil {
+			result.Updates = method.Updates
 		}
 	}
 

@@ -132,7 +132,12 @@ type WorkflowOptions struct {
 	// workflow can process. They MUST be defined in
 	// the same service. The values of the list is
 	// simply the name of the corresponding RPC method
-	Queries       []string `protobuf:"bytes,7,rep,name=queries,proto3" json:"queries,omitempty"`
+	Queries []string `protobuf:"bytes,7,rep,name=queries,proto3" json:"queries,omitempty"`
+	// Updates is a list of updates that the
+	// workflow can process. They MUST be defined in
+	// the same service. The values of the list is
+	// simply the name of the corresponding RPC method
+	Updates       []string `protobuf:"bytes,8,rep,name=updates,proto3" json:"updates,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -212,6 +217,13 @@ func (x *WorkflowOptions) GetSignals() []string {
 func (x *WorkflowOptions) GetQueries() []string {
 	if x != nil {
 		return x.Queries
+	}
+	return nil
+}
+
+func (x *WorkflowOptions) GetUpdates() []string {
+	if x != nil {
+		return x.Updates
 	}
 	return nil
 }
@@ -451,6 +463,51 @@ func (x *QueryOptions) GetName() string {
 	return ""
 }
 
+type UpdateOptions struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Name is the name of the update, better left auto generated
+	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateOptions) Reset() {
+	*x = UpdateOptions{}
+	mi := &file_temporal_v1_temporal_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateOptions) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateOptions) ProtoMessage() {}
+
+func (x *UpdateOptions) ProtoReflect() protoreflect.Message {
+	mi := &file_temporal_v1_temporal_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateOptions.ProtoReflect.Descriptor instead.
+func (*UpdateOptions) Descriptor() ([]byte, []int) {
+	return file_temporal_v1_temporal_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *UpdateOptions) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
 var file_temporal_v1_temporal_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
@@ -485,6 +542,14 @@ var file_temporal_v1_temporal_proto_extTypes = []protoimpl.ExtensionInfo{
 		Filename:      "temporal/v1/temporal.proto",
 	},
 	{
+		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
+		ExtensionType: (*UpdateOptions)(nil),
+		Field:         50004,
+		Name:          "temporal.v1.update",
+		Tag:           "bytes,50004,opt,name=update",
+		Filename:      "temporal/v1/temporal.proto",
+	},
+	{
 		ExtendedType:  (*descriptorpb.ServiceOptions)(nil),
 		ExtensionType: (*ServiceOptions)(nil),
 		Field:         50002,
@@ -504,12 +569,14 @@ var (
 	E_Signal = &file_temporal_v1_temporal_proto_extTypes[2]
 	// optional temporal.v1.QueryOptions query = 50003;
 	E_Query = &file_temporal_v1_temporal_proto_extTypes[3]
+	// optional temporal.v1.UpdateOptions update = 50004;
+	E_Update = &file_temporal_v1_temporal_proto_extTypes[4]
 )
 
 // Extension fields to descriptorpb.ServiceOptions.
 var (
 	// optional temporal.v1.ServiceOptions service = 50002;
-	E_Service = &file_temporal_v1_temporal_proto_extTypes[4]
+	E_Service = &file_temporal_v1_temporal_proto_extTypes[5]
 )
 
 var File_temporal_v1_temporal_proto protoreflect.FileDescriptor
@@ -528,7 +595,7 @@ const file_temporal_v1_temporal_proto_rawDesc = "" +
 	"\x17_start_to_close_timeoutB\x1c\n" +
 	"\x1a_schedule_to_start_timeoutB\x0f\n" +
 	"\r_retry_policyB\x14\n" +
-	"\x12_heartbeat_timeout\"\xb1\x03\n" +
+	"\x12_heartbeat_timeout\"\xcb\x03\n" +
 	"\x0fWorkflowOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12A\n" +
 	"\x1aworkflow_execution_timeout\x18\x02 \x01(\x05H\x00R\x18workflowExecutionTimeout\x88\x01\x01\x125\n" +
@@ -536,7 +603,8 @@ const file_temporal_v1_temporal_proto_rawDesc = "" +
 	"\x15workflow_task_timeout\x18\x04 \x01(\x05H\x02R\x13workflowTaskTimeout\x88\x01\x01\x12@\n" +
 	"\fretry_policy\x18\x05 \x01(\v2\x18.temporal.v1.RetryPolicyH\x03R\vretryPolicy\x88\x01\x01\x12\x18\n" +
 	"\asignals\x18\x06 \x03(\tR\asignals\x12\x18\n" +
-	"\aqueries\x18\a \x03(\tR\aqueriesB\x1d\n" +
+	"\aqueries\x18\a \x03(\tR\aqueries\x12\x18\n" +
+	"\aupdates\x18\b \x03(\tR\aupdatesB\x1d\n" +
 	"\x1b_workflow_execution_timeoutB\x17\n" +
 	"\x15_workflow_run_timeoutB\x18\n" +
 	"\x16_workflow_task_timeoutB\x0f\n" +
@@ -559,11 +627,14 @@ const file_temporal_v1_temporal_proto_rawDesc = "" +
 	"\rSignalOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\"\n" +
 	"\fQueryOptions\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"#\n" +
+	"\rUpdateOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name:]\n" +
 	"\bactivity\x12\x1e.google.protobuf.MethodOptions\x18І\x03 \x01(\v2\x1c.temporal.v1.ActivityOptionsR\bactivity\x88\x01\x01:]\n" +
 	"\bworkflow\x12\x1e.google.protobuf.MethodOptions\x18ц\x03 \x01(\v2\x1c.temporal.v1.WorkflowOptionsR\bworkflow\x88\x01\x01:W\n" +
 	"\x06signal\x12\x1e.google.protobuf.MethodOptions\x18҆\x03 \x01(\v2\x1a.temporal.v1.SignalOptionsR\x06signal\x88\x01\x01:T\n" +
-	"\x05query\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x19.temporal.v1.QueryOptionsR\x05query\x88\x01\x01:[\n" +
+	"\x05query\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x19.temporal.v1.QueryOptionsR\x05query\x88\x01\x01:W\n" +
+	"\x06update\x12\x1e.google.protobuf.MethodOptions\x18Ԇ\x03 \x01(\v2\x1a.temporal.v1.UpdateOptionsR\x06update\x88\x01\x01:[\n" +
 	"\aservice\x12\x1f.google.protobuf.ServiceOptions\x18҆\x03 \x01(\v2\x1b.temporal.v1.ServiceOptionsR\aservice\x88\x01\x01B\xb7\x01\n" +
 	"\x0fcom.temporal.v1B\rTemporalProtoP\x01ZHgithub.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1;temporalv1\xa2\x02\x03TXX\xaa\x02\vTemporal.V1\xca\x02\vTemporal\\V1\xe2\x02\x17Temporal\\V1\\GPBMetadata\xea\x02\fTemporal::V1b\x06proto3"
 
@@ -579,7 +650,7 @@ func file_temporal_v1_temporal_proto_rawDescGZIP() []byte {
 	return file_temporal_v1_temporal_proto_rawDescData
 }
 
-var file_temporal_v1_temporal_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_temporal_v1_temporal_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_temporal_v1_temporal_proto_goTypes = []any{
 	(*ActivityOptions)(nil),             // 0: temporal.v1.ActivityOptions
 	(*WorkflowOptions)(nil),             // 1: temporal.v1.WorkflowOptions
@@ -587,28 +658,31 @@ var file_temporal_v1_temporal_proto_goTypes = []any{
 	(*RetryPolicy)(nil),                 // 3: temporal.v1.RetryPolicy
 	(*SignalOptions)(nil),               // 4: temporal.v1.SignalOptions
 	(*QueryOptions)(nil),                // 5: temporal.v1.QueryOptions
-	(*descriptorpb.MethodOptions)(nil),  // 6: google.protobuf.MethodOptions
-	(*descriptorpb.ServiceOptions)(nil), // 7: google.protobuf.ServiceOptions
+	(*UpdateOptions)(nil),               // 6: temporal.v1.UpdateOptions
+	(*descriptorpb.MethodOptions)(nil),  // 7: google.protobuf.MethodOptions
+	(*descriptorpb.ServiceOptions)(nil), // 8: google.protobuf.ServiceOptions
 }
 var file_temporal_v1_temporal_proto_depIdxs = []int32{
 	3,  // 0: temporal.v1.ActivityOptions.retry_policy:type_name -> temporal.v1.RetryPolicy
 	3,  // 1: temporal.v1.WorkflowOptions.retry_policy:type_name -> temporal.v1.RetryPolicy
 	1,  // 2: temporal.v1.ServiceOptions.default_workflow_options:type_name -> temporal.v1.WorkflowOptions
 	0,  // 3: temporal.v1.ServiceOptions.default_activity_options:type_name -> temporal.v1.ActivityOptions
-	6,  // 4: temporal.v1.activity:extendee -> google.protobuf.MethodOptions
-	6,  // 5: temporal.v1.workflow:extendee -> google.protobuf.MethodOptions
-	6,  // 6: temporal.v1.signal:extendee -> google.protobuf.MethodOptions
-	6,  // 7: temporal.v1.query:extendee -> google.protobuf.MethodOptions
-	7,  // 8: temporal.v1.service:extendee -> google.protobuf.ServiceOptions
-	0,  // 9: temporal.v1.activity:type_name -> temporal.v1.ActivityOptions
-	1,  // 10: temporal.v1.workflow:type_name -> temporal.v1.WorkflowOptions
-	4,  // 11: temporal.v1.signal:type_name -> temporal.v1.SignalOptions
-	5,  // 12: temporal.v1.query:type_name -> temporal.v1.QueryOptions
-	2,  // 13: temporal.v1.service:type_name -> temporal.v1.ServiceOptions
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	9,  // [9:14] is the sub-list for extension type_name
-	4,  // [4:9] is the sub-list for extension extendee
+	7,  // 4: temporal.v1.activity:extendee -> google.protobuf.MethodOptions
+	7,  // 5: temporal.v1.workflow:extendee -> google.protobuf.MethodOptions
+	7,  // 6: temporal.v1.signal:extendee -> google.protobuf.MethodOptions
+	7,  // 7: temporal.v1.query:extendee -> google.protobuf.MethodOptions
+	7,  // 8: temporal.v1.update:extendee -> google.protobuf.MethodOptions
+	8,  // 9: temporal.v1.service:extendee -> google.protobuf.ServiceOptions
+	0,  // 10: temporal.v1.activity:type_name -> temporal.v1.ActivityOptions
+	1,  // 11: temporal.v1.workflow:type_name -> temporal.v1.WorkflowOptions
+	4,  // 12: temporal.v1.signal:type_name -> temporal.v1.SignalOptions
+	5,  // 13: temporal.v1.query:type_name -> temporal.v1.QueryOptions
+	6,  // 14: temporal.v1.update:type_name -> temporal.v1.UpdateOptions
+	2,  // 15: temporal.v1.service:type_name -> temporal.v1.ServiceOptions
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	10, // [10:16] is the sub-list for extension type_name
+	4,  // [4:10] is the sub-list for extension extendee
 	0,  // [0:4] is the sub-list for field type_name
 }
 
@@ -626,8 +700,8 @@ func file_temporal_v1_temporal_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_temporal_v1_temporal_proto_rawDesc), len(file_temporal_v1_temporal_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
-			NumExtensions: 5,
+			NumMessages:   7,
+			NumExtensions: 6,
 			NumServices:   0,
 		},
 		GoTypes:           file_temporal_v1_temporal_proto_goTypes,
