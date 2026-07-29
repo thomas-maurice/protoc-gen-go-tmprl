@@ -310,6 +310,36 @@ func TestScheduleCRUD(t *testing.T) {
 	t.Log("pause was idempotent (second call no-ops), unpause and delete clean: the full generated schedule lifecycle works against a real server")
 }
 
+// TestDescribeScheduleRoundTrip proves DescribeScheduleX decodes the schedule's
+// input back into the typed request. The SDK returns a schedule action's args as
+// raw, undecoded payloads, so without the generated typed describe the caller has
+// to reach into `Args[0].(*commonpb.Payload)` and FromPayload it by hand.
+func TestDescribeScheduleRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	const scheduleID = "e2e-describe-process-order"
+	req := &examplev1.ProcessOrderRequest{OrderId: "order-42", AmountCents: 1337}
+
+	if _, err := ordersClient.UpsertScheduleProcessOrder(ctx, scheduleID, req, client.ScheduleOptions{
+		Spec: client.ScheduleSpec{Intervals: []client.ScheduleIntervalSpec{{Every: time.Hour}}},
+	}); err != nil {
+		t.Fatalf("could not upsert schedule: %v", err)
+	}
+	defer func() { _ = ordersClient.DeleteScheduleProcessOrder(ctx, scheduleID) }()
+
+	got, desc, err := ordersClient.DescribeScheduleProcessOrder(ctx, scheduleID)
+	if err != nil {
+		t.Fatalf("could not describe schedule: %v", err)
+	}
+	if got.GetOrderId() != req.GetOrderId() || got.GetAmountCents() != req.GetAmountCents() {
+		t.Fatalf("decoded request mismatch: got {%q,%d}, want {%q,%d}",
+			got.GetOrderId(), got.GetAmountCents(), req.GetOrderId(), req.GetAmountCents())
+	}
+	if len(desc.Schedule.Spec.Intervals) == 0 {
+		t.Errorf("description did not surface the schedule spec")
+	}
+	t.Log("DescribeScheduleProcessOrder decoded the typed input from the raw payload and returned the full description")
+}
+
 // TestUpsertSchedulePreservesSpec is the regression guard for the CRITICAL
 // finding that UpsertScheduleX destroyed an existing schedule's spec. An upsert
 // that only changes the request (no options) used to overwrite the spec with an
