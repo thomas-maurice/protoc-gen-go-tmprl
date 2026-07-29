@@ -60,11 +60,20 @@ func NewService(protoService *protogen.Service, gf *protogen.GeneratedFile, conf
 		UpdatesMap:             make(map[string]*Update),
 	}
 
+	// Validate service-level default options up front so a bad default fails
+	// loud rather than silently propagating into every method.
+	if err := validateWorkflowOptions(serviceOpts.DefaultWorkflowOptions, fmt.Sprintf("service %s default_workflow_options", protoService.GoName)); err != nil {
+		return nil, err
+	}
+	if err := validateActivityOptions(serviceOpts.DefaultActivityOptions, fmt.Sprintf("service %s default_activity_options", protoService.GoName)); err != nil {
+		return nil, err
+	}
+
 	// First pass: create signals, queries and updates for lookup
 	for _, method := range protoService.Methods {
 		methodType, err := detectMethodType(method)
 		if err != nil {
-			continue
+			return nil, err
 		}
 
 		switch methodType {
@@ -98,7 +107,7 @@ func NewService(protoService *protogen.Service, gf *protogen.GeneratedFile, conf
 	for _, method := range protoService.Methods {
 		methodType, err := detectMethodType(method)
 		if err != nil {
-			continue
+			return nil, err
 		}
 
 		switch methodType {
@@ -118,7 +127,101 @@ func NewService(protoService *protogen.Service, gf *protogen.GeneratedFile, conf
 		}
 	}
 
+	if err := service.validate(); err != nil {
+		return nil, err
+	}
+
 	return service, nil
+}
+
+// validate Checks cross-method invariants after the model is fully built: every
+// signal/query/update a workflow references must be defined in the same service
+// and listed at most once, and no two workflows (or two activities) may resolve
+// to the same registered name. These are all cases the generator would
+// otherwise turn into silently-dropped methods, uncompilable output, or a
+// worker-startup panic, so they fail loud here at generation time.
+func (s *Service) validate() error {
+	for _, w := range s.Workflows {
+		if err := s.validateWorkflowRefs(w); err != nil {
+			return err
+		}
+	}
+
+	if err := checkUniqueRegisteredNames("workflow", len(s.Workflows), func(i int) (string, string) {
+		return s.Workflows[i].GoName, s.Workflows[i].RegisteredName
+	}); err != nil {
+		return err
+	}
+	return checkUniqueRegisteredNames("activity", len(s.Activities), func(i int) (string, string) {
+		return s.Activities[i].GoName, s.Activities[i].RegisteredName
+	})
+}
+
+// validateWorkflowRefs Verifies a single workflow's signal/query/update lists:
+// each name resolves to a method of the matching kind in this service and does
+// not appear more than once.
+func (s *Service) validateWorkflowRefs(w *Workflow) error {
+	check := func(kind string, names []string, defined func(string) bool) error {
+		seen := make(map[string]bool, len(names))
+		for _, name := range names {
+			if seen[name] {
+				return fmt.Errorf("workflow %s lists %s %q more than once", w.GoName, kind, name)
+			}
+			seen[name] = true
+			if !defined(name) {
+				return fmt.Errorf("workflow %s references %s %q which is not a defined %s in service %s", w.GoName, kind, name, kind, s.GoName)
+			}
+		}
+		return nil
+	}
+
+	if err := check("signal", w.Options.Signals, func(n string) bool { _, ok := s.SignalsMap[n]; return ok }); err != nil {
+		return err
+	}
+	if err := check("query", w.Options.Queries, func(n string) bool { _, ok := s.QueriesMap[n]; return ok }); err != nil {
+		return err
+	}
+	return check("update", w.Options.Updates, func(n string) bool { _, ok := s.UpdatesMap[n]; return ok })
+}
+
+// checkUniqueRegisteredNames Reports an error if two methods of the same kind
+// resolve to the same Temporal registered name (e.g. via duplicate `name`
+// overrides), which would panic the worker at registration time.
+func checkUniqueRegisteredNames(kind string, n int, at func(int) (goName, registered string)) error {
+	seen := make(map[string]string, n)
+	for i := 0; i < n; i++ {
+		goName, registered := at(i)
+		if prev, ok := seen[registered]; ok {
+			return fmt.Errorf("%ss %s and %s both register as %q; registered names must be unique", kind, prev, goName, registered)
+		}
+		seen[registered] = goName
+	}
+	return nil
+}
+
+// PackageScopedNames Returns the package-level identifiers this service emits
+// that are NOT service-prefixed. The plugin uses these to detect collisions
+// between two services generated into the same file (same Go package), which
+// would otherwise produce a redeclaration and fail the consumer's build with no
+// generator-side diagnostic.
+func (s *Service) PackageScopedNames() []string {
+	var names []string
+	for _, w := range s.Workflows {
+		names = append(names, "Workflow"+w.GoName+"Name")
+	}
+	for _, a := range s.Activities {
+		names = append(names, "Activity"+a.GoName+"Name")
+	}
+	for _, sig := range s.Signals {
+		names = append(names, "Signal"+sig.GoName+"Name", "ReceiveSignal"+sig.GoName, "ReceiveSignal"+sig.GoName+"Async")
+	}
+	for _, q := range s.Queries {
+		names = append(names, "Query"+q.GoName+"Name", "HandleQuery"+q.GoName)
+	}
+	for _, u := range s.Updates {
+		names = append(names, "Update"+u.GoName+"Name", "HandleUpdate"+u.GoName, "HandleUpdate"+u.GoName+"WithValidator")
+	}
+	return names
 }
 
 // GetSignal Retrieves a signal by name
@@ -184,6 +287,14 @@ func (s *Service) GetScheduleMergeFuncName() string {
 // wasn't explicitly set.
 func (s *Service) GetScheduleDefaultsFuncName() string {
 	return fmt.Sprintf("applyScheduleDefaults%s", s.GoName)
+}
+
+// GetScheduleSpecCheckFuncName Returns the name of the per-service helper that
+// reports whether a client.ScheduleSpec is empty (the caller supplied no
+// scheduling information). UpsertSchedule uses it to avoid overwriting an
+// existing schedule's spec with an empty one.
+func (s *Service) GetScheduleSpecCheckFuncName() string {
+	return fmt.Sprintf("scheduleSpecIsZero%s", s.GoName)
 }
 
 // getServiceComment Extracts comments from protobuf service

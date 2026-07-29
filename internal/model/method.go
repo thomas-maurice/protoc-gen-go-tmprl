@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	temporalv1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/temporal/v1"
@@ -95,24 +96,129 @@ type Update struct {
 
 func (u *Update) GetType() MethodType { return MethodTypeUpdate }
 
-// detectMethodType Determines the type of a protobuf method
+// detectMethodType Determines the type of a protobuf method. It returns
+// MethodTypeUnknown with a nil error for a method that carries no temporal
+// annotation (the caller skips it), and a non-nil error only when a method
+// carries more than one temporal annotation, which is ambiguous and would
+// otherwise be resolved silently to whichever annotation happened to be checked
+// first.
 func detectMethodType(method *protogen.Method) (MethodType, error) {
+	var found []MethodType
 	if opts, ok := proto.GetExtension(method.Desc.Options(), temporalv1.E_Workflow).(*temporalv1.WorkflowOptions); ok && opts != nil {
-		return MethodTypeWorkflow, nil
+		found = append(found, MethodTypeWorkflow)
 	}
 	if opts, ok := proto.GetExtension(method.Desc.Options(), temporalv1.E_Activity).(*temporalv1.ActivityOptions); ok && opts != nil {
-		return MethodTypeActivity, nil
+		found = append(found, MethodTypeActivity)
 	}
 	if opts, ok := proto.GetExtension(method.Desc.Options(), temporalv1.E_Signal).(*temporalv1.SignalOptions); ok && opts != nil {
-		return MethodTypeSignal, nil
+		found = append(found, MethodTypeSignal)
 	}
 	if opts, ok := proto.GetExtension(method.Desc.Options(), temporalv1.E_Query).(*temporalv1.QueryOptions); ok && opts != nil {
-		return MethodTypeQuery, nil
+		found = append(found, MethodTypeQuery)
 	}
 	if opts, ok := proto.GetExtension(method.Desc.Options(), temporalv1.E_Update).(*temporalv1.UpdateOptions); ok && opts != nil {
-		return MethodTypeUpdate, nil
+		found = append(found, MethodTypeUpdate)
 	}
-	return MethodTypeUnknown, fmt.Errorf("method %s has no temporal annotation", method.GoName)
+
+	switch len(found) {
+	case 0:
+		return MethodTypeUnknown, nil
+	case 1:
+		return found[0], nil
+	default:
+		names := make([]string, len(found))
+		for i, t := range found {
+			names[i] = methodTypeName(t)
+		}
+		return MethodTypeUnknown, fmt.Errorf("method %s has multiple temporal annotations (%s); a method may carry at most one", method.GoName, strings.Join(names, ", "))
+	}
+}
+
+// methodTypeName Returns a human-readable name for a MethodType, used in error
+// messages.
+func methodTypeName(t MethodType) string {
+	switch t {
+	case MethodTypeWorkflow:
+		return "workflow"
+	case MethodTypeActivity:
+		return "activity"
+	case MethodTypeSignal:
+		return "signal"
+	case MethodTypeQuery:
+		return "query"
+	case MethodTypeUpdate:
+		return "update"
+	default:
+		return "unknown"
+	}
+}
+
+// validateRetryPolicy Rejects retry-policy values that would produce broken or
+// nonsensical generated code: a non-finite backoff coefficient renders as
+// +Inf/NaN (valid Go syntax but uncompilable), and negative intervals/attempts
+// are meaningless to Temporal.
+func validateRetryPolicy(rp *temporalv1.RetryPolicy, context string) error {
+	if rp == nil {
+		return nil
+	}
+	if rp.BackoffCoefficient != nil {
+		bc := float64(*rp.BackoffCoefficient)
+		if math.IsInf(bc, 0) || math.IsNaN(bc) {
+			return fmt.Errorf("%s: retry_policy.backoff_coefficient must be a finite number, got %v", context, bc)
+		}
+		if bc < 0 {
+			return fmt.Errorf("%s: retry_policy.backoff_coefficient must be >= 0, got %v", context, bc)
+		}
+	}
+	if rp.InitialInterval != nil && *rp.InitialInterval < 0 {
+		return fmt.Errorf("%s: retry_policy.initial_interval must be >= 0, got %d", context, *rp.InitialInterval)
+	}
+	if rp.MaximumInterval != nil && *rp.MaximumInterval < 0 {
+		return fmt.Errorf("%s: retry_policy.maximum_interval must be >= 0, got %d", context, *rp.MaximumInterval)
+	}
+	if rp.MaximumAttempts != nil && *rp.MaximumAttempts < 0 {
+		return fmt.Errorf("%s: retry_policy.maximum_attempts must be >= 0, got %d", context, *rp.MaximumAttempts)
+	}
+	return nil
+}
+
+// validateWorkflowOptions Rejects negative timeouts and an invalid retry policy
+// on a workflow's options.
+func validateWorkflowOptions(o *temporalv1.WorkflowOptions, context string) error {
+	if o == nil {
+		return nil
+	}
+	if o.WorkflowExecutionTimeout != nil && *o.WorkflowExecutionTimeout < 0 {
+		return fmt.Errorf("%s: workflow_execution_timeout must be >= 0, got %d", context, *o.WorkflowExecutionTimeout)
+	}
+	if o.WorkflowRunTimeout != nil && *o.WorkflowRunTimeout < 0 {
+		return fmt.Errorf("%s: workflow_run_timeout must be >= 0, got %d", context, *o.WorkflowRunTimeout)
+	}
+	if o.WorkflowTaskTimeout != nil && *o.WorkflowTaskTimeout < 0 {
+		return fmt.Errorf("%s: workflow_task_timeout must be >= 0, got %d", context, *o.WorkflowTaskTimeout)
+	}
+	return validateRetryPolicy(o.RetryPolicy, context)
+}
+
+// validateActivityOptions Rejects negative timeouts and an invalid retry policy
+// on an activity's options.
+func validateActivityOptions(o *temporalv1.ActivityOptions, context string) error {
+	if o == nil {
+		return nil
+	}
+	if o.ScheduleToStartTimeout != nil && *o.ScheduleToStartTimeout < 0 {
+		return fmt.Errorf("%s: schedule_to_start_timeout must be >= 0, got %d", context, *o.ScheduleToStartTimeout)
+	}
+	if o.ScheduleToCloseTimeout != nil && *o.ScheduleToCloseTimeout < 0 {
+		return fmt.Errorf("%s: schedule_to_close_timeout must be >= 0, got %d", context, *o.ScheduleToCloseTimeout)
+	}
+	if o.StartToCloseTimeout != nil && *o.StartToCloseTimeout < 0 {
+		return fmt.Errorf("%s: start_to_close_timeout must be >= 0, got %d", context, *o.StartToCloseTimeout)
+	}
+	if o.HeartbeatTimeout != nil && *o.HeartbeatTimeout < 0 {
+		return fmt.Errorf("%s: heartbeat_timeout must be >= 0, got %d", context, *o.HeartbeatTimeout)
+	}
+	return validateRetryPolicy(o.RetryPolicy, context)
 }
 
 // getRegisteredName Gets the fully qualified name for temporal registration
@@ -136,6 +242,10 @@ func NewWorkflow(protoMethod *protogen.Method, service *Service, config *Config)
 	opts, ok := proto.GetExtension(protoMethod.Desc.Options(), temporalv1.E_Workflow).(*temporalv1.WorkflowOptions)
 	if !ok || opts == nil {
 		return nil, fmt.Errorf("method %s is not a workflow", protoMethod.GoName)
+	}
+
+	if err := validateWorkflowOptions(opts, fmt.Sprintf("workflow %s", protoMethod.GoName)); err != nil {
+		return nil, err
 	}
 
 	base := BaseMethod{
@@ -167,6 +277,10 @@ func NewActivity(protoMethod *protogen.Method, service *Service, config *Config)
 	opts, ok := proto.GetExtension(protoMethod.Desc.Options(), temporalv1.E_Activity).(*temporalv1.ActivityOptions)
 	if !ok || opts == nil {
 		return nil, fmt.Errorf("method %s is not an activity", protoMethod.GoName)
+	}
+
+	if err := validateActivityOptions(opts, fmt.Sprintf("activity %s", protoMethod.GoName)); err != nil {
+		return nil, err
 	}
 
 	base := BaseMethod{
