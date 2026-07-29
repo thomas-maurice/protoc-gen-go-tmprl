@@ -43,41 +43,41 @@
 | --- | --- |
 | Default task queue | `{{.TaskQueue}}` |
 
-{{- if .DefaultWorkflowOptions}}
-{{- if or .DefaultWorkflowOptions.WorkflowExecutionTimeout .DefaultWorkflowOptions.WorkflowRunTimeout .DefaultWorkflowOptions.WorkflowTaskTimeout}}
+{{- with .ResolvedDefaultWorkflowOptions}}
+{{- if or .WorkflowExecutionTimeout .WorkflowRunTimeout .WorkflowTaskTimeout}}
 
 ### Default workflow options
 | Option | Value |
 | --- | --- |
-{{- if .DefaultWorkflowOptions.WorkflowExecutionTimeout}}
-| Workflow execution timeout | {{FormatDuration .DefaultWorkflowOptions.WorkflowExecutionTimeout}} |
+{{- if .WorkflowExecutionTimeout}}
+| Workflow execution timeout | {{FormatDuration .WorkflowExecutionTimeout}} |
 {{- end}}
-{{- if .DefaultWorkflowOptions.WorkflowRunTimeout}}
-| Workflow run timeout | {{FormatDuration .DefaultWorkflowOptions.WorkflowRunTimeout}} |
+{{- if .WorkflowRunTimeout}}
+| Workflow run timeout | {{FormatDuration .WorkflowRunTimeout}} |
 {{- end}}
-{{- if .DefaultWorkflowOptions.WorkflowTaskTimeout}}
-| Workflow task timeout | {{FormatDuration .DefaultWorkflowOptions.WorkflowTaskTimeout}} |
+{{- if .WorkflowTaskTimeout}}
+| Workflow task timeout | {{FormatDuration .WorkflowTaskTimeout}} |
 {{- end}}
 {{- end}}
 {{- end}}
 
-{{- if .DefaultActivityOptions}}
-{{- if or .DefaultActivityOptions.ScheduleToCloseTimeout .DefaultActivityOptions.ScheduleToStartTimeout .DefaultActivityOptions.StartToCloseTimeout .DefaultActivityOptions.HeartbeatTimeout}}
+{{- with .ResolvedDefaultActivityOptions}}
+{{- if or .ScheduleToCloseTimeout .ScheduleToStartTimeout .StartToCloseTimeout .HeartbeatTimeout}}
 
 ### Default activity options
 | Option | Value |
 | --- | --- |
-{{- if .DefaultActivityOptions.ScheduleToCloseTimeout}}
-| Schedule to close timeout | {{FormatDuration .DefaultActivityOptions.ScheduleToCloseTimeout}} |
+{{- if .ScheduleToCloseTimeout}}
+| Schedule to close timeout | {{FormatDuration .ScheduleToCloseTimeout}} |
 {{- end}}
-{{- if .DefaultActivityOptions.ScheduleToStartTimeout}}
-| Schedule to start timeout | {{FormatDuration .DefaultActivityOptions.ScheduleToStartTimeout}} |
+{{- if .ScheduleToStartTimeout}}
+| Schedule to start timeout | {{FormatDuration .ScheduleToStartTimeout}} |
 {{- end}}
-{{- if .DefaultActivityOptions.StartToCloseTimeout}}
-| Start to close timeout | {{FormatDuration .DefaultActivityOptions.StartToCloseTimeout}} |
+{{- if .StartToCloseTimeout}}
+| Start to close timeout | {{FormatDuration .StartToCloseTimeout}} |
 {{- end}}
-{{- if .DefaultActivityOptions.HeartbeatTimeout}}
-| Heartbeat timeout | {{FormatDuration .DefaultActivityOptions.HeartbeatTimeout}} |
+{{- if .HeartbeatTimeout}}
+| Heartbeat timeout | {{FormatDuration .HeartbeatTimeout}} |
 {{- end}}
 {{- end}}
 {{- end}}
