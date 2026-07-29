@@ -45,13 +45,13 @@ Service Orders is a small e-commerce style fulfillment service used as a
 ### Default workflow options
 | Option | Value |
 | --- | --- |
-| Workflow execution timeout | 0s |
+| Workflow execution timeout | 1h0m0s |
 
 ### Default activity options
 | Option | Value |
 | --- | --- |
-| Schedule to close timeout | 0s |
-| Start to close timeout | 0s |
+| Schedule to close timeout | 5m0s |
+| Start to close timeout | 30s |
 
 ### Workflows
 <a id="method_example_v1_Orders_ProcessOrder"></a>

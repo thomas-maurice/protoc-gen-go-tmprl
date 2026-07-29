@@ -276,6 +276,31 @@ func (s *Service) GetDefaultActivityTimeoutConstName() string {
 	return fmt.Sprintf("Default%sActivityScheduleToCloseTimeout", s.GoName)
 }
 
+// ResolvedDefaultActivityOptions Returns the service-level default activity
+// options with the proto's second-valued fields converted to time.Duration,
+// or nil if the service declares none. The documentation template renders from
+// this rather than reading DefaultActivityOptions directly: the raw proto
+// timeouts are *int32, which FormatDuration cannot interpret and would render
+// as 0s. Reusing MergeActivityOptions keeps the doc path on the same
+// seconds-to-Duration conversion the code generator uses.
+func (s *Service) ResolvedDefaultActivityOptions() *ActivityOptions {
+	if s.DefaultActivityOptions == nil {
+		return nil
+	}
+	return MergeActivityOptions(nil, s.DefaultActivityOptions, 0)
+}
+
+// ResolvedDefaultWorkflowOptions Returns the service-level default workflow
+// options with the proto's second-valued fields converted to time.Duration,
+// or nil if the service declares none. See ResolvedDefaultActivityOptions for
+// why the documentation template renders from this rather than the raw proto.
+func (s *Service) ResolvedDefaultWorkflowOptions() *WorkflowOptions {
+	if s.DefaultWorkflowOptions == nil {
+		return nil
+	}
+	return MergeWorkflowOptions(nil, s.DefaultWorkflowOptions)
+}
+
 // GetScheduleMergeFuncName Returns the name of the per-service helper that
 // merges user-supplied client.ScheduleOptions into a base struct.
 func (s *Service) GetScheduleMergeFuncName() string {
