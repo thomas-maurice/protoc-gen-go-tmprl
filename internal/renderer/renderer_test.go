@@ -16,6 +16,8 @@ func TestTemplatesParse(t *testing.T) {
 		"TemporalWorkflow":        func(name string) string { return "" },
 		"TemporalActivity":        func(name string) string { return "" },
 		"Temporal":                func(name string) string { return "" },
+		"TemporalConverter":       func(name string) string { return "" },
+		"TemporalCommon":          func(name string) string { return "" },
 		"Context":                 func() string { return "" },
 		"Time":                    func(name string) string { return "" },
 		"Fmt":                     func(name string) string { return "" },

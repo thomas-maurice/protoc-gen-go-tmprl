@@ -20,6 +20,8 @@ func FuncMap(gf *protogen.GeneratedFile) template.FuncMap {
 		"TemporalWorkflow":        func(name string) string { return qualifiedTemporalIdent(gf, "go.temporal.io/sdk/workflow", name) },
 		"TemporalActivity":        func(name string) string { return qualifiedTemporalIdent(gf, "go.temporal.io/sdk/activity", name) },
 		"Temporal":                func(name string) string { return qualifiedTemporalIdent(gf, "go.temporal.io/sdk/temporal", name) },
+		"TemporalConverter":       func(name string) string { return qualifiedTemporalIdent(gf, "go.temporal.io/sdk/converter", name) },
+		"TemporalCommon":          func(name string) string { return qualifiedTemporalIdent(gf, "go.temporal.io/api/common/v1", name) },
 		"Context":                 func() string { return qualifiedIdent(gf, "context", "Context") },
 		"Time":                    func(name string) string { return qualifiedIdent(gf, "time", name) },
 		"Fmt":                     func(name string) string { return qualifiedIdent(gf, "fmt", name) },

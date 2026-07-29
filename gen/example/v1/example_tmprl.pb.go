@@ -12,8 +12,10 @@ import (
 	context "context"
 	fmt "fmt"
 	uuid "github.com/google/uuid"
+	v1 "go.temporal.io/api/common/v1"
 	activity "go.temporal.io/sdk/activity"
 	client "go.temporal.io/sdk/client"
+	converter "go.temporal.io/sdk/converter"
 	temporal "go.temporal.io/sdk/temporal"
 	worker "go.temporal.io/sdk/worker"
 	workflow "go.temporal.io/sdk/workflow"
@@ -314,6 +316,47 @@ func (c *OrdersClient) CreateScheduleProcessOrder(ctx context.Context, scheduleI
 // cancelled (CancelOrder signal)
 func (c *OrdersClient) GetScheduleProcessOrder(ctx context.Context, scheduleID string) client.ScheduleHandle {
 	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+}
+
+// DescribeScheduleProcessOrder reads a schedule for ProcessOrder and returns the
+// DECODED workflow request alongside the full schedule description (spec, policy,
+// action timeouts, paused state, ...).
+//
+// The Temporal SDK returns a schedule action's input arguments as raw, undecoded
+// payloads, so this decodes the first argument back into the workflow's request
+// type. Pass the same data converter the client was built with when the input is
+// encrypted/custom-encoded (e.g. a codec/keyring converter); omit it to use the
+// default converter. This is the typed read-back counterpart to
+// UpsertScheduleProcessOrder — useful for exporting/backing up schedules.
+func (c *OrdersClient) DescribeScheduleProcessOrder(ctx context.Context, scheduleID string, dataConverter ...converter.DataConverter) (*ProcessOrderRequest, *client.ScheduleDescription, error) {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	action, ok := desc.Schedule.Action.(*client.ScheduleWorkflowAction)
+	if !ok {
+		return nil, desc, fmt.Errorf("schedule %q action is not a workflow action", scheduleID)
+	}
+	if len(action.Args) == 0 {
+		return nil, desc, fmt.Errorf("schedule %q has no input arguments", scheduleID)
+	}
+	payload, ok := action.Args[0].(*v1.Payload)
+	if !ok {
+		return nil, desc, fmt.Errorf("schedule %q input argument is not a raw payload (already decoded?)", scheduleID)
+	}
+
+	dc := converter.GetDefaultDataConverter()
+	if len(dataConverter) > 0 && dataConverter[0] != nil {
+		dc = dataConverter[0]
+	}
+
+	req := new(ProcessOrderRequest)
+	if err := dc.FromPayload(payload, req); err != nil {
+		return nil, desc, fmt.Errorf("decoding schedule %q input: %w", scheduleID, err)
+	}
+	return req, desc, nil
 }
 
 // DeleteScheduleProcessOrder deletes a schedule for ProcessOrder
@@ -630,6 +673,47 @@ func (c *OrdersClient) GetScheduleShipOrder(ctx context.Context, scheduleID stri
 	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 }
 
+// DescribeScheduleShipOrder reads a schedule for ShipOrder and returns the
+// DECODED workflow request alongside the full schedule description (spec, policy,
+// action timeouts, paused state, ...).
+//
+// The Temporal SDK returns a schedule action's input arguments as raw, undecoded
+// payloads, so this decodes the first argument back into the workflow's request
+// type. Pass the same data converter the client was built with when the input is
+// encrypted/custom-encoded (e.g. a codec/keyring converter); omit it to use the
+// default converter. This is the typed read-back counterpart to
+// UpsertScheduleShipOrder — useful for exporting/backing up schedules.
+func (c *OrdersClient) DescribeScheduleShipOrder(ctx context.Context, scheduleID string, dataConverter ...converter.DataConverter) (*ShipOrderRequest, *client.ScheduleDescription, error) {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	action, ok := desc.Schedule.Action.(*client.ScheduleWorkflowAction)
+	if !ok {
+		return nil, desc, fmt.Errorf("schedule %q action is not a workflow action", scheduleID)
+	}
+	if len(action.Args) == 0 {
+		return nil, desc, fmt.Errorf("schedule %q has no input arguments", scheduleID)
+	}
+	payload, ok := action.Args[0].(*v1.Payload)
+	if !ok {
+		return nil, desc, fmt.Errorf("schedule %q input argument is not a raw payload (already decoded?)", scheduleID)
+	}
+
+	dc := converter.GetDefaultDataConverter()
+	if len(dataConverter) > 0 && dataConverter[0] != nil {
+		dc = dataConverter[0]
+	}
+
+	req := new(ShipOrderRequest)
+	if err := dc.FromPayload(payload, req); err != nil {
+		return nil, desc, fmt.Errorf("decoding schedule %q input: %w", scheduleID, err)
+	}
+	return req, desc, nil
+}
+
 // DeleteScheduleShipOrder deletes a schedule for ShipOrder
 //
 // ShipOrder hands the package over to a courier. ProcessOrder runs it as a
@@ -937,6 +1021,47 @@ func (c *OrdersClient) CreateScheduleDailySalesReport(ctx context.Context, sched
 // schedule -- see the schedule part of the client walkthrough
 func (c *OrdersClient) GetScheduleDailySalesReport(ctx context.Context, scheduleID string) client.ScheduleHandle {
 	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+}
+
+// DescribeScheduleDailySalesReport reads a schedule for DailySalesReport and returns the
+// DECODED workflow request alongside the full schedule description (spec, policy,
+// action timeouts, paused state, ...).
+//
+// The Temporal SDK returns a schedule action's input arguments as raw, undecoded
+// payloads, so this decodes the first argument back into the workflow's request
+// type. Pass the same data converter the client was built with when the input is
+// encrypted/custom-encoded (e.g. a codec/keyring converter); omit it to use the
+// default converter. This is the typed read-back counterpart to
+// UpsertScheduleDailySalesReport — useful for exporting/backing up schedules.
+func (c *OrdersClient) DescribeScheduleDailySalesReport(ctx context.Context, scheduleID string, dataConverter ...converter.DataConverter) (*emptypb.Empty, *client.ScheduleDescription, error) {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	action, ok := desc.Schedule.Action.(*client.ScheduleWorkflowAction)
+	if !ok {
+		return nil, desc, fmt.Errorf("schedule %q action is not a workflow action", scheduleID)
+	}
+	if len(action.Args) == 0 {
+		return nil, desc, fmt.Errorf("schedule %q has no input arguments", scheduleID)
+	}
+	payload, ok := action.Args[0].(*v1.Payload)
+	if !ok {
+		return nil, desc, fmt.Errorf("schedule %q input argument is not a raw payload (already decoded?)", scheduleID)
+	}
+
+	dc := converter.GetDefaultDataConverter()
+	if len(dataConverter) > 0 && dataConverter[0] != nil {
+		dc = dataConverter[0]
+	}
+
+	req := new(emptypb.Empty)
+	if err := dc.FromPayload(payload, req); err != nil {
+		return nil, desc, fmt.Errorf("decoding schedule %q input: %w", scheduleID, err)
+	}
+	return req, desc, nil
 }
 
 // DeleteScheduleDailySalesReport deletes a schedule for DailySalesReport
@@ -1270,6 +1395,47 @@ func (c *OrdersClient) CreateScheduleTrackInventory(ctx context.Context, schedul
 // parked on "not enough stock" is answered before the run ends
 func (c *OrdersClient) GetScheduleTrackInventory(ctx context.Context, scheduleID string) client.ScheduleHandle {
 	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+}
+
+// DescribeScheduleTrackInventory reads a schedule for TrackInventory and returns the
+// DECODED workflow request alongside the full schedule description (spec, policy,
+// action timeouts, paused state, ...).
+//
+// The Temporal SDK returns a schedule action's input arguments as raw, undecoded
+// payloads, so this decodes the first argument back into the workflow's request
+// type. Pass the same data converter the client was built with when the input is
+// encrypted/custom-encoded (e.g. a codec/keyring converter); omit it to use the
+// default converter. This is the typed read-back counterpart to
+// UpsertScheduleTrackInventory — useful for exporting/backing up schedules.
+func (c *OrdersClient) DescribeScheduleTrackInventory(ctx context.Context, scheduleID string, dataConverter ...converter.DataConverter) (*TrackInventoryRequest, *client.ScheduleDescription, error) {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	action, ok := desc.Schedule.Action.(*client.ScheduleWorkflowAction)
+	if !ok {
+		return nil, desc, fmt.Errorf("schedule %q action is not a workflow action", scheduleID)
+	}
+	if len(action.Args) == 0 {
+		return nil, desc, fmt.Errorf("schedule %q has no input arguments", scheduleID)
+	}
+	payload, ok := action.Args[0].(*v1.Payload)
+	if !ok {
+		return nil, desc, fmt.Errorf("schedule %q input argument is not a raw payload (already decoded?)", scheduleID)
+	}
+
+	dc := converter.GetDefaultDataConverter()
+	if len(dataConverter) > 0 && dataConverter[0] != nil {
+		dc = dataConverter[0]
+	}
+
+	req := new(TrackInventoryRequest)
+	if err := dc.FromPayload(payload, req); err != nil {
+		return nil, desc, fmt.Errorf("decoding schedule %q input: %w", scheduleID, err)
+	}
+	return req, desc, nil
 }
 
 // DeleteScheduleTrackInventory deletes a schedule for TrackInventory

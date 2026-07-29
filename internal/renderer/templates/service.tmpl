@@ -406,6 +406,47 @@ func (c *{{.Service.GetClientName}}) GetSchedule{{.GoName}}(ctx {{Context}}, sch
 	return c.client.ScheduleClient().GetHandle(ctx, scheduleID)
 }
 
+// DescribeSchedule{{.GoName}} reads a schedule for {{.GoName}} and returns the
+// DECODED workflow request alongside the full schedule description (spec, policy,
+// action timeouts, paused state, ...).
+//
+// The Temporal SDK returns a schedule action's input arguments as raw, undecoded
+// payloads, so this decodes the first argument back into the workflow's request
+// type. Pass the same data converter the client was built with when the input is
+// encrypted/custom-encoded (e.g. a codec/keyring converter); omit it to use the
+// default converter. This is the typed read-back counterpart to
+// UpsertSchedule{{.GoName}} — useful for exporting/backing up schedules.
+func (c *{{.Service.GetClientName}}) DescribeSchedule{{.GoName}}(ctx {{Context}}, scheduleID string, dataConverter ...{{TemporalConverter "DataConverter"}}) (*{{QualifiedGoIdent .Input.GoIdent}}, *{{TemporalClient "ScheduleDescription"}}, error) {
+	handle := c.client.ScheduleClient().GetHandle(ctx, scheduleID)
+	desc, err := handle.Describe(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	action, ok := desc.Schedule.Action.(*{{TemporalClient "ScheduleWorkflowAction"}})
+	if !ok {
+		return nil, desc, {{Fmt "Errorf"}}("schedule %q action is not a workflow action", scheduleID)
+	}
+	if len(action.Args) == 0 {
+		return nil, desc, {{Fmt "Errorf"}}("schedule %q has no input arguments", scheduleID)
+	}
+	payload, ok := action.Args[0].(*{{TemporalCommon "Payload"}})
+	if !ok {
+		return nil, desc, {{Fmt "Errorf"}}("schedule %q input argument is not a raw payload (already decoded?)", scheduleID)
+	}
+
+	dc := {{TemporalConverter "GetDefaultDataConverter"}}()
+	if len(dataConverter) > 0 && dataConverter[0] != nil {
+		dc = dataConverter[0]
+	}
+
+	req := new({{QualifiedGoIdent .Input.GoIdent}})
+	if err := dc.FromPayload(payload, req); err != nil {
+		return nil, desc, {{Fmt "Errorf"}}("decoding schedule %q input: %w", scheduleID, err)
+	}
+	return req, desc, nil
+}
+
 // DeleteSchedule{{.GoName}} deletes a schedule for {{.GoName}}
 {{- if .Comment}}
 //
