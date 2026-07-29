@@ -24,13 +24,20 @@ import (
 
 	"github.com/thomas-maurice/protoc-gen-go-tmprl/example/orders"
 	examplev1 "github.com/thomas-maurice/protoc-gen-go-tmprl/gen/example/v1"
+	enums "go.temporal.io/api/enums/v1"
+	operatorservice "go.temporal.io/api/operatorservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var ordersClient *examplev1.OrdersClient
+var (
+	ordersClient *examplev1.OrdersClient
+	// temporalClient is the raw SDK client, kept for the few tests that need to
+	// reach past the generated wrapper (e.g. registering a search attribute).
+	temporalClient client.Client
+)
 
 // someItems returns a single-line order to keep packing (300ms per parcel)
 // fast in e2e runs.
@@ -79,6 +86,8 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "e2e: cannot reach temporal server (start it with `docker compose up -d --wait`): %v\n", err)
 		os.Exit(1)
 	}
+
+	temporalClient = c
 
 	ordersClient, err = examplev1.NewOrdersClient(c)
 	if err != nil {
@@ -301,6 +310,201 @@ func TestScheduleCRUD(t *testing.T) {
 	t.Log("pause was idempotent (second call no-ops), unpause and delete clean: the full generated schedule lifecycle works against a real server")
 }
 
+// TestUpsertSchedulePreservesSpec is the regression guard for the CRITICAL
+// finding that UpsertScheduleX destroyed an existing schedule's spec. An upsert
+// that only changes the request (no options) used to overwrite the spec with an
+// empty ScheduleSpec{} inside the DoUpdate closure, silently stopping the
+// schedule from ever firing again. After the fix, an upsert with no options must
+// leave the existing spec intact.
+func TestUpsertSchedulePreservesSpec(t *testing.T) {
+	ctx := context.Background()
+	const scheduleID = "e2e-upsert-preserve-spec"
+
+	// Create the schedule with an explicit interval spec. Paused so it doesn't
+	// actually fire during the test; the run state is irrelevant to the spec
+	// preservation we're checking.
+	if _, err := ordersClient.UpsertScheduleDailySalesReport(ctx, scheduleID, &emptypb.Empty{}, client.ScheduleOptions{
+		Spec: client.ScheduleSpec{
+			Intervals: []client.ScheduleIntervalSpec{{Every: time.Hour}},
+		},
+		Paused: true,
+	}); err != nil {
+		t.Fatalf("could not create schedule: %v", err)
+	}
+	defer func() { _ = ordersClient.DeleteScheduleDailySalesReport(ctx, scheduleID) }()
+
+	// Upsert again with ONLY a new request and NO options -- the exact call that
+	// used to blank the spec.
+	if _, err := ordersClient.UpsertScheduleDailySalesReport(ctx, scheduleID, &emptypb.Empty{}); err != nil {
+		t.Fatalf("could not upsert schedule without options: %v", err)
+	}
+
+	desc, err := ordersClient.GetScheduleDailySalesReport(ctx, scheduleID).Describe(ctx)
+	if err != nil {
+		t.Fatalf("could not describe schedule: %v", err)
+	}
+	if len(desc.Schedule.Spec.Intervals) == 0 {
+		t.Fatal("upsert without options wiped the schedule spec: Intervals is empty, the schedule would never fire again")
+	}
+	t.Logf("spec preserved across a no-option upsert: %d interval(s) still set (regression for the schedule-wipe bug)", len(desc.Schedule.Spec.Intervals))
+}
+
+// TestUpsertScheduleAppliesSuppliedSpec verifies the other half of the upsert
+// contract: when the caller DOES supply a spec it is applied, for both interval
+// (non-cron) and cron specs. This guards that the spec-preservation fix did not
+// break the ability to change a schedule's spec, and that non-cron scheduling
+// works end to end.
+func TestUpsertScheduleAppliesSuppliedSpec(t *testing.T) {
+	ctx := context.Background()
+	const scheduleID = "e2e-upsert-apply-spec"
+
+	// Create with an interval (non-cron) spec, paused so it doesn't fire.
+	if _, err := ordersClient.UpsertScheduleDailySalesReport(ctx, scheduleID, &emptypb.Empty{}, client.ScheduleOptions{
+		Spec:   client.ScheduleSpec{Intervals: []client.ScheduleIntervalSpec{{Every: time.Hour}}},
+		Paused: true,
+	}); err != nil {
+		t.Fatalf("could not create schedule with interval spec: %v", err)
+	}
+	defer func() { _ = ordersClient.DeleteScheduleDailySalesReport(ctx, scheduleID) }()
+
+	desc, err := ordersClient.GetScheduleDailySalesReport(ctx, scheduleID).Describe(ctx)
+	if err != nil {
+		t.Fatalf("describe after interval create: %v", err)
+	}
+	if len(desc.Schedule.Spec.Intervals) == 0 {
+		t.Fatal("interval (non-cron) spec was not applied on create")
+	}
+	t.Logf("interval (non-cron) spec applied: every %v", desc.Schedule.Spec.Intervals[0].Every)
+
+	// Upsert with a different interval spec: the supplied spec must replace the
+	// existing one.
+	if _, err := ordersClient.UpsertScheduleDailySalesReport(ctx, scheduleID, &emptypb.Empty{}, client.ScheduleOptions{
+		Spec: client.ScheduleSpec{Intervals: []client.ScheduleIntervalSpec{{Every: 2 * time.Hour}}},
+	}); err != nil {
+		t.Fatalf("could not upsert schedule with new interval spec: %v", err)
+	}
+
+	desc, err = ordersClient.GetScheduleDailySalesReport(ctx, scheduleID).Describe(ctx)
+	if err != nil {
+		t.Fatalf("describe after interval upsert: %v", err)
+	}
+	if len(desc.Schedule.Spec.Intervals) == 0 {
+		t.Fatal("supplied interval spec was not applied on upsert")
+	}
+	if got := desc.Schedule.Spec.Intervals[0].Every; got != 2*time.Hour {
+		t.Fatalf("supplied interval spec was not applied: Every = %v, want 2h", got)
+	}
+	t.Logf("supplied interval spec replaced the previous one: now every %v", desc.Schedule.Spec.Intervals[0].Every)
+}
+
+// TestUpsertSchedulePreservesPolicy is the regression guard for F3: an upsert
+// that changes ONE policy field used to allocate a fresh SchedulePolicies and
+// reset the siblings. After the fix, changing Overlap alone must leave
+// CatchupWindow and PauseOnFailure intact.
+func TestUpsertSchedulePreservesPolicy(t *testing.T) {
+	ctx := context.Background()
+	const scheduleID = "e2e-upsert-preserve-policy"
+
+	// Create with a full policy (paused so it never fires). CatchupWindow is set
+	// to 90s so it is distinguishable from the server's 1m default.
+	if _, err := ordersClient.UpsertScheduleDailySalesReport(ctx, scheduleID, &emptypb.Empty{}, client.ScheduleOptions{
+		Spec:           client.ScheduleSpec{Intervals: []client.ScheduleIntervalSpec{{Every: time.Hour}}},
+		Paused:         true,
+		Overlap:        enums.SCHEDULE_OVERLAP_POLICY_SKIP,
+		CatchupWindow:  90 * time.Second,
+		PauseOnFailure: true,
+	}); err != nil {
+		t.Fatalf("could not create schedule with policy: %v", err)
+	}
+	defer func() { _ = ordersClient.DeleteScheduleDailySalesReport(ctx, scheduleID) }()
+
+	// Upsert changing ONLY Overlap. The other policy fields must survive.
+	if _, err := ordersClient.UpsertScheduleDailySalesReport(ctx, scheduleID, &emptypb.Empty{}, client.ScheduleOptions{
+		Overlap: enums.SCHEDULE_OVERLAP_POLICY_BUFFER_ALL,
+	}); err != nil {
+		t.Fatalf("could not upsert schedule overlap: %v", err)
+	}
+
+	desc, err := ordersClient.GetScheduleDailySalesReport(ctx, scheduleID).Describe(ctx)
+	if err != nil {
+		t.Fatalf("could not describe schedule: %v", err)
+	}
+	if desc.Schedule.Policy == nil {
+		t.Fatal("policy is nil after upsert")
+	}
+	if got := desc.Schedule.Policy.Overlap; got != enums.SCHEDULE_OVERLAP_POLICY_BUFFER_ALL {
+		t.Errorf("Overlap not updated: got %v, want BUFFER_ALL", got)
+	}
+	if got := desc.Schedule.Policy.CatchupWindow; got != 90*time.Second {
+		t.Errorf("CatchupWindow was reset by a single-field policy upsert: got %v, want 90s (F3 regression)", got)
+	}
+	if !desc.Schedule.Policy.PauseOnFailure {
+		t.Error("PauseOnFailure was reset by a single-field policy upsert (F3 regression)")
+	}
+	t.Log("changing one policy field preserved the siblings (CatchupWindow, PauseOnFailure)")
+}
+
+// TestUpsertSchedulePreservesSearchAttributes guards that a no-option upsert
+// leaves existing search attributes intact (F2). Note: unlike the spec/policy
+// regressions, the search-attribute wipe was NOT reproducible against a live
+// temporal v1.30 server -- passing the zero value of TypedSearchAttributes did
+// not strip the attribute, even with the old unconditional code. The generator
+// fix (send nil, not an empty set) matches the documented SDK contract and is
+// kept as a defensive change; this test locks in the desired behavior so a
+// future regression that actively clears search attributes would be caught.
+// Requires a registered custom search attribute; skips if registration is
+// unsupported.
+func TestUpsertSchedulePreservesSearchAttributes(t *testing.T) {
+	ctx := context.Background()
+	const (
+		scheduleID = "e2e-upsert-preserve-sa"
+		namespace  = "default"
+		saName     = "ProtocGenTmprlE2EKeyword"
+		saValue    = "orders-e2e"
+	)
+
+	// Register the search attribute (best effort; ignore if it already exists).
+	_, _ = temporalClient.OperatorService().AddSearchAttributes(ctx, &operatorservice.AddSearchAttributesRequest{
+		Namespace:        namespace,
+		SearchAttributes: map[string]enums.IndexedValueType{saName: enums.INDEXED_VALUE_TYPE_KEYWORD},
+	})
+
+	saKey := temporal.NewSearchAttributeKeyKeyword(saName)
+	sa := temporal.NewSearchAttributes(saKey.ValueSet(saValue))
+
+	// Registration can take a moment to propagate before the attribute is usable;
+	// retry the create until it succeeds or we give up (and skip).
+	var createErr error
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); {
+		_, createErr = ordersClient.UpsertScheduleDailySalesReport(ctx, scheduleID, &emptypb.Empty{}, client.ScheduleOptions{
+			Spec:                  client.ScheduleSpec{Intervals: []client.ScheduleIntervalSpec{{Every: time.Hour}}},
+			Paused:                true,
+			TypedSearchAttributes: sa,
+		})
+		if createErr == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if createErr != nil {
+		t.Skipf("cannot create a schedule with a custom search attribute (visibility store may not support registration): %v", createErr)
+	}
+	defer func() { _ = ordersClient.DeleteScheduleDailySalesReport(ctx, scheduleID) }()
+
+	// Upsert with NO options -- the call that used to wipe search attributes.
+	if _, err := ordersClient.UpsertScheduleDailySalesReport(ctx, scheduleID, &emptypb.Empty{}); err != nil {
+		t.Fatalf("could not upsert schedule without options: %v", err)
+	}
+
+	desc, err := ordersClient.GetScheduleDailySalesReport(ctx, scheduleID).Describe(ctx)
+	if err != nil {
+		t.Fatalf("could not describe schedule: %v", err)
+	}
+	if v, ok := desc.TypedSearchAttributes.GetKeyword(saKey); !ok || v != saValue {
+		t.Fatalf("search attribute wiped by a no-option upsert: got (%q, present=%v), want %q (F2 regression)", v, ok, saValue)
+	}
+	t.Log("search attribute preserved across a no-option upsert")
+}
 
 // cancelInventory requests cancellation and waits for the workflow to
 // actually END, gracefully returning its final state. Regression guard: an

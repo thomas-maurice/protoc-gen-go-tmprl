@@ -64,26 +64,41 @@ func MergeRetryPolicy(method, service *temporalv1.RetryPolicy) *RetryPolicy {
 		}
 	}
 
-	// Fill in missing fields from service defaults
+	// Fill in fields the method did not explicitly set from the service
+	// defaults. Presence is decided by the upstream proto3 `optional` pointer
+	// being nil, NOT by the merged value being zero: an explicit method-level
+	// zero (e.g. maximum_attempts: 0 meaning unlimited retries) is a real
+	// choice and must not be treated as "unset" and overwritten by the default.
 	if service != nil {
-		if result.InitialInterval == 0 && service.InitialInterval != nil {
+		if unset(method, func(m *temporalv1.RetryPolicy) bool { return m.InitialInterval != nil }) && service.InitialInterval != nil {
 			result.InitialInterval = time.Duration(*service.InitialInterval) * time.Second
 		}
-		if result.BackoffCoefficient == 0 && service.BackoffCoefficient != nil {
+		if unset(method, func(m *temporalv1.RetryPolicy) bool { return m.BackoffCoefficient != nil }) && service.BackoffCoefficient != nil {
 			result.BackoffCoefficient = float64(*service.BackoffCoefficient)
 		}
-		if result.MaximumInterval == 0 && service.MaximumInterval != nil {
+		if unset(method, func(m *temporalv1.RetryPolicy) bool { return m.MaximumInterval != nil }) && service.MaximumInterval != nil {
 			result.MaximumInterval = time.Duration(*service.MaximumInterval) * time.Second
 		}
-		if result.MaximumAttempts == 0 && service.MaximumAttempts != nil {
+		if unset(method, func(m *temporalv1.RetryPolicy) bool { return m.MaximumAttempts != nil }) && service.MaximumAttempts != nil {
 			result.MaximumAttempts = *service.MaximumAttempts
 		}
-		if len(result.NonRetryableErrorTypes) == 0 && service.NonRetryableErrorTypes != nil {
+		if unset(method, func(m *temporalv1.RetryPolicy) bool { return len(m.NonRetryableErrorTypes) > 0 }) && service.NonRetryableErrorTypes != nil {
 			result.NonRetryableErrorTypes = service.NonRetryableErrorTypes
 		}
 	}
 
 	return result
+}
+
+// unset Reports whether the method-level options did not explicitly set a field,
+// so the service default should apply. present returns true when the given
+// method options carry the field. A nil method (no method-level options at all)
+// is always unset.
+func unset[T any](method *T, present func(*T) bool) bool {
+	if method == nil {
+		return true
+	}
+	return !present(method)
 }
 
 // MergeActivityOptions Merges activity options with service defaults
@@ -115,23 +130,31 @@ func MergeActivityOptions(method, service *temporalv1.ActivityOptions, defaultSc
 		}
 	}
 
-	// Fill in missing fields from service defaults
+	// Fill in fields the method did not explicitly set from the service
+	// defaults, keyed on proto presence rather than a zero value (see the note
+	// in MergeRetryPolicy).
 	if service != nil {
-		if result.ScheduleToStartTimeout == 0 && service.ScheduleToStartTimeout != nil {
+		if unset(method, func(m *temporalv1.ActivityOptions) bool { return m.ScheduleToStartTimeout != nil }) && service.ScheduleToStartTimeout != nil {
 			result.ScheduleToStartTimeout = time.Duration(*service.ScheduleToStartTimeout) * time.Second
 		}
-		if result.ScheduleToCloseTimeout == 0 && service.ScheduleToCloseTimeout != nil {
+		if unset(method, func(m *temporalv1.ActivityOptions) bool { return m.ScheduleToCloseTimeout != nil }) && service.ScheduleToCloseTimeout != nil {
 			result.ScheduleToCloseTimeout = time.Duration(*service.ScheduleToCloseTimeout) * time.Second
 		}
-		if result.StartToCloseTimeout == 0 && service.StartToCloseTimeout != nil {
+		if unset(method, func(m *temporalv1.ActivityOptions) bool { return m.StartToCloseTimeout != nil }) && service.StartToCloseTimeout != nil {
 			result.StartToCloseTimeout = time.Duration(*service.StartToCloseTimeout) * time.Second
 		}
-		if result.HeartbeatTimeout == 0 && service.HeartbeatTimeout != nil {
+		if unset(method, func(m *temporalv1.ActivityOptions) bool { return m.HeartbeatTimeout != nil }) && service.HeartbeatTimeout != nil {
 			result.HeartbeatTimeout = time.Duration(*service.HeartbeatTimeout) * time.Second
 		}
 	}
 
-	// Apply default if still not set
+	// Floor the schedule-to-close timeout to the generator default whenever it is
+	// still zero. This is DELIBERATELY value-based, not presence-based: unlike
+	// every other timeout, an activity with no schedule-to-close timeout will not
+	// run at all in Temporal, so guaranteeing one is the entire purpose of the
+	// default. An explicit `schedule_to_close_timeout: 0` is therefore floored
+	// here rather than honored as "unlimited" -- the one intentional exception to
+	// the presence-based merge.
 	if result.ScheduleToCloseTimeout == 0 {
 		result.ScheduleToCloseTimeout = time.Duration(defaultScheduleToClose) * time.Second
 		result.ScheduleToCloseTimeoutFromDefault = true
@@ -183,15 +206,17 @@ func MergeWorkflowOptions(method, service *temporalv1.WorkflowOptions) *Workflow
 		}
 	}
 
-	// Fill in missing fields from service defaults
+	// Fill in fields the method did not explicitly set from the service
+	// defaults, keyed on proto presence rather than a zero value (see the note
+	// in MergeRetryPolicy).
 	if service != nil {
-		if result.WorkflowExecutionTimeout == 0 && service.WorkflowExecutionTimeout != nil {
+		if unset(method, func(m *temporalv1.WorkflowOptions) bool { return m.WorkflowExecutionTimeout != nil }) && service.WorkflowExecutionTimeout != nil {
 			result.WorkflowExecutionTimeout = time.Duration(*service.WorkflowExecutionTimeout) * time.Second
 		}
-		if result.WorkflowRunTimeout == 0 && service.WorkflowRunTimeout != nil {
+		if unset(method, func(m *temporalv1.WorkflowOptions) bool { return m.WorkflowRunTimeout != nil }) && service.WorkflowRunTimeout != nil {
 			result.WorkflowRunTimeout = time.Duration(*service.WorkflowRunTimeout) * time.Second
 		}
-		if result.WorkflowTaskTimeout == 0 && service.WorkflowTaskTimeout != nil {
+		if unset(method, func(m *temporalv1.WorkflowOptions) bool { return m.WorkflowTaskTimeout != nil }) && service.WorkflowTaskTimeout != nil {
 			result.WorkflowTaskTimeout = time.Duration(*service.WorkflowTaskTimeout) * time.Second
 		}
 	}

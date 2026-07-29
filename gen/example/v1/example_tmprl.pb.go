@@ -431,33 +431,47 @@ func (c *OrdersClient) UpsertScheduleProcessOrder(ctx context.Context, scheduleI
 	}
 	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
 
-	// Update the schedule
+	// Update the schedule. The closure starts from the schedule as it exists on
+	// the server (input.Description.Schedule) and overlays ONLY what the caller
+	// supplied, so an upsert that just changes the request does not silently
+	// blank the spec, drop search attributes, or reset sibling policy fields.
 	err = handle.Update(ctx, client.ScheduleUpdateOptions{
 		DoUpdate: func(input client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
 			schedule := input.Description.Schedule
-			schedule.Spec = &scheduleOptions.Spec
+
+			// Rebind the action so the updated request/args take effect.
 			schedule.Action = scheduleOptions.Action
-			if scheduleOptions.Overlap != 0 {
-				schedule.Policy = &client.SchedulePolicies{
-					Overlap: scheduleOptions.Overlap,
-				}
+
+			// Only replace the spec when the caller supplied scheduling info;
+			// otherwise keep the existing spec so the schedule keeps firing.
+			if !scheduleSpecIsZeroOrders(scheduleOptions.Spec) {
+				schedule.Spec = &scheduleOptions.Spec
 			}
-			if scheduleOptions.CatchupWindow != 0 {
+
+			// Merge policy fields onto the existing policy instead of replacing
+			// it, so changing one field does not reset the others.
+			if scheduleOptions.Overlap != 0 || scheduleOptions.CatchupWindow != 0 || scheduleOptions.PauseOnFailure {
 				if schedule.Policy == nil {
 					schedule.Policy = &client.SchedulePolicies{}
 				}
-				schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
-			}
-			if scheduleOptions.PauseOnFailure {
-				if schedule.Policy == nil {
-					schedule.Policy = &client.SchedulePolicies{}
+				if scheduleOptions.Overlap != 0 {
+					schedule.Policy.Overlap = scheduleOptions.Overlap
 				}
-				schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+				if scheduleOptions.CatchupWindow != 0 {
+					schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
+				}
+				if scheduleOptions.PauseOnFailure {
+					schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+				}
 			}
-			return &client.ScheduleUpdate{
-				Schedule:              &schedule,
-				TypedSearchAttributes: &scheduleOptions.TypedSearchAttributes,
-			}, nil
+
+			update := &client.ScheduleUpdate{Schedule: &schedule}
+			// A nil pointer leaves the schedule's search attributes intact; only
+			// send a non-empty set (an empty non-nil set removes all of them).
+			if scheduleOptions.TypedSearchAttributes.Size() > 0 {
+				update.TypedSearchAttributes = &scheduleOptions.TypedSearchAttributes
+			}
+			return update, nil
 		},
 	})
 	if err != nil {
@@ -726,33 +740,47 @@ func (c *OrdersClient) UpsertScheduleShipOrder(ctx context.Context, scheduleID s
 	}
 	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
 
-	// Update the schedule
+	// Update the schedule. The closure starts from the schedule as it exists on
+	// the server (input.Description.Schedule) and overlays ONLY what the caller
+	// supplied, so an upsert that just changes the request does not silently
+	// blank the spec, drop search attributes, or reset sibling policy fields.
 	err = handle.Update(ctx, client.ScheduleUpdateOptions{
 		DoUpdate: func(input client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
 			schedule := input.Description.Schedule
-			schedule.Spec = &scheduleOptions.Spec
+
+			// Rebind the action so the updated request/args take effect.
 			schedule.Action = scheduleOptions.Action
-			if scheduleOptions.Overlap != 0 {
-				schedule.Policy = &client.SchedulePolicies{
-					Overlap: scheduleOptions.Overlap,
-				}
+
+			// Only replace the spec when the caller supplied scheduling info;
+			// otherwise keep the existing spec so the schedule keeps firing.
+			if !scheduleSpecIsZeroOrders(scheduleOptions.Spec) {
+				schedule.Spec = &scheduleOptions.Spec
 			}
-			if scheduleOptions.CatchupWindow != 0 {
+
+			// Merge policy fields onto the existing policy instead of replacing
+			// it, so changing one field does not reset the others.
+			if scheduleOptions.Overlap != 0 || scheduleOptions.CatchupWindow != 0 || scheduleOptions.PauseOnFailure {
 				if schedule.Policy == nil {
 					schedule.Policy = &client.SchedulePolicies{}
 				}
-				schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
-			}
-			if scheduleOptions.PauseOnFailure {
-				if schedule.Policy == nil {
-					schedule.Policy = &client.SchedulePolicies{}
+				if scheduleOptions.Overlap != 0 {
+					schedule.Policy.Overlap = scheduleOptions.Overlap
 				}
-				schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+				if scheduleOptions.CatchupWindow != 0 {
+					schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
+				}
+				if scheduleOptions.PauseOnFailure {
+					schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+				}
 			}
-			return &client.ScheduleUpdate{
-				Schedule:              &schedule,
-				TypedSearchAttributes: &scheduleOptions.TypedSearchAttributes,
-			}, nil
+
+			update := &client.ScheduleUpdate{Schedule: &schedule}
+			// A nil pointer leaves the schedule's search attributes intact; only
+			// send a non-empty set (an empty non-nil set removes all of them).
+			if scheduleOptions.TypedSearchAttributes.Size() > 0 {
+				update.TypedSearchAttributes = &scheduleOptions.TypedSearchAttributes
+			}
+			return update, nil
 		},
 	})
 	if err != nil {
@@ -1021,33 +1049,47 @@ func (c *OrdersClient) UpsertScheduleDailySalesReport(ctx context.Context, sched
 	}
 	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
 
-	// Update the schedule
+	// Update the schedule. The closure starts from the schedule as it exists on
+	// the server (input.Description.Schedule) and overlays ONLY what the caller
+	// supplied, so an upsert that just changes the request does not silently
+	// blank the spec, drop search attributes, or reset sibling policy fields.
 	err = handle.Update(ctx, client.ScheduleUpdateOptions{
 		DoUpdate: func(input client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
 			schedule := input.Description.Schedule
-			schedule.Spec = &scheduleOptions.Spec
+
+			// Rebind the action so the updated request/args take effect.
 			schedule.Action = scheduleOptions.Action
-			if scheduleOptions.Overlap != 0 {
-				schedule.Policy = &client.SchedulePolicies{
-					Overlap: scheduleOptions.Overlap,
-				}
+
+			// Only replace the spec when the caller supplied scheduling info;
+			// otherwise keep the existing spec so the schedule keeps firing.
+			if !scheduleSpecIsZeroOrders(scheduleOptions.Spec) {
+				schedule.Spec = &scheduleOptions.Spec
 			}
-			if scheduleOptions.CatchupWindow != 0 {
+
+			// Merge policy fields onto the existing policy instead of replacing
+			// it, so changing one field does not reset the others.
+			if scheduleOptions.Overlap != 0 || scheduleOptions.CatchupWindow != 0 || scheduleOptions.PauseOnFailure {
 				if schedule.Policy == nil {
 					schedule.Policy = &client.SchedulePolicies{}
 				}
-				schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
-			}
-			if scheduleOptions.PauseOnFailure {
-				if schedule.Policy == nil {
-					schedule.Policy = &client.SchedulePolicies{}
+				if scheduleOptions.Overlap != 0 {
+					schedule.Policy.Overlap = scheduleOptions.Overlap
 				}
-				schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+				if scheduleOptions.CatchupWindow != 0 {
+					schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
+				}
+				if scheduleOptions.PauseOnFailure {
+					schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+				}
 			}
-			return &client.ScheduleUpdate{
-				Schedule:              &schedule,
-				TypedSearchAttributes: &scheduleOptions.TypedSearchAttributes,
-			}, nil
+
+			update := &client.ScheduleUpdate{Schedule: &schedule}
+			// A nil pointer leaves the schedule's search attributes intact; only
+			// send a non-empty set (an empty non-nil set removes all of them).
+			if scheduleOptions.TypedSearchAttributes.Size() > 0 {
+				update.TypedSearchAttributes = &scheduleOptions.TypedSearchAttributes
+			}
+			return update, nil
 		},
 	})
 	if err != nil {
@@ -1360,33 +1402,47 @@ func (c *OrdersClient) UpsertScheduleTrackInventory(ctx context.Context, schedul
 	}
 	applyScheduleDefaultsOrders(&scheduleOptions, DefaultOrdersTaskQueueName)
 
-	// Update the schedule
+	// Update the schedule. The closure starts from the schedule as it exists on
+	// the server (input.Description.Schedule) and overlays ONLY what the caller
+	// supplied, so an upsert that just changes the request does not silently
+	// blank the spec, drop search attributes, or reset sibling policy fields.
 	err = handle.Update(ctx, client.ScheduleUpdateOptions{
 		DoUpdate: func(input client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
 			schedule := input.Description.Schedule
-			schedule.Spec = &scheduleOptions.Spec
+
+			// Rebind the action so the updated request/args take effect.
 			schedule.Action = scheduleOptions.Action
-			if scheduleOptions.Overlap != 0 {
-				schedule.Policy = &client.SchedulePolicies{
-					Overlap: scheduleOptions.Overlap,
-				}
+
+			// Only replace the spec when the caller supplied scheduling info;
+			// otherwise keep the existing spec so the schedule keeps firing.
+			if !scheduleSpecIsZeroOrders(scheduleOptions.Spec) {
+				schedule.Spec = &scheduleOptions.Spec
 			}
-			if scheduleOptions.CatchupWindow != 0 {
+
+			// Merge policy fields onto the existing policy instead of replacing
+			// it, so changing one field does not reset the others.
+			if scheduleOptions.Overlap != 0 || scheduleOptions.CatchupWindow != 0 || scheduleOptions.PauseOnFailure {
 				if schedule.Policy == nil {
 					schedule.Policy = &client.SchedulePolicies{}
 				}
-				schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
-			}
-			if scheduleOptions.PauseOnFailure {
-				if schedule.Policy == nil {
-					schedule.Policy = &client.SchedulePolicies{}
+				if scheduleOptions.Overlap != 0 {
+					schedule.Policy.Overlap = scheduleOptions.Overlap
 				}
-				schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+				if scheduleOptions.CatchupWindow != 0 {
+					schedule.Policy.CatchupWindow = scheduleOptions.CatchupWindow
+				}
+				if scheduleOptions.PauseOnFailure {
+					schedule.Policy.PauseOnFailure = scheduleOptions.PauseOnFailure
+				}
 			}
-			return &client.ScheduleUpdate{
-				Schedule:              &schedule,
-				TypedSearchAttributes: &scheduleOptions.TypedSearchAttributes,
-			}, nil
+
+			update := &client.ScheduleUpdate{Schedule: &schedule}
+			// A nil pointer leaves the schedule's search attributes intact; only
+			// send a non-empty set (an empty non-nil set removes all of them).
+			if scheduleOptions.TypedSearchAttributes.Size() > 0 {
+				update.TypedSearchAttributes = &scheduleOptions.TypedSearchAttributes
+			}
+			return update, nil
 		},
 	})
 	if err != nil {
@@ -1464,6 +1520,22 @@ func applyScheduleDefaultsOrders(opts *client.ScheduleOptions, defaultTaskQueue 
 	}
 }
 
+// scheduleSpecIsZeroOrders reports whether a schedule spec carries no
+// scheduling information, i.e. the caller supplied no spec. It checks exactly
+// the fields that mergeScheduleOptionsOrders copies from user options, so
+// "zero" here means "the caller did not provide a spec". UpsertSchedule uses it
+// to avoid overwriting an existing schedule's spec with an empty one.
+func scheduleSpecIsZeroOrders(spec client.ScheduleSpec) bool {
+	return spec.CronExpressions == nil &&
+		spec.Calendars == nil &&
+		spec.Intervals == nil &&
+		spec.Skip == nil &&
+		spec.StartAt.IsZero() &&
+		spec.EndAt.IsZero() &&
+		spec.Jitter == 0 &&
+		spec.TimeZoneName == ""
+}
+
 // ExecuteActivityChargePayment executes the activity asynchronously and returns a future to it
 //
 // ChargePayment captures the money. The retry policy retries transient
@@ -1518,14 +1590,7 @@ func (c *OrdersClient) ExecuteActivityChargePayment(ctx workflow.Context, req *C
 // non_retryable_error_types and the worker returns application errors of
 // that type when the card is bad
 func (c *OrdersClient) ExecuteActivityChargePaymentSync(ctx workflow.Context, req *ChargePaymentRequest, options ...workflow.ActivityOptions) (*ChargePaymentResponse, error) {
-	aOptions := workflow.ActivityOptions{
-		TaskQueue: c.taskQueue,
-	}
-	if len(options) > 0 {
-		aOptions = options[0]
-	}
-
-	future := c.ExecuteActivityChargePayment(ctx, req, aOptions)
+	future := c.ExecuteActivityChargePayment(ctx, req, options...)
 
 	var resp *ChargePaymentResponse
 	err := future.Get(ctx, &resp)
@@ -1576,14 +1641,7 @@ func (c *OrdersClient) ExecuteActivityPackItems(ctx workflow.Context, req *PackI
 // records a heartbeat after every parcel: if the worker dies mid-pack,
 // Temporal notices within heartbeat_timeout and reschedules the activity
 func (c *OrdersClient) ExecuteActivityPackItemsSync(ctx workflow.Context, req *PackItemsRequest, options ...workflow.ActivityOptions) (*PackItemsResponse, error) {
-	aOptions := workflow.ActivityOptions{
-		TaskQueue: c.taskQueue,
-	}
-	if len(options) > 0 {
-		aOptions = options[0]
-	}
-
-	future := c.ExecuteActivityPackItems(ctx, req, aOptions)
+	future := c.ExecuteActivityPackItems(ctx, req, options...)
 
 	var resp *PackItemsResponse
 	err := future.Get(ctx, &resp)
@@ -1631,14 +1689,7 @@ func (c *OrdersClient) ExecuteActivityDispatchCourier(ctx workflow.Context, req 
 // `name` option overrides the registered activity name, which otherwise
 // defaults to <package>.<service>.<method>
 func (c *OrdersClient) ExecuteActivityDispatchCourierSync(ctx workflow.Context, req *DispatchCourierRequest, options ...workflow.ActivityOptions) (*DispatchCourierResponse, error) {
-	aOptions := workflow.ActivityOptions{
-		TaskQueue: c.taskQueue,
-	}
-	if len(options) > 0 {
-		aOptions = options[0]
-	}
-
-	future := c.ExecuteActivityDispatchCourier(ctx, req, aOptions)
+	future := c.ExecuteActivityDispatchCourier(ctx, req, options...)
 
 	var resp *DispatchCourierResponse
 	err := future.Get(ctx, &resp)
@@ -2364,7 +2415,10 @@ func (c *OrdersClient) SendSignalCancelOrder(ctx context.Context, workflowID str
 	return c.client.SignalWorkflow(ctx, workflowID, runID, SignalCancelOrderName, req)
 }
 
-// ReceiveSignalCancelOrder waits for the CancelOrder signal
+// ReceiveSignalCancelOrder blocks until the CancelOrder signal is received. The
+// returned bool reports whether the receive succeeded; because Temporal signal
+// channels are never closed it is effectively always true here. Use
+// ReceiveSignalCancelOrderAsync if you need a meaningful "was anything queued" bool.
 //
 // CancelOrder asks a running ProcessOrder workflow to stop. Signals are
 // fire and forget: the response type of a signal rpc is ignored by the
@@ -2393,7 +2447,10 @@ func (c *OrdersClient) SendSignalRestock(ctx context.Context, workflowID string,
 	return c.client.SignalWorkflow(ctx, workflowID, runID, SignalRestockName, req)
 }
 
-// ReceiveSignalRestock waits for the Restock signal
+// ReceiveSignalRestock blocks until the Restock signal is received. The
+// returned bool reports whether the receive succeeded; because Temporal signal
+// channels are never closed it is effectively always true here. Use
+// ReceiveSignalRestockAsync if you need a meaningful "was anything queued" bool.
 //
 // Restock adds stock to a running TrackInventory workflow. Fire and forget
 func ReceiveSignalRestock(ctx workflow.Context) (*RestockRequest, bool) {

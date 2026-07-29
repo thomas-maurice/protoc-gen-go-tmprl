@@ -100,6 +100,88 @@ func TestMergeRetryPolicy(t *testing.T) {
 			t.Errorf("expected first error type 'FATAL', got %s", result.NonRetryableErrorTypes[0])
 		}
 	})
+
+	// Regression for F6: an explicit method-level zero is a real choice
+	// (maximum_attempts: 0 means unlimited retries) and must win over the
+	// service default, not be treated as "unset". The merge decides presence
+	// from the proto3 optional pointer, not from the value being zero.
+	t.Run("explicit method zero overrides service default", func(t *testing.T) {
+		methodMaxAttempts := int32(0)
+		serviceMaxAttempts := int32(5)
+
+		method := &temporalv1.RetryPolicy{MaximumAttempts: &methodMaxAttempts}
+		service := &temporalv1.RetryPolicy{MaximumAttempts: &serviceMaxAttempts}
+
+		result := MergeRetryPolicy(method, service)
+
+		if result.MaximumAttempts != 0 {
+			t.Errorf("expected explicit method MaximumAttempts (0) to win, got %d", result.MaximumAttempts)
+		}
+	})
+
+	t.Run("absent method field still inherits service default", func(t *testing.T) {
+		serviceMaxAttempts := int32(5)
+
+		method := &temporalv1.RetryPolicy{} // MaximumAttempts nil = not set
+		service := &temporalv1.RetryPolicy{MaximumAttempts: &serviceMaxAttempts}
+
+		result := MergeRetryPolicy(method, service)
+
+		if result.MaximumAttempts != 5 {
+			t.Errorf("expected service MaximumAttempts (5) inherited, got %d", result.MaximumAttempts)
+		}
+	})
+}
+
+// TestMergeExplicitZeroPresence Regression for F6 across workflow and activity
+// option merging: an explicit method-level zero suppresses the service default.
+func TestMergeExplicitZeroPresence(t *testing.T) {
+	t.Run("workflow explicit zero execution timeout wins", func(t *testing.T) {
+		methodExec := int32(0)
+		serviceExec := int32(3600)
+
+		method := &temporalv1.WorkflowOptions{WorkflowExecutionTimeout: &methodExec}
+		service := &temporalv1.WorkflowOptions{WorkflowExecutionTimeout: &serviceExec}
+
+		result := MergeWorkflowOptions(method, service)
+
+		if result.WorkflowExecutionTimeout != 0 {
+			t.Errorf("expected explicit method WorkflowExecutionTimeout (0) to win, got %v", result.WorkflowExecutionTimeout)
+		}
+	})
+
+	t.Run("activity explicit zero start-to-close wins", func(t *testing.T) {
+		methodStart := int32(0)
+		serviceStart := int32(30)
+
+		method := &temporalv1.ActivityOptions{StartToCloseTimeout: &methodStart}
+		service := &temporalv1.ActivityOptions{StartToCloseTimeout: &serviceStart}
+
+		result := MergeActivityOptions(method, service, 3600)
+
+		if result.StartToCloseTimeout != 0 {
+			t.Errorf("expected explicit method StartToCloseTimeout (0) to win, got %v", result.StartToCloseTimeout)
+		}
+	})
+
+	// schedule_to_close_timeout is the intentional exception to presence-based
+	// merge: an activity needs a schedule-to-close timeout to run at all, so an
+	// explicit 0 is floored to the generator default rather than honored as
+	// unlimited. This test pins that intentional behavior.
+	t.Run("activity explicit zero schedule-to-close is floored to default", func(t *testing.T) {
+		methodSchedule := int32(0)
+
+		method := &temporalv1.ActivityOptions{ScheduleToCloseTimeout: &methodSchedule}
+
+		result := MergeActivityOptions(method, nil, 3600)
+
+		if result.ScheduleToCloseTimeout != 3600*time.Second {
+			t.Errorf("expected explicit 0 schedule-to-close floored to default (3600s), got %v", result.ScheduleToCloseTimeout)
+		}
+		if !result.ScheduleToCloseTimeoutFromDefault {
+			t.Error("expected ScheduleToCloseTimeoutFromDefault to be true when floored")
+		}
+	})
 }
 
 // TestMergeActivityOptions Tests activity options merging

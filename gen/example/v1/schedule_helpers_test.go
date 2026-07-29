@@ -263,3 +263,35 @@ func TestScheduleHelpers_CreateAndUpsertSemantics(t *testing.T) {
 		t.Errorf("Note differs between flows: create=%q upsert=%q", createBase.Note, upsertBase.Note)
 	}
 }
+
+// TestScheduleSpecIsZeroOrders verifies the helper UpsertSchedule uses to decide
+// whether the caller supplied a spec. This is the guard that prevents an upsert
+// with no spec from blanking (and thereby stopping) an existing schedule
+// (regression for the F1 CRITICAL finding). It must recognise every spec field
+// that mergeScheduleOptionsOrders copies from user options.
+func TestScheduleSpecIsZeroOrders(t *testing.T) {
+	if !scheduleSpecIsZeroOrders(client.ScheduleSpec{}) {
+		t.Error("an empty ScheduleSpec must be reported as zero")
+	}
+
+	cases := []struct {
+		name string
+		spec client.ScheduleSpec
+	}{
+		{"cron", client.ScheduleSpec{CronExpressions: []string{"@daily"}}},
+		{"calendars", client.ScheduleSpec{Calendars: []client.ScheduleCalendarSpec{{}}}},
+		{"intervals", client.ScheduleSpec{Intervals: []client.ScheduleIntervalSpec{{Every: time.Hour}}}},
+		{"skip", client.ScheduleSpec{Skip: []client.ScheduleCalendarSpec{{}}}},
+		{"jitter", client.ScheduleSpec{Jitter: time.Minute}},
+		{"timezone", client.ScheduleSpec{TimeZoneName: "Europe/Paris"}},
+		{"startAt", client.ScheduleSpec{StartAt: time.Now()}},
+		{"endAt", client.ScheduleSpec{EndAt: time.Now()}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if scheduleSpecIsZeroOrders(tc.spec) {
+				t.Errorf("a ScheduleSpec with %s set must NOT be reported as zero", tc.name)
+			}
+		})
+	}
+}
