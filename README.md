@@ -16,6 +16,12 @@ queries, updates, failure handling, schedules), see [the example walkthrough](ex
 You need to include [temporal.v1](https://github.com/thomas-maurice/protoc-gen-go-tmprl/blob/master/proto/temporal/v1/temporal.proto) in your project. Note that this protobuf package is also published on
 [buf.build](https://buf.build/thomas-maurice/temporal) so you can easily use it should you use `buf` to build your project's protos.
 
+Then install the `protoc-gen-go-tmprl` binary needed to generate the code:
+
+```bash
+go install github.com/thomas-maurice/protoc-gen-go-tmprl
+```
+
 When the setup is done, you can start defining actions and workflows in your services like so
 
 ```protobuf
